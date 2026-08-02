@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>세일즈 창고 입출고 & 재고 관리</title>
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- SheetJS for Excel Import/Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- LOGIN OVERLAY SCREEN -->
+  <div id="login-overlay" class="login-overlay active">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+        <h2>세일즈 창고 로그인</h2>
+        <p>허가된 아이디와 비밀번호로 로그인하세요</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="login-id"><i class="fa-solid fa-user"></i> 아이디</label>
+          <input type="text" id="login-id" placeholder="아이디 입력 (예: guest1)" required class="input-control">
+        </div>
+
+        <div class="form-group">
+          <label for="login-pw"><i class="fa-solid fa-lock"></i> 비밀번호</label>
+          <input type="password" id="login-pw" placeholder="비밀번호 입력" required class="input-control">
+        </div>
+
+        <button type="submit" class="btn-submit btn-login">
+          <i class="fa-solid fa-right-to-bracket"></i> 로그인
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <button type="button" class="btn-link" onclick="openResetPasswordModal()">
+          <i class="fa-solid fa-key"></i> 비밀번호 재설정
+        </button>
+      </div>
+
+      <div class="allowed-users-info">
+        <span>접근 가능 아이디 목록 (👑 표시: 관리자):</span>
+        <div class="user-tags">
+          <span class="u-tag admin-tag">👑 jipark5</span>
+          <span class="u-tag admin-tag">👑 hycho30</span>
+          <span class="u-tag">guest1</span>
+          <span class="u-tag">guest2</span>
+          <span class="u-tag">sulee21</span>
+          <span class="u-tag">jocho16</span>
+          <span class="u-tag">julee33</span>
+          <span class="u-tag">tabae3</span>
+          <span class="u-tag">goyoo</span>
+          <span class="u-tag">suahn2</span>
+          <span class="u-tag">yehan1</span>
+          <span class="u-tag">secho12</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo-area">
+        <i class="fa-solid fa-boxes-stacked logo-icon"></i>
+        <div>
+          <h1 class="app-title">세일즈 창고 입출고</h1>
+          <span class="app-subtitle">모바일 재고 관리 시스템</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="user-profile-badge" class="user-badge" style="display:none;">
+          <i class="fa-solid fa-circle-user"></i>
+          <span id="current-user-name">guest1</span>
+          <span id="admin-role-badge" class="role-badge" style="display:none;">관리자</span>
+          <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="app-body">
+
+    <!-- TAB 1: 입출고 등록 (REGISTER) -->
+    <section id="tab-register" class="tab-page active">
+      <div class="card-box primary-border">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-pen-to-square"></i> 입출고 등록</h2>
+          <span class="badge badge-info">빠른 등록</span>
+        </div>
+        
+        <form id="register-form" onsubmit="handleRegisterSubmit(event)">
+          <!-- 날짜 -->
+          <div class="form-group">
+            <label for="reg-date"><i class="fa-regular fa-calendar"></i> 날짜</label>
+            <input type="date" id="reg-date" required class="input-control">
+          </div>
+
+          <!-- 구분 (입고/출고 라디오) -->
+          <div class="form-group">
+            <label><i class="fa-solid fa-arrows-left-right"></i> 구분</label>
+            <div class="toggle-segmented">
+              <label class="toggle-option active-in" id="label-type-in">
+                <input type="radio" name="reg-type" value="입고" checked onchange="updateTypeToggle()">
+                <span><i class="fa-solid fa-arrow-down-to-bracket"></i> 입고</span>
+              </label>
+              <label class="toggle-option" id="label-type-out">
+                <input type="radio" name="reg-type" value="출고" onchange="updateTypeToggle()">
+                <span><i class="fa-solid fa-arrow-up-from-bracket"></i> 출고</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 아티클 번호 -->
+          <div class="form-group">
+            <label for="reg-artno"><i class="fa-solid fa-barcode"></i> 아티클 번호</label>
+            <div class="input-with-action">
+              <input type="text" id="reg-artno" placeholder="번호 입력 또는 목록 선택" required class="input-control" autocomplete="off" oninput="onArtNoInput(this.value)">
+              <button type="button" class="btn-secondary" onclick="openMasterSelectModal()"><i class="fa-solid fa-list"></i> 선택</button>
+            </div>
+          </div>
+
+          <!-- 아티클 이름 (자동 조회) -->
+          <div class="form-group">
+            <label for="reg-artname"><i class="fa-solid fa-tag"></i> 아티클 이름</label>
+            <div class="input-readonly-wrapper">
+              <input type="text" id="reg-artname" placeholder="번호 입력 시 자동 표시됩니다" readonly class="input-control readonly">
+              <span id="artname-status-icon" class="status-icon"><i class="fa-solid fa-circle-info"></i></span>
+            </div>
+          </div>
+
+          <!-- 수량 및 현재재고 표시 -->
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="reg-qty"><i class="fa-solid fa-layer-group"></i> 수량</label>
+              <input type="number" id="reg-qty" min="1" placeholder="수량 입력" required class="input-control qty-input">
+            </div>
+            <div class="form-group col-half">
+              <label><i class="fa-solid fa-warehouse"></i> 현재 남은 재고</label>
+              <div id="reg-current-stock" class="stock-preview-box">- 개</div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-submit" id="btn-save">
+            <i class="fa-solid fa-floppy-disk"></i> 기록에 저장하기
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 2: 실시간 재고 조회 (STOCK LOOKUP) -->
+    <section id="tab-stock" class="tab-page">
+      <div class="search-sticky-bar">
+        <div class="search-input-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="stock-search" placeholder="아티클 번호 또는 이름 검색..." oninput="debouncedRenderStockLookup()" class="search-control">
+          <button type="button" class="search-clear-btn" onclick="clearStockSearch()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+
+      <!-- Inventory Metrics Summary -->
+      <div class="metrics-grid">
+        <div class="metric-card metric-total">
+          <div class="metric-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div class="metric-info">
+            <span class="metric-label">총 등록 품목</span>
+            <span class="metric-val" id="summary-total-items">0</span>
+          </div>
+        </div>
+        <div class="metric-card metric-in">
+          <div class="metric-icon"><i class="fa-solid fa-arrow-down-to-bracket"></i></div>
+          <div class="metric-info">
+            <span class="metric-label">누적 총 입고량</span>
+            <span class="metric-val" id="summary-total-in">0</span>
+          </div>
+        </div>
+        <div class="metric-card metric-out">
+          <div class="metric-icon"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
+          <div class="metric-info">
+            <span class="metric-label">누적 총 출고량</span>
+            <span class="metric-val" id="summary-total-out">0</span>
+          </div>
+        </div>
+        <div class="metric-card metric-stock">
+          <div class="metric-icon"><i class="fa-solid fa-warehouse"></i></div>
+          <div class="metric-info">
+            <span class="metric-label">현재 총 보유재고</span>
+            <span class="metric-val" id="summary-current-stock">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock List Container -->
+      <div class="section-title-bar">
+        <h3><i class="fa-solid fa-list-check"></i> 품목별 재고 현황</h3>
+        <span class="count-badge" id="stock-count-text">0개 품목</span>
+      </div>
+
+      <div id="stock-cards-container" class="stock-cards-list">
+        <!-- Dynamic Cards Inserted Here -->
+      </div>
+    </section>
+
+    <!-- TAB 3: 입출고 기록 & 엑셀 추출 (HISTORY LOGS) -->
+    <section id="tab-history" class="tab-page">
+      <div class="card-box">
+        <div class="card-header space-between">
+          <h2><i class="fa-solid fa-clock-rotate-left"></i> 입출고 상세 기록</h2>
+          <!-- Excel Export Button (Admin Only) -->
+          <div id="excel-export-wrapper">
+            <button type="button" id="btn-excel-export" class="btn-excel-export" onclick="exportHistoryToExcel()">
+              <i class="fa-solid fa-file-excel"></i> 엑셀 추출 (.xlsx)
+            </button>
+            <div id="excel-export-locked" class="locked-badge" style="display:none;">
+              <i class="fa-solid fa-lock"></i> 엑셀 추출 (관리자 전용)
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="filter-panel">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label><i class="fa-regular fa-calendar-days"></i> 시작일</label>
+              <input type="date" id="filter-start-date" class="input-control sm" onchange="renderHistoryLogs()">
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-regular fa-calendar-days"></i> 종료일</label>
+              <input type="date" id="filter-end-date" class="input-control sm" onchange="renderHistoryLogs()">
+            </div>
+          </div>
+
+          <div class="filter-row">
+            <div class="filter-group">
+              <label><i class="fa-solid fa-filter"></i> 구분 필터</label>
+              <select id="filter-type" class="input-control sm" onchange="renderHistoryLogs()">
+                <option value="ALL">전체 (입고+출고)</option>
+                <option value="입고">입고만 보기</option>
+                <option value="출고">출고만 보기</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-tag"></i> 아티클 필터</label>
+              <select id="filter-article" class="input-control sm" onchange="renderHistoryLogs()">
+                <option value="ALL">모든 품목</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button type="button" class="btn-reset-filter" onclick="resetHistoryFilters()">
+              <i class="fa-solid fa-rotate-left"></i> 필터 초기화
+            </button>
+          </div>
+        </div>
+
+        <!-- History Summary Badge Bar -->
+        <div class="history-summary-bar">
+          <div class="hist-sum-item">검색 기록: <strong id="hist-count">0</strong>건</div>
+          <div class="hist-sum-item text-in">입고 합계: <strong id="hist-total-in">0</strong></div>
+          <div class="hist-sum-item text-out">출고 합계: <strong id="hist-total-out">0</strong></div>
+        </div>
+
+        <!-- History Items List -->
+        <div id="history-logs-container" class="history-list">
+          <!-- Dynamic History Rows -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: 품목 마스터 & 엑셀 업로드 (MASTER CATALOG) -->
+    <section id="tab-master" class="tab-page">
+
+      <!-- Admin Excel Import Box -->
+      <div id="admin-excel-import-box" class="card-box excel-import-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-file-import"></i> 엑셀 파일로 마스터 데이터 새로고침 <span class="badge badge-danger">관리자 전용</span></h2>
+        </div>
+        <p class="import-desc">
+          엑셀 파일(`.xlsx`)을 올리면 아티클 마스터 데이터가 최신 엑셀 기반으로 자동 새로고침됩니다. (jipark5, hycho30 관리자 전용)
+        </p>
+        
+        <div class="file-drop-zone" onclick="document.getElementById('excel-file-input').click()">
+          <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+          <span class="drop-text">여기를 터치하여 엑셀 파일(.xlsx, .xls) 선택</span>
+          <span class="drop-sub">Sheet1 컬럼 (E열: 번호 / ARTNO, F열: 아티클 이름 / ARTNAME_UNICODE)</span>
+          <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelImport(event)">
+        </div>
+
+        <div id="import-status" class="import-status-msg" style="display:none;"></div>
+      </div>
+
+      <!-- Non-admin Notice Banner -->
+      <div id="user-master-notice-box" class="card-box" style="display:none; background-color: #f8fafc; border-left: 4px solid #64748b;">
+        <div style="font-size: 13px; color: #475569; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-shield-halved" style="font-size: 18px; color: #64748b;"></i>
+          <div>
+            <strong>마스터 관리 권한 안내</strong>
+            <p style="font-size: 12px; margin-top: 2px;">엑셀 마스터 갱신 및 내보내기는 관리자(jipark5, hycho30) 전용 기능입니다. 아래 목록에서 품목을 조회할 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Master Items List Box -->
+      <div class="card-box">
+        <div class="card-header space-between">
+          <h2><i class="fa-solid fa-database"></i> 등록된 품목 마스터</h2>
+          <button type="button" id="btn-add-master" class="btn-secondary sm" onclick="openAddMasterModal()">
+            <i class="fa-solid fa-plus"></i> 개별 품목 추가
+          </button>
+        </div>
+
+        <div class="search-input-wrapper mb-15">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="master-search" placeholder="마스터 품목 검색..." oninput="debouncedRenderMasterCatalog()" class="search-control sm">
+        </div>
+
+        <div id="master-catalog-container" class="master-list">
+          <!-- Dynamic Master Catalog Rows -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar for Mobile -->
+  <nav class="bottom-nav">
+    <button type="button" class="nav-item active" onclick="switchTab('register', this)">
+      <i class="fa-solid fa-pen-to-square"></i>
+      <span>입출고 등록</span>
+    </button>
+    <button type="button" class="nav-item" onclick="switchTab('stock', this)">
+      <i class="fa-solid fa-warehouse"></i>
+      <span>재고 조회</span>
+    </button>
+    <button type="button" class="nav-item" onclick="switchTab('history', this)">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span>입출고 기록</span>
+    </button>
+    <button type="button" class="nav-item" id="nav-master-btn" onclick="switchTab('master', this)">
+      <i class="fa-solid fa-database"></i>
+      <span>마스터 관리</span>
+    </button>
+  </nav>
+
+  <!-- MODAL 1: Select Master Item for Register -->
+  <div id="master-select-modal" class="modal-backdrop" onclick="closeMasterSelectModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-boxes-stacked"></i> 품목 선택</h3>
+        <button type="button" class="close-btn" onclick="closeMasterSelectModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="modal-search" placeholder="품목 번호 또는 이름으로 검색..." class="search-control mb-15" oninput="debouncedRenderModalMasterList()">
+        <div id="modal-master-list" class="modal-list-container">
+          <!-- List items inserted dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Add New Master Item -->
+  <div id="add-master-modal" class="modal-backdrop" onclick="closeAddMasterModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-plus-circle"></i> 신규 아티클 등록</h3>
+        <button type="button" class="close-btn" onclick="closeAddMasterModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-master-form" onsubmit="handleAddMasterSubmit(event)">
+          <div class="form-group">
+            <label for="new-artno">아티클 번호 (ARTNO)</label>
+            <input type="text" id="new-artno" placeholder="예: 70582028" required class="input-control">
+          </div>
+          <div class="form-group">
+            <label for="new-artname">아티클 이름 (ARTNAME_UNICODE)</label>
+            <input type="text" id="new-artname" placeholder="예: EKET 에케트 선반" required class="input-control">
+          </div>
+          <button type="submit" class="btn-submit">등록하기</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Reset Password Modal -->
+  <div id="reset-pw-modal" class="modal-backdrop" onclick="closeResetPasswordModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-key"></i> 비밀번호 재설정</h3>
+        <button type="button" class="close-btn" onclick="closeResetPasswordModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="reset-pw-form" onsubmit="handleResetPasswordSubmit(event)">
+          <div class="form-group">
+            <label for="reset-id">아이디</label>
+            <select id="reset-id" required class="input-control">
+              <option value="">아이디 선택...</option>
+              <option value="guest1">guest1 (게스트 1)</option>
+              <option value="guest2">guest2 (게스트 2)</option>
+              <option value="jipark5">jipark5 (👑 관리자)</option>
+              <option value="hycho30">hycho30 (👑 관리자)</option>
+              <option value="sulee21">sulee21</option>
+              <option value="jocho16">jocho16</option>
+              <option value="julee33">julee33</option>
+              <option value="tabae3">tabae3</option>
+              <option value="goyoo">goyoo</option>
+              <option value="suahn2">suahn2</option>
+              <option value="yehan1">yehan1</option>
+              <option value="secho12">secho12</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="reset-old-pw">현재 비밀번호</label>
+            <input type="password" id="reset-old-pw" placeholder="현재 비밀번호 입력" required class="input-control">
+          </div>
+
+          <div class="form-group">
+            <label for="reset-new-pw">새 비밀번호</label>
+            <input type="password" id="reset-new-pw" placeholder="변경할 새 비밀번호 입력" required class="input-control">
+          </div>
+
+          <button type="submit" class="btn-submit">비밀번호 변경하기</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Box -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
