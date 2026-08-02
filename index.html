@@ -32,7 +32,7 @@
       <form id="login-form" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
           <label for="login-id"><i class="fa-solid fa-user"></i> 아이디</label>
-          <input type="text" id="login-id" placeholder="아이디 입력 (예: guest1)" required class="input-control">
+          <input type="text" id="login-id" placeholder="아이디 입력 (예: junkoo, minjong)" required class="input-control">
         </div>
 
         <div class="form-group">
@@ -54,6 +54,8 @@
       <div class="allowed-users-info">
         <span>접근 가능 아이디 목록 (👑 표시: 관리자):</span>
         <div class="user-tags">
+          <span class="u-tag admin-tag">👑 junkoo</span>
+          <span class="u-tag admin-tag">👑 minjong</span>
           <span class="u-tag admin-tag">👑 jipark5</span>
           <span class="u-tag admin-tag">👑 hycho30</span>
           <span class="u-tag">guest1</span>
@@ -131,8 +133,8 @@
           <div class="form-group">
             <label for="reg-artno"><i class="fa-solid fa-barcode"></i> 아티클 번호</label>
             <div class="input-with-action">
-              <input type="text" id="reg-artno" placeholder="번호 입력 또는 목록 선택" required class="input-control" autocomplete="off" oninput="onArtNoInput(this.value)">
-              <button type="button" class="btn-secondary" onclick="openMasterSelectModal()"><i class="fa-solid fa-list"></i> 선택</button>
+              <input type="text" id="reg-artno" placeholder="번호 입력 또는 목록 선택" required class="input-control" autocomplete="off">
+              <button type="button" class="btn-secondary" onclick="openMasterSelectModal('register')"><i class="fa-solid fa-list"></i> 선택</button>
             </div>
           </div>
 
@@ -165,12 +167,12 @@
       </div>
     </section>
 
-    <!-- TAB 2: 실시간 재고 조회 (STOCK LOOKUP) -->
+    <!-- TAB 2: 실시간 재고 조회 & 대시보드 (STOCK LOOKUP & DASHBOARD) -->
     <section id="tab-stock" class="tab-page">
       <div class="search-sticky-bar">
         <div class="search-input-wrapper">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="stock-search" placeholder="아티클 번호 또는 이름 검색..." oninput="debouncedRenderStockLookup()" class="search-control">
+          <input type="text" id="stock-search" placeholder="아티클 번호 또는 이름 검색..." class="search-control">
           <button type="button" class="search-clear-btn" onclick="clearStockSearch()"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
@@ -207,23 +209,103 @@
         </div>
       </div>
 
+      <!-- TOP 10 STOCK DASHBOARD SECTION -->
+      <div class="card-box stock-dash-card">
+        <div class="dash-header">
+          <h2><i class="fa-solid fa-chart-bar"></i> 재고 분석 대시보드</h2>
+          <span class="badge badge-info">TOP 10</span>
+        </div>
+
+        <div class="dash-tab-group">
+          <button type="button" id="dash-tab-high" class="dash-tab-btn active" onclick="switchDashboardTab('high')">
+            <i class="fa-solid fa-arrow-trend-up"></i> 재고 많은 순 TOP 10
+          </button>
+          <button type="button" id="dash-tab-low" class="dash-tab-btn" onclick="switchDashboardTab('low')">
+            <i class="fa-solid fa-triangle-exclamation"></i> 재고 적은 순 TOP 10
+          </button>
+        </div>
+
+        <div id="dash-view-high" class="dash-view">
+          <div id="dash-list-high" class="dash-list"></div>
+        </div>
+
+        <div id="dash-view-low" class="dash-view" style="display:none;">
+          <div id="dash-list-low" class="dash-list"></div>
+        </div>
+      </div>
+
       <!-- Stock List Container -->
       <div class="section-title-bar">
-        <h3><i class="fa-solid fa-list-check"></i> 품목별 재고 현황</h3>
+        <h3><i class="fa-solid fa-list-check"></i> 전체 품목별 재고 현황</h3>
         <span class="count-badge" id="stock-count-text">0개 품목</span>
       </div>
 
-      <div id="stock-cards-container" class="stock-cards-list">
-        <!-- Dynamic Cards Inserted Here -->
+      <div id="stock-cards-container" class="stock-cards-list"></div>
+    </section>
+
+    <!-- NEW TAB 3: 오더 요청 (ORDER REQUEST) -->
+    <section id="tab-order" class="tab-page">
+      <div class="card-box" style="border-top: 4px solid #6366f1;">
+        <div class="card-header space-between">
+          <h2><i class="fa-solid fa-cart-flatbed"></i> 오더 요청 작성</h2>
+          <!-- Order Excel Export (Admin Only) -->
+          <button type="button" id="btn-order-excel-export" class="btn-excel-export" onclick="exportOrdersToExcel()" style="display:none;">
+            <i class="fa-solid fa-file-excel"></i> 오더 내역 엑셀 추출
+          </button>
+        </div>
+
+        <form id="order-form" onsubmit="handleOrderSubmit(event)">
+          <!-- 날짜 -->
+          <div class="form-group">
+            <label for="order-date"><i class="fa-regular fa-calendar"></i> 요청 날짜</label>
+            <input type="date" id="order-date" required class="input-control">
+          </div>
+
+          <!-- 아티클 번호 -->
+          <div class="form-group">
+            <label for="order-artno"><i class="fa-solid fa-barcode"></i> 아티클 번호</label>
+            <div class="input-with-action">
+              <input type="text" id="order-artno" placeholder="번호 입력 또는 품목 선택" required class="input-control" autocomplete="off">
+              <button type="button" class="btn-secondary" onclick="openMasterSelectModal('order')"><i class="fa-solid fa-list"></i> 선택</button>
+            </div>
+          </div>
+
+          <!-- 아티클 이름 (자동 표시) -->
+          <div class="form-group">
+            <label for="order-artname"><i class="fa-solid fa-tag"></i> 아티클 이름</label>
+            <div class="input-readonly-wrapper">
+              <input type="text" id="order-artname" placeholder="번호 입력 시 자동 표시됩니다" readonly class="input-control readonly">
+              <span id="order-artname-status-icon" class="status-icon"><i class="fa-solid fa-circle-info"></i></span>
+            </div>
+          </div>
+
+          <!-- 수량 입력 -->
+          <div class="form-group">
+            <label for="order-qty"><i class="fa-solid fa-layer-group"></i> 요청 수량</label>
+            <input type="number" id="order-qty" min="1" placeholder="수량 입력" required class="input-control qty-input">
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-submit" style="background-color: #6366f1;">
+            <i class="fa-solid fa-paper-plane"></i> 오더 요청 저장하기
+          </button>
+        </form>
+      </div>
+
+      <!-- Recent Orders List Card -->
+      <div class="card-box">
+        <div class="card-header space-between">
+          <h2><i class="fa-solid fa-list-check"></i> 최근 오더 요청 내역</h2>
+        </div>
+        <div id="order-logs-container" class="history-list"></div>
       </div>
     </section>
 
-    <!-- TAB 3: 입출고 기록 & 엑셀 추출 (HISTORY LOGS) -->
+    <!-- TAB 4: 입출고 기록 & 엑셀 추출 (HISTORY LOGS - ADMIN ONLY) -->
     <section id="tab-history" class="tab-page">
       <div class="card-box">
         <div class="card-header space-between">
-          <h2><i class="fa-solid fa-clock-rotate-left"></i> 입출고 상세 기록</h2>
-          <!-- Excel Export Button (Admin Only) -->
+          <h2><i class="fa-solid fa-clock-rotate-left"></i> 입출고 상세 기록 <span class="badge badge-danger">관리자 전용</span></h2>
           <div id="excel-export-wrapper">
             <button type="button" id="btn-excel-export" class="btn-excel-export" onclick="exportHistoryToExcel()">
               <i class="fa-solid fa-file-excel"></i> 엑셀 추출 (.xlsx)
@@ -271,30 +353,25 @@
           </div>
         </div>
 
-        <!-- History Summary Badge Bar -->
         <div class="history-summary-bar">
           <div class="hist-sum-item">검색 기록: <strong id="hist-count">0</strong>건</div>
           <div class="hist-sum-item text-in">입고 합계: <strong id="hist-total-in">0</strong></div>
           <div class="hist-sum-item text-out">출고 합계: <strong id="hist-total-out">0</strong></div>
         </div>
 
-        <!-- History Items List -->
-        <div id="history-logs-container" class="history-list">
-          <!-- Dynamic History Rows -->
-        </div>
+        <div id="history-logs-container" class="history-list"></div>
       </div>
     </section>
 
-    <!-- TAB 4: 품목 마스터 & 엑셀 업로드 (MASTER CATALOG) -->
+    <!-- TAB 5: 품목 마스터 & 엑셀 업로드 (MASTER CATALOG - ADMIN ONLY) -->
     <section id="tab-master" class="tab-page">
 
-      <!-- Admin Excel Import Box -->
       <div id="admin-excel-import-box" class="card-box excel-import-card">
         <div class="card-header">
           <h2><i class="fa-solid fa-file-import"></i> 엑셀 파일로 마스터 데이터 새로고침 <span class="badge badge-danger">관리자 전용</span></h2>
         </div>
         <p class="import-desc">
-          엑셀 파일(`.xlsx`)을 올리면 아티클 마스터 데이터가 최신 엑셀 기반으로 자동 새로고침됩니다. (jipark5, hycho30 관리자 전용)
+          엑셀 파일(`.xlsx`)을 올리면 아티클 마스터 데이터가 최신 엑셀 기반으로 자동 새로고침됩니다. (관리자 전용)
         </p>
         
         <div class="file-drop-zone" onclick="document.getElementById('excel-file-input').click()">
@@ -307,18 +384,16 @@
         <div id="import-status" class="import-status-msg" style="display:none;"></div>
       </div>
 
-      <!-- Non-admin Notice Banner -->
       <div id="user-master-notice-box" class="card-box" style="display:none; background-color: #f8fafc; border-left: 4px solid #64748b;">
         <div style="font-size: 13px; color: #475569; display: flex; align-items: center; gap: 8px;">
           <i class="fa-solid fa-shield-halved" style="font-size: 18px; color: #64748b;"></i>
           <div>
             <strong>마스터 관리 권한 안내</strong>
-            <p style="font-size: 12px; margin-top: 2px;">엑셀 마스터 갱신 및 내보내기는 관리자(jipark5, hycho30) 전용 기능입니다. 아래 목록에서 품목을 조회할 수 있습니다.</p>
+            <p style="font-size: 12px; margin-top: 2px;">엑셀 마스터 갱신 및 내보내기는 관리자 전용 기능입니다.</p>
           </div>
         </div>
       </div>
 
-      <!-- Master Items List Box -->
       <div class="card-box">
         <div class="card-header space-between">
           <h2><i class="fa-solid fa-database"></i> 등록된 품목 마스터</h2>
@@ -329,12 +404,10 @@
 
         <div class="search-input-wrapper mb-15">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="master-search" placeholder="마스터 품목 검색..." oninput="debouncedRenderMasterCatalog()" class="search-control sm">
+          <input type="text" id="master-search" placeholder="마스터 품목 검색..." class="search-control sm">
         </div>
 
-        <div id="master-catalog-container" class="master-list">
-          <!-- Dynamic Master Catalog Rows -->
-        </div>
+        <div id="master-catalog-container" class="master-list"></div>
       </div>
     </section>
 
@@ -350,7 +423,11 @@
       <i class="fa-solid fa-warehouse"></i>
       <span>재고 조회</span>
     </button>
-    <button type="button" class="nav-item" onclick="switchTab('history', this)">
+    <button type="button" class="nav-item" onclick="switchTab('order', this)">
+      <i class="fa-solid fa-cart-flatbed"></i>
+      <span>오더 요청</span>
+    </button>
+    <button type="button" class="nav-item" id="nav-history-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
       <span>입출고 기록</span>
     </button>
@@ -360,24 +437,22 @@
     </button>
   </nav>
 
-  <!-- MODAL 1: Select Master Item for Register -->
-  <div id="master-select-modal" class="modal-backdrop" onclick="closeMasterSelectModal(event)">
+  <!-- MODAL 1: Select Master Item for Register or Order -->
+  <div id="master-select-modal" class="modal-backdrop" onclick="closeMasterSelectModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3><i class="fa-solid fa-boxes-stacked"></i> 품목 선택</h3>
         <button type="button" class="close-btn" onclick="closeMasterSelectModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
-        <input type="text" id="modal-search" placeholder="품목 번호 또는 이름으로 검색..." class="search-control mb-15" oninput="debouncedRenderModalMasterList()">
-        <div id="modal-master-list" class="modal-list-container">
-          <!-- List items inserted dynamically -->
-        </div>
+        <input type="text" id="modal-search" placeholder="품목 번호 또는 이름으로 검색..." class="search-control mb-15">
+        <div id="modal-master-list" class="modal-list-container"></div>
       </div>
     </div>
   </div>
 
   <!-- MODAL 2: Add New Master Item -->
-  <div id="add-master-modal" class="modal-backdrop" onclick="closeAddMasterModal(event)">
+  <div id="add-master-modal" class="modal-backdrop" onclick="closeAddMasterModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3><i class="fa-solid fa-plus-circle"></i> 신규 아티클 등록</h3>
@@ -400,7 +475,7 @@
   </div>
 
   <!-- MODAL 3: Reset Password Modal -->
-  <div id="reset-pw-modal" class="modal-backdrop" onclick="closeResetPasswordModal(event)">
+  <div id="reset-pw-modal" class="modal-backdrop" onclick="closeResetPasswordModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3><i class="fa-solid fa-key"></i> 비밀번호 재설정</h3>
@@ -412,10 +487,12 @@
             <label for="reset-id">아이디</label>
             <select id="reset-id" required class="input-control">
               <option value="">아이디 선택...</option>
-              <option value="guest1">guest1 (게스트 1)</option>
-              <option value="guest2">guest2 (게스트 2)</option>
+              <option value="junkoo">junkoo (👑 관리자)</option>
+              <option value="minjong">minjong (👑 관리자)</option>
               <option value="jipark5">jipark5 (👑 관리자)</option>
               <option value="hycho30">hycho30 (👑 관리자)</option>
+              <option value="guest1">guest1 (게스트 1)</option>
+              <option value="guest2">guest2 (게스트 2)</option>
               <option value="sulee21">sulee21</option>
               <option value="jocho16">jocho16</option>
               <option value="julee33">julee33</option>
