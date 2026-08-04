@@ -358,7 +358,15 @@ async function loadDataFromSupabase() {
           .select("*");
 
       if (!catErr && catalog && catalog.length > 0) {
-        masterCatalog = catalog;
+        masterCatalog = catalog.map(item => ({
+2
+hfb: item.hfb,
+3
+artNo: String(item.artno),
+4
+artName: item.artname
+5
+}));
       } else {
         const savedCatalog = localStorage.getItem("warehouse_master_catalog");
         masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
