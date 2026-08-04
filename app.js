@@ -1,6 +1,6 @@
 const supabaseUrl = "https://zblzdqwqxagqnkrojyda.supabase.co";
 
-const supabaseKey = "여기에 Publishable Key";
+const supabaseKey = sb_publishable_rV-ZqhhA4pxsIN_9NhPEcg_EoiM_xo1";
 
 const supabaseClient = supabase.createClient(
   supabaseUrl,
