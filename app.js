@@ -217,7 +217,7 @@ function updateUserInfoDisplay() {
 }
 
 function logoutUser() {
-  localStorage.removeItem("warehouse_current_user");
+  sessionStorage.removeItem("warehouse_current_user");
   currentUser = null;
   isAdminUser = false;
   
@@ -232,7 +232,7 @@ function logoutUser() {
 }
 
 function checkLoginSession() {
-  const sessionUser = currentUser || localStorage.getItem("warehouse_current_user"); // Use localStorage fallback
+  const sessionUser = currentUser || sessionStorage.getItem("warehouse_current_user"); // Use sessionStorage fallback
   const loginOverlay = document.getElementById("login-overlay");
   const userBadge = document.getElementById("user-profile-badge");
   const userNameElem = document.getElementById("current-user-name");
@@ -331,7 +331,7 @@ function handleLoginSubmit(e) {
 
   currentUser = matchedId;
   isAdminUser = ADMIN_USERS.includes(matchedId);
-  localStorage.setItem("warehouse_current_user", currentUser);
+  sessionStorage.setItem("warehouse_current_user", currentUser);
 
   const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
   showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
@@ -351,12 +351,18 @@ function handleLoginSubmit(e) {
   }
 
   checkLoginSession();
+  
+  // 로그인 후 첫 화면은 항상 입출고 등록 화면으로 이동
+  const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
+  if (regNavBtn) {
+    switchTab('register', regNavBtn);
+  }
 }
 
 function handleLogout() {
   currentUser = null;
   isAdminUser = false;
-  localStorage.removeItem("warehouse_current_user");
+  sessionStorage.removeItem("warehouse_current_user");
   localStorage.removeItem("warehouse_current_tab");
   showToast("로그아웃 되었습니다.", "success", null, true);
   checkLoginSession();
@@ -1310,12 +1316,14 @@ function renderPickList() {
           <div class="hist-left">
             <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
             <div class="hist-name">${item.artName}</div>
-            <span class="hist-artno">
-              번호: ${item.artNo}
-              <span style="margin-left:6px; background-color:#e2e8f0; color:#334155; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">위치: ${(() => {
-                const matched = masterCatalog.find(m => m.artNo === item.artNo);
-                return matched && matched.location && matched.location !== '지정 안됨' ? matched.location : '지정 안됨';
-              })()}</span>
+            <span class="hist-artno" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:4px;">
+              <span>번호: ${item.artNo}</span>
+              <span style="background-color:#fffbeb; color:#b45309; padding:4px 10px; border-radius:6px; font-size:13px; font-weight:800; border:1px solid #fde68a; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                <i class="fa-solid fa-location-dot"></i> 위치: ${(() => {
+                  const matched = masterCatalog.find(m => m.artNo === item.artNo);
+                  return matched && matched.location && matched.location !== '지정 안됨' ? matched.location : '지정 안됨';
+                })()}
+              </span>
             </span>
           </div>
           <div class="hist-right" style="align-items:flex-end;">
@@ -1591,9 +1599,9 @@ function renderStockLookup() {
               <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
               <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
               <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">오더</button>
-              <span class="btn-sm" style="background:#f1f5f9; color:#475569; border:none; padding:4px 8px; border-radius:4px;">
+              <button type="button" class="btn-sm btn-quick-loc" onclick="quickEditSingleLocation('${item.artNo}')">
                 <i class="fa-solid fa-location-dot"></i> ${item.location === '지정 안됨' ? '위치 미지정' : item.location}
-              </span>
+              </button>
             </div>
           </div>
           <span class="ssc-name">${item.artName}</span>
@@ -1621,6 +1629,17 @@ function renderStockLookup() {
 }
 
 // --- Bulk Location Edit Logic ---
+function quickEditSingleLocation(artNo) {
+  clearBulkSelection();
+  toggleBulkSelection(artNo, true);
+  
+  // 체크박스 시각적 업데이트
+  const checkbox = document.querySelector(`.bulk-check-input[value="${artNo}"]`);
+  if (checkbox) checkbox.checked = true;
+  
+  openBulkLocationModal();
+}
+
 function toggleBulkSelection(artNo, isChecked) {
   if (isChecked) {
     selectedStockItems.add(artNo);
@@ -1690,7 +1709,27 @@ function saveBulkLocation() {
     selectedStockItems.forEach(artNo => {
       const promise = supabaseClient.from('master_catalog')
         .update({ location: newLocation })
-        .or(`artno.eq.${artNo},artNo.eq.${artNo}`);
+        .eq('artno', artNo)
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("Supabase bulk location update error:", error);
+            return { error };
+          }
+          if (!data || data.length === 0) {
+            // Row does not exist in master_catalog! Insert it manually.
+            let item = masterCatalog.find(m => m.artNo === artNo);
+            return supabaseClient.from('master_catalog').insert([{
+              artno: artNo,
+              artname: item ? item.artName : "Unknown",
+              hfb: item ? item.hfb : "",
+              location: newLocation
+            }]);
+          }
+          return { data };
+        }).catch(err => {
+          return { error: err };
+        });
       updatePromises.push(promise);
     });
     
@@ -1702,8 +1741,14 @@ function saveBulkLocation() {
     }
 
     Promise.all(updatePromises).then(results => {
-      results.forEach(({error}) => {
-        if (error) console.error("Supabase bulk location update error:", error);
+      let hasError = false;
+      let errMsg = "";
+      results.forEach(res => {
+        if (res && res.error) {
+          hasError = true;
+          errMsg = res.error.message;
+          console.error("Supabase bulk location error:", res.error);
+        }
       });
       
       const count = selectedStockItems.size;
@@ -1715,7 +1760,11 @@ function saveBulkLocation() {
         btnSubmit.disabled = false;
       }
       
-      showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
+      if (hasError) {
+        showToast(`슈퍼베이스 저장 실패: ${errMsg}`, "danger", null, false);
+      } else {
+        showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
+      }
     });
   } else {
     const count = selectedStockItems.size;
