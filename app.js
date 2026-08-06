@@ -97,6 +97,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   initFormDate();
   setupDebouncedInputs();
 
+  const savedTab = localStorage.getItem("warehouse_current_tab");
+  if (savedTab) {
+    const navBtn = document.querySelector(`.bottom-nav .nav-item[onclick*="${savedTab}"]`);
+    if (navBtn) switchTab(savedTab, navBtn);
+    else switchTab(savedTab);
+  }
 });
 
 function setupDebouncedInputs() {
@@ -185,7 +191,7 @@ function saveUserPasswords() {
 }
 
 function checkLoginSession() {
-  const sessionUser = currentUser; // Only use memory, NOT localStorage
+  const sessionUser = currentUser || localStorage.getItem("warehouse_current_user"); // Use localStorage fallback
   const loginOverlay = document.getElementById("login-overlay");
   const userBadge = document.getElementById("user-profile-badge");
   const userNameElem = document.getElementById("current-user-name");
@@ -281,6 +287,7 @@ function handleLoginSubmit(e) {
 
   currentUser = matchedId;
   isAdminUser = ADMIN_USERS.includes(matchedId);
+  localStorage.setItem("warehouse_current_user", currentUser);
 
   const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
   showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
@@ -305,7 +312,9 @@ function handleLoginSubmit(e) {
 function handleLogout() {
   currentUser = null;
   isAdminUser = false;
-  showToast("로그아웃 되었습니다.", "success");
+  localStorage.removeItem("warehouse_current_user");
+  localStorage.removeItem("warehouse_current_tab");
+  showToast("로그아웃 되었습니다.", "success", null, true);
   checkLoginSession();
 }
 
@@ -345,7 +354,7 @@ function handleResetPasswordSubmit(e) {
   saveUserPasswords();
   closeResetPasswordModal();
 
-  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success");
+  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success", null, true);
   document.getElementById("login-pw").value = newPw;
 }
 
@@ -543,7 +552,14 @@ function switchTab(tabId, btnElement) {
 
   const targetTab = document.getElementById(`tab-${tabId}`);
   if (targetTab) targetTab.classList.add("active");
+  
+  if (!btnElement) {
+    btnElement = document.querySelector(`.bottom-nav .nav-item[onclick*="${tabId}"]`);
+  }
   if (btnElement) btnElement.classList.add("active");
+
+  currentTab = tabId;
+  localStorage.setItem("warehouse_current_tab", tabId);
 
   if (tabId === "stock") {
     stockDisplayLimit = RENDER_LIMIT;
@@ -980,7 +996,7 @@ async function processRegCart() {
     renderStockLookup();
     renderHistoryLogs();
     
-    showToast(`총 ${regCartList.length}건의 항목이 일괄 저장되었습니다!`, "success");
+    showToast(`총 ${regCartList.length}건의 항목이 일괄 저장되었습니다!`, "success", null, true);
     playSuccessFeedback();
     
     regCartList = [];
@@ -1033,7 +1049,7 @@ async function handleAddToPickList() {
 
     orderLogs.unshift(newPick);
 
-    showToast(`'${artName}' ${qty}개가 창고 챙기기 목록에 담겼습니다!`, "success");
+    showToast(`'${artName}' ${qty}개가 창고 챙기기 목록에 담겼습니다!`, "success", null, true);
     playSuccessFeedback();
 
     // Reset form
@@ -1084,7 +1100,7 @@ async function handleOrderSubmit(e) {
 
     orderLogs.unshift(newOrder);
 
-    showToast(`'${artName}' ${qty}개 오더 요청이 완료되었습니다!`, "success");
+    showToast("오더 요청이 성공적으로 등록되었습니다.", "success", null, true);
     playSuccessFeedback();
 
     // Reset form
@@ -1206,7 +1222,7 @@ async function deleteOrderRequest(index) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
   
-  showToast("오더 요청이 삭제되었습니다.", "success");
+  showToast("오더 요청이 삭제되었습니다.", "success", null, true);
   renderOrderLogs();
 }
 
@@ -1304,7 +1320,7 @@ async function completePickItem(index) {
     historyLogs.unshift(newLog);
     invalidateStockCache();
     
-    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
+    showToast("창고 챙김을 완료하고 출고 처리했습니다.", "success", null, true);
     playSuccessFeedback();
     
     renderStockLookup();
@@ -1339,7 +1355,7 @@ async function updateOrderStatus(index, newStatus) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
+  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success", null, true);
   renderOrderLogs();
 }
 
@@ -1371,7 +1387,7 @@ function exportOrdersToExcel() {
 
   const todayStr = new Date().toISOString().split("T")[0];
   XLSX.writeFile(workbook, `오더_요청_내역_${todayStr}.xlsx`);
-  showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success");
+  showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success", null, true);
 }
 
 // --- Stock Lookup View Logic & Enhanced Dashboard ---
@@ -1595,7 +1611,7 @@ function saveItemLocation(artNo) {
   }
   
   saveMasterCatalog();
-  showToast(`위치가 [${newLocation}](으)로 저장되었습니다.`, "success");
+  showToast(`위치가 [${newLocation}](으)로 저장되었습니다.`, "success", null, true);
   
   // Re-render
   renderStockLookup();
@@ -1779,7 +1795,7 @@ function quickActionRegister(artNo, type) {
 
   const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
   switchTab("register", regNavBtn);
-  showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success");
+  showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success", null, true);
 }
 
 function quickActionOrder(artNo) {
@@ -1790,7 +1806,7 @@ function quickActionOrder(artNo) {
 
   const orderNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[2];
   switchTab("order", orderNavBtn);
-  showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success");
+  showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success", null, true);
 }
 
 // --- History Logs Logic & Filters ---
@@ -1954,7 +1970,7 @@ async function deleteHistoryLog(logId) {
   
   invalidateStockCache();
   
-  showToast("입출고 기록이 삭제되었습니다.", "success");
+  showToast("입출고 기록이 삭제되었습니다.", "success", null, true);
   renderHistoryLogs();
   
   try {
@@ -2265,7 +2281,7 @@ function handleAddMasterSubmit(e) {
 }
 
 // Toast Utility
-function showToast(message, type = "success", undoId = null) {
+function showToast(message, type = "success", undoId = null, requireRefresh = false) {
   const container = document.getElementById("toast-container");
   if (!container) return;
 
@@ -2283,6 +2299,15 @@ function showToast(message, type = "success", undoId = null) {
   }
 
   container.appendChild(toast);
+
+  if (requireRefresh) {
+    if (navigator.vibrate) {
+      navigator.vibrate([150, 50, 150]);
+    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  }
 
   setTimeout(() => {
     if (toast.parentNode) {
@@ -2323,7 +2348,7 @@ window.undoLastAction = async function(id, toastElem) {
   }
 
   if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
-  showToast("해당 기록이 취소되었습니다.", "success");
+  showToast("해당 기록이 취소되었습니다.", "success", null, true);
 }
 
 // --- Supabase Realtime Subscriptions ---
