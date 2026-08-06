@@ -57,6 +57,9 @@ let isAdminUser = false;
 let currentDashboardTab = "high"; // "high", "low", "hfb"
 let modalSelectTarget = "register"; // "register" or "order"
 
+// Bulk Action State
+let selectedStockItems = new Set();
+
 // Stock Dashboard Filter & Sort State
 let currentStockStatusFilter = "all"; // "all", "good", "low", "out"
 let currentStockHFBFilter = "ALL";
@@ -86,13 +89,8 @@ function debounce(func, delay = 150) {
 document.addEventListener("DOMContentLoaded", async () => {
 
   initAuthDB();
-  try {
-    await loadDataFromSupabase();
-    initRealtimeSubscriptions();
-  } catch (err) {
-    console.warn("Data load error during init:", err);
-  }
-
+  
+  // 1. Check session and restore tab synchronously to prevent UI flashing
   checkLoginSession();
   initFormDate();
   setupDebouncedInputs();
@@ -103,6 +101,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (navBtn) switchTab(savedTab, navBtn);
     else switchTab(savedTab);
   }
+
+  // 2. Fetch latest data from Supabase in background
+  try {
+    await loadDataFromSupabase();
+    initRealtimeSubscriptions();
+    // Soft re-render the current tab with the newly fetched data
+    if (currentTab) switchTab(currentTab);
+  } catch (err) {
+    console.warn("Data load error during init:", err);
+  }
+
 });
 
 function setupDebouncedInputs() {
@@ -190,6 +199,38 @@ function saveUserPasswords() {
   }
 }
 
+function updateUserInfoDisplay() {
+  // If there's a place to show user info, update it here.
+  // We can inject a logout button into the UI if it doesn't exist
+  let userBadge = document.getElementById("user-info-badge");
+  if (!userBadge) {
+    userBadge = document.createElement("div");
+    userBadge.id = "user-info-badge";
+    userBadge.style.cssText = "position:absolute; top:20px; right:20px; z-index:50; display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.9); padding:6px 12px; border-radius:20px; box-shadow:0 2px 5px rgba(0,0,0,0.1); font-size:13px; font-weight:600; color:#475569;";
+    document.body.appendChild(userBadge);
+  }
+  
+  userBadge.innerHTML = `
+    <span><i class="fa-solid fa-user${isAdminUser ? '-tie text-primary' : ''}"></i> ${currentUser}</span>
+    <button type="button" onclick="logoutUser()" style="background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer; font-weight:700;"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</button>
+  `;
+}
+
+function logoutUser() {
+  localStorage.removeItem("warehouse_current_user");
+  currentUser = null;
+  isAdminUser = false;
+  
+  const userBadge = document.getElementById("user-info-badge");
+  if (userBadge) userBadge.remove();
+  
+  document.getElementById("login-overlay").classList.add("active");
+  
+  // Clear any inputs if needed
+  document.getElementById("login-id").value = "";
+  document.getElementById("login-pw").value = "";
+}
+
 function checkLoginSession() {
   const sessionUser = currentUser || localStorage.getItem("warehouse_current_user"); // Use localStorage fallback
   const loginOverlay = document.getElementById("login-overlay");
@@ -214,6 +255,9 @@ function checkLoginSession() {
       loginOverlay.style.opacity = "0";
       loginOverlay.style.pointerEvents = "none";
     }
+    
+    updateUserInfoDisplay();
+    
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
@@ -372,6 +416,7 @@ async function loadDataFromSupabase() {
           hfb: row.hfb || "",
           artNo: row.artno || row.artNo || "",
           artName: row.artname || row.artName || "",
+          location: row.location || "지정 안됨",
           id: row.id
         }));
       } else {
@@ -560,6 +605,11 @@ function switchTab(tabId, btnElement) {
 
   currentTab = tabId;
   localStorage.setItem("warehouse_current_tab", tabId);
+
+  // Clear bulk selection on tab switch
+  if (typeof clearBulkSelection === 'function') {
+    clearBulkSelection();
+  }
 
   if (tabId === "stock") {
     stockDisplayLimit = RENDER_LIMIT;
@@ -1532,7 +1582,8 @@ function renderStockLookup() {
       <div class="${cardClass}" id="stock-card-${item.artNo.replace(/[^a-zA-Z0-9]/g, '-')}">
         <div class="ssc-left">
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <div class="ssc-artno">
+            <div class="ssc-artno" style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" class="bulk-check-input" value="${item.artNo}" style="transform: scale(1.3); accent-color: #2563eb;" onchange="toggleBulkSelection('${item.artNo}', this.checked)" ${selectedStockItems.has(item.artNo) ? 'checked' : ''}>
               <span class="hfb-badge">${item.hfb}</span>
               ${item.artNo}
             </div>
@@ -1540,19 +1591,9 @@ function renderStockLookup() {
               <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
               <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
               <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">오더</button>
-              <button type="button" class="btn-sm btn-loc-edit-inline" id="loc-view-${item.artNo.replace(/[^a-zA-Z0-9]/g, '-')}" onclick="editItemLocation('${item.artNo}')">
-                <i class="fa-solid fa-location-dot"></i> ${item.location === '지정 안됨' ? '위치' : item.location}
-              </button>
-            </div>
-            
-            <div class="ssc-location-edit-row" id="loc-edit-${item.artNo.replace(/[^a-zA-Z0-9]/g, '-')}" style="display:none; margin-top:4px; gap:4px; align-items:center;">
-              <div class="loc-multi-select" id="loc-multi-${item.artNo.replace(/[^a-zA-Z0-9]/g, '-')}">
-                <label><input type="checkbox" value="B1" ${item.location && item.location.includes('B1') ? 'checked' : ''}> B1</label>
-                <label><input type="checkbox" value="B2" ${item.location && item.location.includes('B2') ? 'checked' : ''}> B2</label>
-                <label><input type="checkbox" value="B3" ${item.location && item.location.includes('B3') ? 'checked' : ''}> B3</label>
-              </div>
-              <button type="button" class="btn-loc-save" style="padding:4px 8px;" onclick="saveItemLocation('${item.artNo}')">저장</button>
-              <button type="button" class="btn-loc-cancel" style="padding:4px 8px;" onclick="cancelEditLocation('${item.artNo}')">취소</button>
+              <span class="btn-sm" style="background:#f1f5f9; color:#475569; border:none; padding:4px 8px; border-radius:4px;">
+                <i class="fa-solid fa-location-dot"></i> ${item.location === '지정 안됨' ? '위치 미지정' : item.location}
+              </span>
             </div>
           </div>
           <span class="ssc-name">${item.artName}</span>
@@ -1579,42 +1620,109 @@ function renderStockLookup() {
   container.innerHTML = html;
 }
 
-function editItemLocation(artNo) {
-  const safeArtNo = String(artNo).replace(/[^a-zA-Z0-9]/g, '-');
-  document.getElementById(`loc-view-${safeArtNo}`).style.display = 'none';
-  document.getElementById(`loc-edit-${safeArtNo}`).style.display = 'flex';
+// --- Bulk Location Edit Logic ---
+function toggleBulkSelection(artNo, isChecked) {
+  if (isChecked) {
+    selectedStockItems.add(artNo);
+  } else {
+    selectedStockItems.delete(artNo);
+  }
+  updateBulkActionBar();
 }
 
-function cancelEditLocation(artNo) {
-  const safeArtNo = String(artNo).replace(/[^a-zA-Z0-9]/g, '-');
-  document.getElementById(`loc-edit-${safeArtNo}`).style.display = 'none';
-  document.getElementById(`loc-view-${safeArtNo}`).style.display = '';
+function updateBulkActionBar() {
+  const bar = document.getElementById("bulk-action-bar");
+  const countSpan = document.getElementById("bulk-count");
+  if (!bar || !countSpan) return;
+
+  if (selectedStockItems.size > 0) {
+    countSpan.textContent = selectedStockItems.size;
+    bar.style.display = "flex";
+  } else {
+    bar.style.display = "none";
+  }
 }
 
-function saveItemLocation(artNo) {
-  const safeArtNo = String(artNo).replace(/[^a-zA-Z0-9]/g, '-');
-  const multiSelect = document.getElementById(`loc-multi-${safeArtNo}`);
-  if (!multiSelect) return;
+function clearBulkSelection() {
+  selectedStockItems.clear();
+  updateBulkActionBar();
   
-  const checkboxes = multiSelect.querySelectorAll('input[type="checkbox"]:checked');
+  // Uncheck all checkboxes visually
+  document.querySelectorAll(".bulk-check-input").forEach(cb => cb.checked = false);
+}
+
+function openBulkLocationModal() {
+  const countSpan = document.getElementById("bulk-loc-count");
+  if (countSpan) countSpan.textContent = selectedStockItems.size;
+  
+  // Reset checkboxes
+  document.querySelectorAll("#bulk-loc-checkboxes input[type='checkbox']").forEach(cb => cb.checked = false);
+  
+  document.getElementById("bulk-loc-modal").classList.add("active");
+}
+
+function closeBulkLocationModal() {
+  document.getElementById("bulk-loc-modal").classList.remove("active");
+}
+
+function saveBulkLocation() {
+  if (selectedStockItems.size === 0) return;
+  
+  const checkboxes = document.querySelectorAll("#bulk-loc-checkboxes input[type='checkbox']:checked");
   let selected = [];
   checkboxes.forEach(cb => selected.push(cb.value));
-  
   const newLocation = selected.length > 0 ? selected.join(', ') : '지정 안됨';
   
-  // Update masterCatalog
-  let item = masterCatalog.find(m => m.artNo === artNo);
-  if (item) {
-    item.location = newLocation;
-  } else {
-    masterCatalog.push({ artNo: artNo, artName: "Unknown", location: newLocation });
-  }
+  selectedStockItems.forEach(artNo => {
+    let item = masterCatalog.find(m => m.artNo === artNo);
+    if (item) {
+      item.location = newLocation;
+    } else {
+      item = { artNo: artNo, artName: "Unknown", location: newLocation };
+      masterCatalog.push(item);
+    }
+  });
   
   saveMasterCatalog();
-  showToast(`위치가 [${newLocation}](으)로 저장되었습니다.`, "success", null, true);
   
-  // Re-render
-  renderStockLookup();
+  if (supabaseClient) {
+    const updatePromises = [];
+    selectedStockItems.forEach(artNo => {
+      const promise = supabaseClient.from('master_catalog')
+        .update({ location: newLocation })
+        .or(`artno.eq.${artNo},artNo.eq.${artNo}`);
+      updatePromises.push(promise);
+    });
+    
+    // 모달창 내 버튼 텍스트 변경 (저장 중 표시)
+    const btnSubmit = document.querySelector("#bulk-loc-modal .btn-submit");
+    if (btnSubmit) {
+      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
+      btnSubmit.disabled = true;
+    }
+
+    Promise.all(updatePromises).then(results => {
+      results.forEach(({error}) => {
+        if (error) console.error("Supabase bulk location update error:", error);
+      });
+      
+      const count = selectedStockItems.size;
+      closeBulkLocationModal();
+      clearBulkSelection();
+      
+      if (btnSubmit) {
+        btnSubmit.innerHTML = '변경사항 저장';
+        btnSubmit.disabled = false;
+      }
+      
+      showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
+    });
+  } else {
+    const count = selectedStockItems.size;
+    closeBulkLocationModal();
+    clearBulkSelection();
+    showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
+  }
 }
 
 // Multi-Tab Dashboard (High TOP 10, Low TOP 10, HFB Breakdown)
@@ -2091,7 +2199,12 @@ function handleExcelImport(e) {
               seenArtNo.add(artNo);
               const existingItem = masterCatalog.find(m => m.artNo === artNo);
               const location = existingItem && existingItem.location ? existingItem.location : "지정 안됨";
-              newCatalog.push({ hfb, artNo, artName, location });
+              const id = existingItem ? existingItem.id : undefined;
+              
+              const catalogItem = { hfb, artNo, artName, location };
+              if (id) catalogItem.id = id;
+              
+              newCatalog.push(catalogItem);
             }
           }
         }
@@ -2099,6 +2212,30 @@ function handleExcelImport(e) {
         if (newCatalog.length > 0) {
           masterCatalog = newCatalog;
           saveMasterCatalog();
+          
+          if (supabaseClient) {
+            const upsertPayload = newCatalog.map(item => {
+              const row = {
+                artno: item.artNo,
+                artname: item.artName,
+                hfb: item.hfb,
+                location: item.location
+              };
+              if (item.id) row.id = item.id;
+              return row;
+            });
+            
+            // Upsert in chunks of 500 to avoid payload limits
+            const chunkSize = 500;
+            for (let i = 0; i < upsertPayload.length; i += chunkSize) {
+              const chunk = upsertPayload.slice(i, i + chunkSize);
+              supabaseClient.from('master_catalog').upsert(chunk, { onConflict: 'artno' })
+                .then(({error}) => {
+                  if (error) console.error("Supabase Excel upsert error:", error);
+                });
+            }
+          }
+          
           renderMasterCatalog();
           populateArticleFilterDropdown();
 
@@ -2270,8 +2407,20 @@ function handleAddMasterSubmit(e) {
     return;
   }
 
-  masterCatalog.push({ hfb, artNo, artName });
+  const newItem = { hfb, artNo, artName, location: "지정 안됨" };
+  masterCatalog.push(newItem);
   saveMasterCatalog();
+  
+  if (supabaseClient) {
+    supabaseClient.from('master_catalog').insert([{
+      hfb: hfb,
+      artno: artNo,
+      artname: artName,
+      location: "지정 안됨"
+    }]).then(({error}) => {
+      if (error) console.error("Supabase insert master error:", error);
+    });
+  }
   renderMasterCatalog();
   populateArticleFilterDropdown();
   closeAddMasterModal();
@@ -2305,7 +2454,10 @@ function showToast(message, type = "success", undoId = null, requireRefresh = fa
       navigator.vibrate([150, 50, 150]);
     }
     setTimeout(() => {
-      window.location.reload();
+      // Soft refresh: fetch data quietly and re-render the current tab
+      loadDataFromSupabase().then(() => {
+        if (currentTab) switchTab(currentTab);
+      });
     }, 1200);
   }
 
