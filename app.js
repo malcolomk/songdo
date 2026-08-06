@@ -1123,18 +1123,8 @@ function renderOrderLogs() {
     if (statusText === '출고완료') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
 
     let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
-    
-    if (isAdminUser) {
-      statusHtml = `
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-          ${statusHtml}
-          <div style="display:flex; gap:4px; margin-top:2px;">
-            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">수락</button>
-            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">보류</button>
-          </div>
-        </div>
-      `;
-    }
+    // statusHtml remains just the badge
+    // We will place the action buttons below the quantity
 
     let displayTime = item.date;
     if (item.created_at) {
@@ -1147,9 +1137,26 @@ function renderOrderLogs() {
       displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
 
-    let deleteBtnHtml = '';
-    if (isAdminUser || item.user === currentUser) {
-      deleteBtnHtml = `<button type="button" class="btn-delete-log" onclick="deleteOrderRequest(${index})"><i class="fa-solid fa-trash-can"></i> 삭제</button>`;
+    let actionButtonsHtml = '';
+    const canManageStatus = isAdminUser;
+    const canDelete = isAdminUser || item.user === currentUser;
+    
+    if (canManageStatus || canDelete) {
+      actionButtonsHtml += `<div style="display:flex; gap:4px; margin-top:8px;">`;
+      
+      if (canManageStatus) {
+        actionButtonsHtml += `
+          <button type="button" onclick="updateOrderStatus(${index}, '출고대기')" class="btn-action-sm btn-accept"><i class="fa-solid fa-check"></i> 수락</button>
+          <button type="button" onclick="updateOrderStatus(${index}, '보류')" class="btn-action-sm btn-hold"><i class="fa-solid fa-pause"></i> 보류</button>
+        `;
+      }
+      if (canDelete) {
+        actionButtonsHtml += `
+          <button type="button" onclick="deleteOrderRequest(${index})" class="btn-action-sm btn-del"><i class="fa-solid fa-trash-can"></i> 삭제</button>
+        `;
+      }
+      
+      actionButtonsHtml += `</div>`;
     }
 
     return `
@@ -1164,7 +1171,7 @@ function renderOrderLogs() {
         <div class="hist-qty" style="color: #4338ca; margin-top:4px; font-weight:bold;">
           ${item.qty}개
         </div>
-        ${deleteBtnHtml}
+        ${actionButtonsHtml}
       </div>
     </div>
     `;
@@ -1247,9 +1254,16 @@ function renderPickList() {
           </div>
           <div class="hist-right" style="align-items:flex-end;">
             <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
-            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 11px; padding: 6px 10px; margin-top: 6px; width: auto; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 32px; border-radius: 6px;" onclick="completePickItem(${index})">
-              <i class="fa-solid fa-check"></i> 챙김 완료 (출고)
-            </button>
+            <div style="display:flex; gap:4px; margin-top:8px;">
+              <button type="button" class="btn-action-sm btn-accept" onclick="completePickItem(${index})">
+                <i class="fa-solid fa-check"></i> 챙김 완료
+              </button>
+              ${(isAdminUser || item.user === currentUser) ? `
+                <button type="button" class="btn-action-sm btn-del" onclick="deleteOrderRequest(${index})">
+                  <i class="fa-solid fa-trash-can"></i> 삭제
+                </button>
+              ` : ''}
+            </div>
           </div>
         </div>
       `;
