@@ -57,9 +57,6 @@ let isAdminUser = false;
 let currentDashboardTab = "high"; // "high", "low", "hfb"
 let modalSelectTarget = "register"; // "register" or "order"
 
-// Bulk Action State
-let selectedStockItems = new Set();
-
 // Stock Dashboard Filter & Sort State
 let currentStockStatusFilter = "all"; // "all", "good", "low", "out"
 let currentStockHFBFilter = "ALL";
@@ -89,28 +86,17 @@ function debounce(func, delay = 150) {
 document.addEventListener("DOMContentLoaded", async () => {
 
   initAuthDB();
-  
-  // 1. Check session and restore tab synchronously to prevent UI flashing
-  checkLoginSession();
-  initFormDate();
-  setupDebouncedInputs();
-
-  const savedTab = localStorage.getItem("warehouse_current_tab");
-  if (savedTab) {
-    const navBtn = document.querySelector(`.bottom-nav .nav-item[onclick*="${savedTab}"]`);
-    if (navBtn) switchTab(savedTab, navBtn);
-    else switchTab(savedTab);
-  }
-
-  // 2. Fetch latest data from Supabase in background
   try {
     await loadDataFromSupabase();
+    await loadPtagRequests();
     initRealtimeSubscriptions();
-    // Soft re-render the current tab with the newly fetched data
-    if (currentTab) switchTab(currentTab);
   } catch (err) {
     console.warn("Data load error during init:", err);
   }
+
+  checkLoginSession();
+  initFormDate();
+  setupDebouncedInputs();
 
 });
 
@@ -149,6 +135,13 @@ function setupDebouncedInputs() {
   if (orderArtNo) {
     orderArtNo.addEventListener("input", debounce((e) => {
       onOrderArtNoInput(e.target.value);
+    }, 150));
+  }
+
+  const picklistSearch = document.getElementById("picklist-search");
+  if (picklistSearch) {
+    picklistSearch.addEventListener("input", debounce(() => {
+      renderPickList();
     }, 150));
   }
 }
@@ -199,40 +192,8 @@ function saveUserPasswords() {
   }
 }
 
-function updateUserInfoDisplay() {
-  // If there's a place to show user info, update it here.
-  // We can inject a logout button into the UI if it doesn't exist
-  let userBadge = document.getElementById("user-info-badge");
-  if (!userBadge) {
-    userBadge = document.createElement("div");
-    userBadge.id = "user-info-badge";
-    userBadge.style.cssText = "position:absolute; top:20px; right:20px; z-index:50; display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.9); padding:6px 12px; border-radius:20px; box-shadow:0 2px 5px rgba(0,0,0,0.1); font-size:13px; font-weight:600; color:#475569;";
-    document.body.appendChild(userBadge);
-  }
-  
-  userBadge.innerHTML = `
-    <span><i class="fa-solid fa-user${isAdminUser ? '-tie text-primary' : ''}"></i> ${currentUser}</span>
-    <button type="button" onclick="logoutUser()" style="background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer; font-weight:700;"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</button>
-  `;
-}
-
-function logoutUser() {
-  sessionStorage.removeItem("warehouse_current_user");
-  currentUser = null;
-  isAdminUser = false;
-  
-  const userBadge = document.getElementById("user-info-badge");
-  if (userBadge) userBadge.remove();
-  
-  document.getElementById("login-overlay").classList.add("active");
-  
-  // Clear any inputs if needed
-  document.getElementById("login-id").value = "";
-  document.getElementById("login-pw").value = "";
-}
-
 function checkLoginSession() {
-  const sessionUser = currentUser || sessionStorage.getItem("warehouse_current_user"); // Use sessionStorage fallback
+  const sessionUser = currentUser; // Only use memory, NOT localStorage
   const loginOverlay = document.getElementById("login-overlay");
   const userBadge = document.getElementById("user-profile-badge");
   const userNameElem = document.getElementById("current-user-name");
@@ -255,9 +216,6 @@ function checkLoginSession() {
       loginOverlay.style.opacity = "0";
       loginOverlay.style.pointerEvents = "none";
     }
-    
-    updateUserInfoDisplay();
-    
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
@@ -331,10 +289,9 @@ function handleLoginSubmit(e) {
 
   currentUser = matchedId;
   isAdminUser = ADMIN_USERS.includes(matchedId);
-  sessionStorage.setItem("warehouse_current_user", currentUser);
 
-  const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
-  showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
+  const roleTitle = isAdminUser ? "Admin" : "User";
+  showToast(`Welcome!`, "success");
 
   const loginOverlay = document.getElementById("login-overlay");
   if (loginOverlay) {
@@ -352,7 +309,7 @@ function handleLoginSubmit(e) {
 
   checkLoginSession();
   
-  // 로그인 후 첫 화면은 항상 입출고 등록 화면으로 이동
+  // 濡쒓렇????泥??붾㈃?€ ??긽 ?낆텧怨??깅줉 ?붾㈃?쇰줈 ?대룞
   const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
   if (regNavBtn) {
     switchTab('register', regNavBtn);
@@ -362,9 +319,7 @@ function handleLoginSubmit(e) {
 function handleLogout() {
   currentUser = null;
   isAdminUser = false;
-  sessionStorage.removeItem("warehouse_current_user");
-  localStorage.removeItem("warehouse_current_tab");
-  showToast("로그아웃 되었습니다.", "success", null, true);
+  showToast("로그아웃 되었습니다.", "success");
   checkLoginSession();
 }
 
@@ -404,7 +359,7 @@ function handleResetPasswordSubmit(e) {
   saveUserPasswords();
   closeResetPasswordModal();
 
-  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success", null, true);
+  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success");
   document.getElementById("login-pw").value = newPw;
 }
 
@@ -422,7 +377,6 @@ async function loadDataFromSupabase() {
           hfb: row.hfb || "",
           artNo: row.artno || row.artNo || "",
           artName: row.artname || row.artName || "",
-          location: row.location || "지정 안됨",
           id: row.id
         }));
       } else {
@@ -509,40 +463,14 @@ async function saveHistoryLogs(log) {
       const dbLog = { ...log };
       delete dbLog.timestamp; // Remove timestamp as it causes schema error
       
-      let payload = { ...dbLog };
-      
-      let res = await supabaseClient.from("inventory_logs").insert([payload]).select();
-      if (res.error && res.error.message) {
-        const msg = res.error.message;
-        if (msg.includes("artName") || msg.includes("artname") || msg.includes("artNo") || msg.includes("artno")) {
-          payload = { ...dbLog };
-          if (payload.artNo) { payload.artno = payload.artNo; delete payload.artNo; }
-          if (payload.artName) { payload.artname = payload.artName; delete payload.artName; }
-          res = await supabaseClient.from("inventory_logs").insert([payload]).select();
-          
-          if (res.error && res.error.message) {
-            payload = { ...dbLog };
-            delete payload.artName;
-            delete payload.artname;
-            res = await supabaseClient.from("inventory_logs").insert([payload]).select();
-            
-            if (res.error && res.error.message) {
-              payload = { ...dbLog };
-              if (payload.artNo) { payload.artno = payload.artNo; delete payload.artNo; }
-              delete payload.artName;
-              delete payload.artname;
-              res = await supabaseClient.from("inventory_logs").insert([payload]).select();
-            }
-          }
-        }
-      }
-
-      if (!res.error && res.data && res.data.length > 0) {
-        insertedId = res.data[0].id;
+      const { data, error } = await supabaseClient
+        .from("inventory_logs")
+        .insert([dbLog])
+        .select();
+      if (!error && data && data.length > 0) {
+        insertedId = data[0].id;
         log.id = insertedId;
-        log.created_at = res.data[0].created_at;
-      } else if (res.error) {
-        throw res.error;
+        log.created_at = data[0].created_at;
       }
     } catch (err) {
       console.warn("Supabase saveHistoryLogs error:", err);
@@ -603,19 +531,7 @@ function switchTab(tabId, btnElement) {
 
   const targetTab = document.getElementById(`tab-${tabId}`);
   if (targetTab) targetTab.classList.add("active");
-  
-  if (!btnElement) {
-    btnElement = document.querySelector(`.bottom-nav .nav-item[onclick*="${tabId}"]`);
-  }
   if (btnElement) btnElement.classList.add("active");
-
-  currentTab = tabId;
-  localStorage.setItem("warehouse_current_tab", tabId);
-
-  // Clear bulk selection on tab switch
-  if (typeof clearBulkSelection === 'function') {
-    clearBulkSelection();
-  }
 
   if (tabId === "stock") {
     stockDisplayLimit = RENDER_LIMIT;
@@ -662,14 +578,15 @@ function updateTypeToggle() {
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
 function handleAutocompleteInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
-  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
   
   const dropdown = document.getElementById(dropdownId);
   const nameDropdown = document.getElementById(nameDropdownId);
   if (nameDropdown) nameDropdown.classList.remove("active");
 
   if (target === "order") onOrderArtNoInput(query);
+  else if (target === "ptag") { if (typeof onPtagArtNoInput === 'function') onPtagArtNoInput(query); }
   else onArtNoInput(query);
 
   if (!cleanQuery) {
@@ -706,8 +623,8 @@ function handleAutocompleteInput(query, target = "register") {
 
 function handleAutocompleteNameInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
-  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
 
   const dropdown = document.getElementById(dropdownId);
   const artnoDropdown = document.getElementById(artnoDropdownId);
@@ -750,6 +667,10 @@ function selectAutocompleteItem(artNo, target = "register") {
     const artNoInput = document.getElementById("order-artno");
     if (artNoInput) artNoInput.value = artNo;
     onOrderArtNoInput(artNo);
+  } else if (target === "ptag") {
+    const artNoInput = document.getElementById("ptag-artno");
+    if (artNoInput) artNoInput.value = artNo;
+    if (typeof onPtagArtNoInput === 'function') onPtagArtNoInput(artNo);
   } else {
     const artNoInput = document.getElementById("reg-artno");
     if (artNoInput) artNoInput.value = artNo;
@@ -995,42 +916,19 @@ async function processRegCart() {
   document.getElementById("btn-save").disabled = true;
 
   try {
-    let payload = regCartList.map(item => ({
-      date: item.date, type: item.type, artNo: item.artNo, qty: item.qty, user: currentUser || "system", artName: item.artName
-    }));
+    const { data, error } = await supabaseClient
+      .from('inventory_logs')
+      .insert(regCartList.map(item => ({
+        date: item.date,
+        type: item.type,
+        artNo: item.artNo,
+        artName: item.artName,
+        qty: item.qty,
+        user: currentUser || "system"
+      })))
+      .select();
 
-    let res = await supabaseClient.from('inventory_logs').insert(payload).select();
-    
-    if (res.error && res.error.message) {
-      const msg = res.error.message;
-      if (msg.includes("artName") || msg.includes("artname") || msg.includes("artNo") || msg.includes("artno")) {
-        // Fallback 1: lowercase everything
-        payload = regCartList.map(item => ({
-          date: item.date, type: item.type, artno: item.artNo, qty: item.qty, user: currentUser || "system", artname: item.artName
-        }));
-        res = await supabaseClient.from('inventory_logs').insert(payload).select();
-        
-        if (res.error && res.error.message) {
-          // Fallback 2: artNo only (no name)
-          payload = regCartList.map(item => ({
-            date: item.date, type: item.type, artNo: item.artNo, qty: item.qty, user: currentUser || "system"
-          }));
-          res = await supabaseClient.from('inventory_logs').insert(payload).select();
-          
-          if (res.error && res.error.message) {
-            // Fallback 3: artno only (no name)
-            payload = regCartList.map(item => ({
-              date: item.date, type: item.type, artno: item.artNo, qty: item.qty, user: currentUser || "system"
-            }));
-            res = await supabaseClient.from('inventory_logs').insert(payload).select();
-          }
-        }
-      }
-    }
-
-    if (res.error) throw res.error;
-    const data = res.data;
-    const error = res.error;
+    if (error) throw error;
     
     if (data) {
       data.forEach(inserted => {
@@ -1052,7 +950,7 @@ async function processRegCart() {
     renderStockLookup();
     renderHistoryLogs();
     
-    showToast(`총 ${regCartList.length}건의 항목이 일괄 저장되었습니다!`, "success", null, true);
+    showToast(`총 ${regCartList.length}건의 항목이 일괄 저장되었습니다!`, "success");
     playSuccessFeedback();
     
     regCartList = [];
@@ -1105,7 +1003,7 @@ async function handleAddToPickList() {
 
     orderLogs.unshift(newPick);
 
-    showToast(`'${artName}' ${qty}개가 창고 챙기기 목록에 담겼습니다!`, "success", null, true);
+    showToast(`'${artName}' ${qty}개가 창고 챙기기 목록에 담겼습니다!`, "success");
     playSuccessFeedback();
 
     // Reset form
@@ -1156,7 +1054,7 @@ async function handleOrderSubmit(e) {
 
     orderLogs.unshift(newOrder);
 
-    showToast("오더 요청이 성공적으로 등록되었습니다.", "success", null, true);
+    showToast(`'${artName}' ${qty}개 오더 요청이 완료되었습니다!`, "success");
     playSuccessFeedback();
 
     // Reset form
@@ -1195,8 +1093,18 @@ function renderOrderLogs() {
     if (statusText === '출고완료') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
 
     let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
-    // statusHtml remains just the badge
-    // We will place the action buttons below the quantity
+    
+    if (isAdminUser) {
+      statusHtml = `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          ${statusHtml}
+          <div style="display:flex; gap:4px; margin-top:2px;">
+            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">수락</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">보류</button>
+          </div>
+        </div>
+      `;
+    }
 
     let displayTime = item.date;
     if (item.created_at) {
@@ -1209,28 +1117,6 @@ function renderOrderLogs() {
       displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
 
-    let actionButtonsHtml = '';
-    const canManageStatus = isAdminUser;
-    const canDelete = isAdminUser || item.user === currentUser;
-    
-    if (canManageStatus || canDelete) {
-      actionButtonsHtml += `<div style="display:flex; gap:4px; margin-top:8px;">`;
-      
-      if (canManageStatus) {
-        actionButtonsHtml += `
-          <button type="button" onclick="updateOrderStatus(${index}, '출고대기')" class="btn-action-sm btn-accept"><i class="fa-solid fa-check"></i> 수락</button>
-          <button type="button" onclick="updateOrderStatus(${index}, '보류')" class="btn-action-sm btn-hold"><i class="fa-solid fa-pause"></i> 보류</button>
-        `;
-      }
-      if (canDelete) {
-        actionButtonsHtml += `
-          <button type="button" onclick="deleteOrderRequest(${index})" class="btn-action-sm btn-del"><i class="fa-solid fa-trash-can"></i> 삭제</button>
-        `;
-      }
-      
-      actionButtonsHtml += `</div>`;
-    }
-
     return `
     <div class="history-item" style="border-left-color: #6366f1;">
       <div class="hist-left">
@@ -1238,12 +1124,11 @@ function renderOrderLogs() {
         <div class="hist-name">${item.artName}</div>
         <span class="hist-artno">번호: ${item.artNo}</span>
       </div>
-      <div class="hist-right" style="align-items:flex-end;">
+      <div class="hist-right">
         ${statusHtml}
-        <div class="hist-qty" style="color: #4338ca; margin-top:4px; font-weight:bold;">
+        <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
           ${item.qty}개
         </div>
-        ${actionButtonsHtml}
       </div>
     </div>
     `;
@@ -1252,41 +1137,21 @@ function renderOrderLogs() {
   renderPickList();
 }
 
-async function deleteOrderRequest(index) {
-  const order = orderLogs[index];
-  if (!order) return;
-  
-  if (!confirm(`'${order.artName}' (${order.qty}개) 오더 요청을 정말 삭제하시겠습니까?`)) return;
-  
-  if (supabaseClient && order.id) {
-    try {
-      const { error } = await supabaseClient
-        .from('order_requests')
-        .delete()
-        .eq('id', order.id);
-        
-      if (error) throw error;
-    } catch (err) {
-      console.warn("Supabase delete error:", err);
-      showToast("오더 삭제 실패: " + err.message, "danger");
-      return;
-    }
-  }
-  
-  orderLogs.splice(index, 1);
-  try {
-    localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
-  } catch (err) {}
-  
-  showToast("오더 요청이 삭제되었습니다.", "success", null, true);
-  renderOrderLogs();
-}
-
 function renderPickList() {
   const container = document.getElementById("picklist-container");
   if (!container) return;
 
-  const pendingPicks = orderLogs.filter(log => log.status === "출고대기");
+  const searchInput = document.getElementById("picklist-search");
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+  let pendingPicks = orderLogs.filter(log => log.status === "출고대기");
+  
+  if (query) {
+    pendingPicks = pendingPicks.filter(log => 
+      (log.artName && log.artName.toLowerCase().includes(query)) ||
+      (log.artNo && log.artNo.toLowerCase().includes(query))
+    );
+  }
 
   if (pendingPicks.length === 0) {
     container.innerHTML = `
@@ -1301,6 +1166,10 @@ function renderPickList() {
   let html = "";
   orderLogs.forEach((item, index) => {
     if (item.status === "출고대기") {
+      if (query && !(
+        (item.artName && item.artName.toLowerCase().includes(query)) ||
+        (item.artNo && item.artNo.toLowerCase().includes(query))
+      )) return;
       let displayTime = item.date;
       if (item.created_at) {
         const d = new Date(item.created_at);
@@ -1311,33 +1180,21 @@ function renderPickList() {
         const min = String(d.getMinutes()).padStart(2, '0');
         displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
       }
+      const masterItem = masterCatalog.find(m => m.artNo === item.artNo);
+      const loc = (masterItem && masterItem.location && masterItem.location !== '지정 안됨') ? masterItem.location : '위치 미지정';
+
       html += `
         <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb;">
           <div class="hist-left">
             <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
             <div class="hist-name">${item.artName}</div>
-            <span class="hist-artno" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:4px;">
-              <span>번호: ${item.artNo}</span>
-              <span style="background-color:#fffbeb; color:#b45309; padding:4px 10px; border-radius:6px; font-size:13px; font-weight:800; border:1px solid #fde68a; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                <i class="fa-solid fa-location-dot"></i> 위치: ${(() => {
-                  const matched = masterCatalog.find(m => m.artNo === item.artNo);
-                  return matched && matched.location && matched.location !== '지정 안됨' ? matched.location : '지정 안됨';
-                })()}
-              </span>
-            </span>
+            <span class="hist-artno">번호: ${item.artNo} <span style="margin-left:8px; padding:2px 8px; background:#fef3c7; color:#b45309; border-radius:12px; font-weight:900; font-size:16px;">${loc}</span></span>
           </div>
           <div class="hist-right" style="align-items:flex-end;">
             <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
-            <div style="display:flex; gap:4px; margin-top:8px;">
-              <button type="button" class="btn-action-sm btn-accept" onclick="completePickItem(${index})">
-                <i class="fa-solid fa-check"></i> 챙김 완료
-              </button>
-              ${(isAdminUser || item.user === currentUser) ? `
-                <button type="button" class="btn-action-sm btn-del" onclick="deleteOrderRequest(${index})">
-                  <i class="fa-solid fa-trash-can"></i> 삭제
-                </button>
-              ` : ''}
-            </div>
+            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 12px; padding: 8px 12px; margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem(${index})">
+              <i class="fa-solid fa-check"></i> 챙김 완료 (출고)
+            </button>
           </div>
         </div>
       `;
@@ -1351,6 +1208,7 @@ async function completePickItem(index) {
   if (!pickItem || pickItem.status !== "출고대기") return;
   
   if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
+  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   
   try {
     // 1. Update order status to 출고완료
@@ -1378,7 +1236,7 @@ async function completePickItem(index) {
     historyLogs.unshift(newLog);
     invalidateStockCache();
     
-    showToast("창고 챙김을 완료하고 출고 처리했습니다.", "success", null, true);
+    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
     playSuccessFeedback();
     
     renderStockLookup();
@@ -1413,7 +1271,7 @@ async function updateOrderStatus(index, newStatus) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success", null, true);
+  showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
   renderOrderLogs();
 }
 
@@ -1445,7 +1303,7 @@ function exportOrdersToExcel() {
 
   const todayStr = new Date().toISOString().split("T")[0];
   XLSX.writeFile(workbook, `오더_요청_내역_${todayStr}.xlsx`);
-  showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success", null, true);
+  showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success");
 }
 
 // --- Stock Lookup View Logic & Enhanced Dashboard ---
@@ -1520,11 +1378,10 @@ function renderStockLookup() {
 
   const stockList = [];
   stockMap.forEach(item => {
-    const matchedMaster = masterCatalog.find(m => m.artNo === item.artNo);
     if (!item.hfb) {
-      item.hfb = matchedMaster ? matchedMaster.hfb || "미지정" : "미지정";
+      const matchedMaster = masterCatalog.find(m => m.artNo === item.artNo);
+      item.hfb = matchedMaster ? matchedMaster.hfb || "기타 HFB" : "기타 HFB";
     }
-    item.location = matchedMaster ? matchedMaster.location || "지정 안됨" : "지정 안됨";
     stockList.push(item);
   });
 
@@ -1587,24 +1444,18 @@ function renderStockLookup() {
     const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
 
     return `
-      <div class="${cardClass}" id="stock-card-${item.artNo.replace(/[^a-zA-Z0-9]/g, '-')}">
+      <div class="${cardClass}">
         <div class="ssc-left">
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <div class="ssc-artno" style="display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" class="bulk-check-input" value="${item.artNo}" style="transform: scale(1.3); accent-color: #2563eb;" onchange="toggleBulkSelection('${item.artNo}', this.checked)" ${selectedStockItems.has(item.artNo) ? 'checked' : ''}>
-              <span class="hfb-badge">${item.hfb}</span>
-              ${item.artNo}
-            </div>
+            <span class="ssc-artno">${item.artNo}</span>
             <div class="ssc-quick-btns">
               <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
               <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
               <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">오더</button>
-              <button type="button" class="btn-sm btn-quick-loc" onclick="quickEditSingleLocation('${item.artNo}')">
-                <i class="fa-solid fa-location-dot"></i> ${item.location === '지정 안됨' ? '위치 미지정' : item.location}
-              </button>
             </div>
           </div>
           <span class="ssc-name">${item.artName}</span>
+          <span class="ssc-hfb">${item.hfb || 'HFB'}</span>
         </div>
         <div class="ssc-right">
           <span class="ssc-status ${statusClass}">${statusText}</span>
@@ -1626,152 +1477,6 @@ function renderStockLookup() {
   }
 
   container.innerHTML = html;
-}
-
-// --- Bulk Location Edit Logic ---
-function quickEditSingleLocation(artNo) {
-  clearBulkSelection();
-  toggleBulkSelection(artNo, true);
-  
-  // 체크박스 시각적 업데이트
-  const checkbox = document.querySelector(`.bulk-check-input[value="${artNo}"]`);
-  if (checkbox) checkbox.checked = true;
-  
-  openBulkLocationModal();
-}
-
-function toggleBulkSelection(artNo, isChecked) {
-  if (isChecked) {
-    selectedStockItems.add(artNo);
-  } else {
-    selectedStockItems.delete(artNo);
-  }
-  updateBulkActionBar();
-}
-
-function updateBulkActionBar() {
-  const bar = document.getElementById("bulk-action-bar");
-  const countSpan = document.getElementById("bulk-count");
-  if (!bar || !countSpan) return;
-
-  if (selectedStockItems.size > 0) {
-    countSpan.textContent = selectedStockItems.size;
-    bar.style.display = "flex";
-  } else {
-    bar.style.display = "none";
-  }
-}
-
-function clearBulkSelection() {
-  selectedStockItems.clear();
-  updateBulkActionBar();
-  
-  // Uncheck all checkboxes visually
-  document.querySelectorAll(".bulk-check-input").forEach(cb => cb.checked = false);
-}
-
-function openBulkLocationModal() {
-  const countSpan = document.getElementById("bulk-loc-count");
-  if (countSpan) countSpan.textContent = selectedStockItems.size;
-  
-  // Reset checkboxes
-  document.querySelectorAll("#bulk-loc-checkboxes input[type='checkbox']").forEach(cb => cb.checked = false);
-  
-  document.getElementById("bulk-loc-modal").classList.add("active");
-}
-
-function closeBulkLocationModal() {
-  document.getElementById("bulk-loc-modal").classList.remove("active");
-}
-
-function saveBulkLocation() {
-  if (selectedStockItems.size === 0) return;
-  
-  const checkboxes = document.querySelectorAll("#bulk-loc-checkboxes input[type='checkbox']:checked");
-  let selected = [];
-  checkboxes.forEach(cb => selected.push(cb.value));
-  const newLocation = selected.length > 0 ? selected.join(', ') : '지정 안됨';
-  
-  selectedStockItems.forEach(artNo => {
-    let item = masterCatalog.find(m => m.artNo === artNo);
-    if (item) {
-      item.location = newLocation;
-    } else {
-      item = { artNo: artNo, artName: "Unknown", location: newLocation };
-      masterCatalog.push(item);
-    }
-  });
-  
-  saveMasterCatalog();
-  
-  if (supabaseClient) {
-    const updatePromises = [];
-    selectedStockItems.forEach(artNo => {
-      const promise = supabaseClient.from('master_catalog')
-        .update({ location: newLocation })
-        .eq('artno', artNo)
-        .select()
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("Supabase bulk location update error:", error);
-            return { error };
-          }
-          if (!data || data.length === 0) {
-            // Row does not exist in master_catalog! Insert it manually.
-            let item = masterCatalog.find(m => m.artNo === artNo);
-            return supabaseClient.from('master_catalog').insert([{
-              artno: artNo,
-              artname: item ? item.artName : "Unknown",
-              hfb: item ? item.hfb : "",
-              location: newLocation
-            }]);
-          }
-          return { data };
-        }).catch(err => {
-          return { error: err };
-        });
-      updatePromises.push(promise);
-    });
-    
-    // 모달창 내 버튼 텍스트 변경 (저장 중 표시)
-    const btnSubmit = document.querySelector("#bulk-loc-modal .btn-submit");
-    if (btnSubmit) {
-      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
-      btnSubmit.disabled = true;
-    }
-
-    Promise.all(updatePromises).then(results => {
-      let hasError = false;
-      let errMsg = "";
-      results.forEach(res => {
-        if (res && res.error) {
-          hasError = true;
-          errMsg = res.error.message;
-          console.error("Supabase bulk location error:", res.error);
-        }
-      });
-      
-      const count = selectedStockItems.size;
-      closeBulkLocationModal();
-      clearBulkSelection();
-      
-      if (btnSubmit) {
-        btnSubmit.innerHTML = '변경사항 저장';
-        btnSubmit.disabled = false;
-      }
-      
-      if (hasError) {
-        showToast(`슈퍼베이스 저장 실패: ${errMsg}`, "danger", null, false);
-      } else {
-        showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
-      }
-    });
-  } else {
-    const count = selectedStockItems.size;
-    closeBulkLocationModal();
-    clearBulkSelection();
-    showToast(`선택한 ${count}개 품목의 위치가 [${newLocation}](으)로 일괄 변경되었습니다.`, "success", null, true);
-  }
 }
 
 // Multi-Tab Dashboard (High TOP 10, Low TOP 10, HFB Breakdown)
@@ -1952,7 +1657,7 @@ function quickActionRegister(artNo, type) {
 
   const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
   switchTab("register", regNavBtn);
-  showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success", null, true);
+  showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success");
 }
 
 function quickActionOrder(artNo) {
@@ -1963,7 +1668,7 @@ function quickActionOrder(artNo) {
 
   const orderNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[2];
   switchTab("order", orderNavBtn);
-  showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success", null, true);
+  showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success");
 }
 
 // --- History Logs Logic & Filters ---
@@ -2046,7 +1751,7 @@ function renderHistoryLogs() {
 
   const visibleLogs = filteredLogs.slice(0, historyDisplayLimit);
 
-  let html = visibleLogs.map((log) => {
+  let html = visibleLogs.map(log => {
     let displayTime = log.date;
     if (log.created_at) {
       const d = new Date(log.created_at);
@@ -2057,12 +1762,6 @@ function renderHistoryLogs() {
       const min = String(d.getMinutes()).padStart(2, '0');
       displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
-
-    let deleteBtnHtml = '';
-    if (isAdminUser || log.user === currentUser) {
-      deleteBtnHtml = `<button type="button" class="btn-delete-log" onclick="deleteHistoryLog(${log.id})"><i class="fa-solid fa-trash-can"></i> 삭제</button>`;
-    }
-
     return `
     <div class="history-item type-${log.type}">
       <div class="hist-left">
@@ -2070,12 +1769,11 @@ function renderHistoryLogs() {
         <div class="hist-name">${log.artName}</div>
         <span class="hist-artno">번호: ${log.artNo}</span>
       </div>
-      <div class="hist-right" style="align-items:flex-end;">
+      <div class="hist-right">
         <span class="hist-badge type-${log.type}">${log.type}</span>
-        <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}" style="margin-top:4px; font-weight:bold;">
+        <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
           ${log.type === '입고' ? '+' : '-'}${log.qty}개
         </div>
-        ${deleteBtnHtml}
       </div>
     </div>
     `;
@@ -2096,46 +1794,6 @@ function renderHistoryLogs() {
 function loadMoreHistoryLogs() {
   historyDisplayLimit += RENDER_LIMIT;
   renderHistoryLogs();
-}
-
-async function deleteHistoryLog(logId) {
-  const logIndex = historyLogs.findIndex(l => l.id === logId);
-  if (logIndex === -1) return;
-  const log = historyLogs[logIndex];
-  
-  if (!confirm(`'${log.artName}' (${log.type} ${log.qty}개) 기록을 정말 삭제하시겠습니까?`)) return;
-  
-  if (supabaseClient && log.id) {
-    try {
-      const { error } = await supabaseClient
-        .from('inventory_logs')
-        .delete()
-        .eq('id', log.id);
-        
-      if (error) throw error;
-    } catch (err) {
-      console.warn("Supabase delete error:", err);
-      showToast("기록 삭제 실패: " + err.message, "danger");
-      return;
-    }
-  }
-  
-  historyLogs.splice(logIndex, 1);
-  try {
-    localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
-  } catch (err) {}
-  
-  invalidateStockCache();
-  
-  showToast("입출고 기록이 삭제되었습니다.", "success", null, true);
-  renderHistoryLogs();
-  
-  try {
-    const activeTab = document.querySelector('.tab-page.active');
-    if (activeTab && activeTab.id === 'tab-stock') {
-      renderStockLookup();
-    }
-  } catch(e) {}
 }
 
 function resetHistoryFilters() {
@@ -2246,14 +1904,7 @@ function handleExcelImport(e) {
 
             if (artNo && !seenArtNo.has(artNo)) {
               seenArtNo.add(artNo);
-              const existingItem = masterCatalog.find(m => m.artNo === artNo);
-              const location = existingItem && existingItem.location ? existingItem.location : "지정 안됨";
-              const id = existingItem ? existingItem.id : undefined;
-              
-              const catalogItem = { hfb, artNo, artName, location };
-              if (id) catalogItem.id = id;
-              
-              newCatalog.push(catalogItem);
+              newCatalog.push({ hfb, artNo, artName });
             }
           }
         }
@@ -2261,30 +1912,6 @@ function handleExcelImport(e) {
         if (newCatalog.length > 0) {
           masterCatalog = newCatalog;
           saveMasterCatalog();
-          
-          if (supabaseClient) {
-            const upsertPayload = newCatalog.map(item => {
-              const row = {
-                artno: item.artNo,
-                artname: item.artName,
-                hfb: item.hfb,
-                location: item.location
-              };
-              if (item.id) row.id = item.id;
-              return row;
-            });
-            
-            // Upsert in chunks of 500 to avoid payload limits
-            const chunkSize = 500;
-            for (let i = 0; i < upsertPayload.length; i += chunkSize) {
-              const chunk = upsertPayload.slice(i, i + chunkSize);
-              supabaseClient.from('master_catalog').upsert(chunk, { onConflict: 'artno' })
-                .then(({error}) => {
-                  if (error) console.error("Supabase Excel upsert error:", error);
-                });
-            }
-          }
-          
           renderMasterCatalog();
           populateArticleFilterDropdown();
 
@@ -2456,20 +2083,8 @@ function handleAddMasterSubmit(e) {
     return;
   }
 
-  const newItem = { hfb, artNo, artName, location: "지정 안됨" };
-  masterCatalog.push(newItem);
+  masterCatalog.push({ hfb, artNo, artName });
   saveMasterCatalog();
-  
-  if (supabaseClient) {
-    supabaseClient.from('master_catalog').insert([{
-      hfb: hfb,
-      artno: artNo,
-      artname: artName,
-      location: "지정 안됨"
-    }]).then(({error}) => {
-      if (error) console.error("Supabase insert master error:", error);
-    });
-  }
   renderMasterCatalog();
   populateArticleFilterDropdown();
   closeAddMasterModal();
@@ -2479,7 +2094,7 @@ function handleAddMasterSubmit(e) {
 }
 
 // Toast Utility
-function showToast(message, type = "success", undoId = null, requireRefresh = false) {
+function showToast(message, type = "success", undoId = null) {
   const container = document.getElementById("toast-container");
   if (!container) return;
 
@@ -2497,18 +2112,6 @@ function showToast(message, type = "success", undoId = null, requireRefresh = fa
   }
 
   container.appendChild(toast);
-
-  if (requireRefresh) {
-    if (navigator.vibrate) {
-      navigator.vibrate([150, 50, 150]);
-    }
-    setTimeout(() => {
-      // Soft refresh: fetch data quietly and re-render the current tab
-      loadDataFromSupabase().then(() => {
-        if (currentTab) switchTab(currentTab);
-      });
-    }, 1200);
-  }
 
   setTimeout(() => {
     if (toast.parentNode) {
@@ -2549,7 +2152,7 @@ window.undoLastAction = async function(id, toastElem) {
   }
 
   if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
-  showToast("해당 기록이 취소되었습니다.", "success", null, true);
+  showToast("해당 기록이 취소되었습니다.", "success");
 }
 
 // --- Supabase Realtime Subscriptions ---

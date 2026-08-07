@@ -1830,3 +1830,10 @@ body {
 b o d y  
    o v e r s c r o l l - b e h a v i o r - y :   n o n e ;    
  .btn-quick-loc { background-color: #fff7ed; color: #ea580c; border: none; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
+
+/* Menu Tab Styles */
+.menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 20px; }
+.menu-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #fff; padding: 25px 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; color: #1e293b; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+.menu-item:active { transform: scale(0.95); }
+.menu-icon { font-size: 32px; margin-bottom: 12px; color: #3b82f6; }
+.menu-text { font-size: 15px; font-weight: 700; }

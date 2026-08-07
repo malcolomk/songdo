@@ -335,6 +335,12 @@
         <div class="card-header space-between">
           <h2><i class="fa-solid fa-box-open"></i> 창고 대기 목록</h2>
         </div>
+        <div style="padding: 0 15px 10px 15px;">
+          <div class="search-bar">
+            <i class="fa-solid fa-search" style="position: absolute; left: 25px; color: #94a3b8; margin-top: 2px;"></i>
+            <input type="text" id="picklist-search" placeholder="아티클 이름으로 검색..." class="input-control" style="background:#f8fafc; padding-left:36px; border-radius:8px;">
+          </div>
+        </div>
         <div id="picklist-container" class="history-list"></div>
       </div>
     </section>
@@ -400,6 +406,122 @@
         <div id="history-logs-container" class="history-list"></div>
       </div>
     </section>
+    <section id="tab-menu" class="tab-page">
+      <div class="card-box">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-bars"></i> 전체 메뉴</h2>
+        </div>
+        <div class="menu-grid">
+          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:last-child'))">
+            <i class="fa-solid fa-warehouse menu-icon"></i>
+            <span class="menu-text">재고 조회</span>
+          </a>
+          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:last-child'))">
+            <i class="fa-solid fa-cart-flatbed menu-icon"></i>
+            <span class="menu-text">오더 요청</span>
+          </a>
+          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:last-child'))">
+            <i class="fa-solid fa-box-open menu-icon"></i>
+            <span class="menu-text">창고 챙기기</span>
+          </a>
+          <a class="menu-item" onclick="switchTab('ptag', document.querySelector('.bottom-nav .nav-item:last-child'))">
+            <i class="fa-solid fa-tag menu-icon" style="color:#8b5cf6;"></i>
+            <span class="menu-text">P-tag</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-ptag" class="tab-page">
+      <div class="card-box">
+        <div class="card-header space-between">
+          <h2><i class="fa-solid fa-tags"></i> P-tag / Rack Label 요청</h2>
+        </div>
+        
+        <form id="ptag-form" onsubmit="handlePtagSubmit(event)">
+          <!-- 날짜 -->
+          <div class="form-group" style="display:none;">
+            <input type="date" id="ptag-date" class="input-control">
+          </div>
+
+          <!-- 아티클 번호 -->
+          <div class="form-group">
+            <label for="ptag-artno"><i class="fa-solid fa-barcode"></i> 아티클 번호</label>
+            <div class="autocomplete-wrapper">
+              <div class="input-with-action">
+                <input type="text" id="ptag-artno" placeholder="번호 또는 품목명 일부 입력" required class="input-control" autocomplete="off" oninput="handleAutocompleteInput(this.value, 'ptag')" onfocus="handleAutocompleteInput(this.value, 'ptag')">
+                <button type="button" class="btn-secondary" onclick="openMasterSelectModal('ptag')"><i class="fa-solid fa-list"></i> 전체</button>
+              </div>
+              <div id="ptag-autocomplete-dropdown" class="autocomplete-dropdown"></div>
+            </div>
+          </div>
+
+          <!-- 아티클 이름 -->
+          <div class="form-group">
+            <label for="ptag-artname"><i class="fa-solid fa-tag"></i> 아티클 이름</label>
+            <div class="autocomplete-wrapper">
+              <div class="input-readonly-wrapper">
+                <input type="text" id="ptag-artname" placeholder="품목명 자동 입력" class="input-control" autocomplete="off" oninput="handleAutocompleteNameInput(this.value, 'ptag')" onfocus="handleAutocompleteNameInput(this.value, 'ptag')">
+                <span id="ptag-artname-status-icon" class="status-icon"><i class="fa-solid fa-circle-info"></i></span>
+              </div>
+              <div id="ptag-name-autocomplete-dropdown" class="autocomplete-dropdown"></div>
+            </div>
+          </div>
+
+          <!-- 수량 및 위치 -->
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="ptag-qty"><i class="fa-solid fa-layer-group"></i> 수량</label>
+              <input type="number" id="ptag-qty" min="1" placeholder="수량 입력" required class="input-control qty-input">
+            </div>
+            <div class="form-group col-half">
+              <label for="ptag-location"><i class="fa-solid fa-location-dot"></i> 위치</label>
+              <input type="text" id="ptag-location" placeholder="위치 자동 입력" class="input-control">
+            </div>
+          </div>
+          
+          <!-- 라벨 종류 선택 -->
+          <div class="form-group">
+            <label><i class="fa-solid fa-print"></i> 라벨 종류 선택 (다중 선택 가능)</label>
+            <div style="display:flex; gap: 15px; margin-top: 8px;">
+              <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                <input type="checkbox" id="ptag-check-ptag" style="width:20px; height:20px; accent-color:#3b82f6;" checked>
+                P-tag
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                <input type="checkbox" id="ptag-check-rack" style="width:20px; height:20px; accent-color:#3b82f6;">
+                Rack Label
+              </label>
+            </div>
+          </div>
+
+          <div class="submit-group">
+            <button type="submit" class="btn-submit" id="btn-ptag-request" style="width:100%;">
+              <i class="fa-solid fa-paper-plane"></i> 라벨 출력 요청
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 출력 대기 목록 -->
+      <div class="card-box">
+        <div class="card-header space-between" style="flex-wrap: wrap; gap:10px;">
+          <h2><i class="fa-solid fa-list-check"></i> 출력 대기 목록</h2>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-action-sm" style="background:#e2e8f0; color:#334155; border:1px solid #cbd5e1;" onclick="toggleAllPtags(this)">
+              <i class="fa-solid fa-check-double"></i> 전체선택
+            </button>
+            <button type="button" class="btn-excel-export" style="margin-left:0; padding:6px 12px; font-size:13px;" onclick="exportPtagToExcel()">
+              <i class="fa-solid fa-file-excel"></i> 엑셀 추출
+            </button>
+            <button type="button" class="btn-action-sm btn-del" onclick="deleteSelectedPtags()">
+              <i class="fa-solid fa-trash-can"></i> 선택 완료(삭제)
+            </button>
+          </div>
+        </div>
+        <div id="ptag-logs-container" class="history-list" style="margin-top:10px;"></div>
+      </div>
+    </section>
 
   </main>
 
@@ -409,21 +531,13 @@
       <i class="fa-solid fa-pen-to-square"></i>
       <span>입출고 등록</span>
     </button>
-    <button type="button" class="nav-item" onclick="switchTab('stock', this)">
-      <i class="fa-solid fa-warehouse"></i>
-      <span>재고 조회</span>
-    </button>
-    <button type="button" class="nav-item" onclick="switchTab('order', this)">
-      <i class="fa-solid fa-cart-flatbed"></i>
-      <span>오더 요청</span>
-    </button>
-    <button type="button" class="nav-item" onclick="switchTab('picklist', this)">
-      <i class="fa-solid fa-box-open"></i>
-      <span>창고 챙기기</span>
-    </button>
     <button type="button" class="nav-item" id="nav-history-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
       <span>입출고 기록</span>
+    </button>
+    <button type="button" class="nav-item" onclick="switchTab('menu', this)">
+      <i class="fa-solid fa-bars"></i>
+      <span>메뉴</span>
     </button>
   </nav>
 
@@ -541,6 +655,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=1.7.11"></script>
+  <script src="ptag.js?v=1.7.20"></script>
+  <script src="app.js?v=1.7.20"></script>
 </body>
 </html>
