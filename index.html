@@ -15,6 +15,28 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=1.5.1">
+  <style>
+  .selected-card {
+    border: 3px solid #4f46e5 !important;
+    background-color: #e0e7ff !important;
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3) !important;
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+  }
+  .nav-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: #ef4444;
+    color: white;
+    border-radius: 12px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 900;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 10;
+  }
+  </style>
 </head>
 <body>
 
@@ -147,7 +169,7 @@
             <label for="reg-artname"><i class="fa-solid fa-tag"></i> 아티클 이름</label>
             <div class="autocomplete-wrapper">
               <div class="input-readonly-wrapper">
-                <input type="text" id="reg-artname" placeholder="품목명 일부 입력 시 연관 제품이 아래 표시됩니다" class="input-control" autocomplete="off" oninput="handleAutocompleteNameInput(this.value, 'register')" onfocus="handleAutocompleteNameInput(this.value, 'register')">
+                <input type="text" id="reg-artname" placeholder="자동으로 안나올 경우 수기로 입력하세요" class="input-control" autocomplete="off" oninput="handleAutocompleteNameInput(this.value, 'register')" onfocus="handleAutocompleteNameInput(this.value, 'register')">
                 <span id="artname-status-icon" class="status-icon"><i class="fa-solid fa-circle-info"></i></span>
               </div>
               <div id="reg-name-autocomplete-dropdown" class="autocomplete-dropdown"></div>
@@ -235,10 +257,16 @@
       </div>
 
       <!-- Stock List Container -->
-      <div class="section-title-bar">
-        <h3><i class="fa-solid fa-list-check"></i> 전체 품목별 재고 현황</h3>
-        <span class="count-badge" id="stock-count-text">0개 품목</span>
-      </div>
+        <div class="section-title-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h3 style="margin:0;"><i class="fa-solid fa-list-check"></i> 전체 품목 재고 현황</h3>
+            <span class="count-badge" id="stock-count-text">0개 품목</span>
+          </div>
+          <label style="font-size:13px; font-weight:bold; cursor:pointer; color:#4f46e5; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="stock-select-all" onclick="toggleStockSelectAll(this.checked)" style="transform: scale(1.2);">
+            전체 선택
+          </label>
+        </div>
 
       <div id="stock-cards-container" class="stock-cards-list" style="padding-bottom: 70px;"></div>
 
@@ -322,12 +350,25 @@
 
       <!-- Recent Orders List Card -->
       <div class="card-box">
-        <div class="card-header space-between">
+        <div class="card-header space-between" style="align-items:center;">
           <h2><i class="fa-solid fa-list-check"></i> 최근 오더 요청 내역</h2>
+          <label style="font-size:13px; font-weight:bold; cursor:pointer; color:#4f46e5; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="order-select-all" onclick="toggleOrderSelectAll(this.checked)" style="transform: scale(1.2);">
+            전체 선택
+          </label>
         </div>
-        <div id="order-logs-container" class="history-list"></div>
-      </div>
-    </section>
+        <div id="order-logs-container" class="history-list" style="padding-bottom: 70px;"></div>
+        <!-- 오더 요청 벌크 액션 바 -->
+        <div id="order-bulk-action-bar" style="display:none; position:fixed; bottom:70px; left:50%; transform:translateX(-50%); width:100%; max-width:500px; background:#6366f1; color:white; padding:12px 20px; z-index:100; justify-content:space-between; align-items:center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);">
+          <div><span id="order-bulk-count" style="font-weight:700; font-size:16px;">0</span>개 선택됨</div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn-sm" style="background:white; color:#6366f1; font-weight:700; border:none; border-radius:4px; padding: 6px 8px;" onclick="bulkUpdateOrderStatus('승인')">수락</button>
+            <button type="button" class="btn-sm" style="background:#fef08a; color:#a16207; font-weight:700; border:none; border-radius:4px; padding: 6px 8px;" onclick="bulkUpdateOrderStatus('보류')">보류</button>
+            <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; font-weight:700; border:none; border-radius:4px; padding: 6px 8px;" onclick="bulkDeleteOrders()">삭제</button>
+            <button type="button" class="btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none; border-radius:4px; padding: 6px 8px;" onclick="clearOrderBulkSelection()">취소</button>
+          </div>
+        </div>
+      </section>
 
     <!-- NEW TAB 4: 창고 챙기기 (PICK LIST) -->
     <section id="tab-picklist" class="tab-page">
@@ -416,13 +457,15 @@
             <i class="fa-solid fa-warehouse menu-icon"></i>
             <span class="menu-text">재고 조회</span>
           </a>
-          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:last-child'))">
+          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:last-child'))" style="position:relative;">
             <i class="fa-solid fa-cart-flatbed menu-icon"></i>
             <span class="menu-text">오더 요청</span>
+            <span id="badge-order" class="nav-badge" style="display:none;">0</span>
           </a>
-          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:last-child'))">
+          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:last-child'))" style="position:relative;">
             <i class="fa-solid fa-box-open menu-icon"></i>
             <span class="menu-text">창고 챙기기</span>
+            <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('ptag', document.querySelector('.bottom-nav .nav-item:last-child'))">
             <i class="fa-solid fa-tag menu-icon" style="color:#8b5cf6;"></i>
@@ -476,7 +519,7 @@
             </div>
             <div class="form-group col-half">
               <label for="ptag-location"><i class="fa-solid fa-location-dot"></i> 위치</label>
-              <input type="text" id="ptag-location" placeholder="위치 자동 입력" class="input-control">
+              <input type="text" id="ptag-location" placeholder="수동 입력 (예: B1, B2)" class="input-control">
             </div>
           </div>
           
@@ -535,9 +578,10 @@
       <i class="fa-solid fa-clock-rotate-left"></i>
       <span>입출고 기록</span>
     </button>
-    <button type="button" class="nav-item" onclick="switchTab('menu', this)">
+    <button type="button" class="nav-item" onclick="switchTab('menu', this)" style="position:relative;">
       <i class="fa-solid fa-bars"></i>
       <span>메뉴</span>
+      <span id="badge-menu-main" class="nav-badge" style="display:none; right:15px;">0</span>
     </button>
   </nav>
 
@@ -655,7 +699,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="ptag.js?v=1.7.20"></script>
-  <script src="app.js?v=1.7.20"></script>
+  <script src="ptag.js?v=1.7.30"></script>
+  <script src="app.js?v=1.7.30"></script>
 </body>
 </html>
