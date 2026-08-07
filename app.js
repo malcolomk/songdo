@@ -1071,7 +1071,7 @@ async function handleOrderSubmit(e) {
 }
 
 function updateNavBadges() {
-  const picklistCount = orderLogs.filter(log => log.status === "출고대기").length;
+  const picklistCount = orderLogs.filter(log => log.status === "출고대기" && getItemStock(log.artNo) > 0).length;
   const orderCount = orderLogs.filter(log => log.status === "요청됨").length;
   const totalCount = picklistCount + orderCount;
 
@@ -1183,6 +1183,16 @@ function clearOrderBulkSelection() {
   if (selectAll) selectAll.checked = false;
   
   renderOrderLogs();
+}
+
+window.confirmDeleteHistoryLog = async function(id, artName) {
+  if (!isAdminUser) {
+    showToast("관리자만 삭제할 수 있습니다.", "danger");
+    return;
+  }
+  if (confirm(`'${artName}' 입출고 기록을 정말 삭제하시겠습니까?\n(삭제 시 재고가 복구되어 변경됩니다.)`)) {
+    await window.undoLastAction(id, null);
+  }
 }
 
 function toggleOrderSelectAll(checked) {
@@ -1396,7 +1406,7 @@ function renderPickList() {
   const searchInput = document.getElementById("picklist-search");
   const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
 
-  let pendingPicks = orderLogs.filter(log => log.status === "출고대기");
+  let pendingPicks = orderLogs.filter(log => log.status === "출고대기" && getItemStock(log.artNo) > 0);
   
   if (query) {
     pendingPicks = pendingPicks.filter(log => 
@@ -1416,56 +1426,77 @@ function renderPickList() {
   }
 
   let html = "";
-  orderLogs.forEach((item, index) => {
-    if (item.status === "출고대기") {
-      if (query && !(
-        (item.artName && item.artName.toLowerCase().includes(query)) ||
-        (item.artNo && item.artNo.toLowerCase().includes(query))
-      )) return;
-      let displayTime = item.date;
-      if (item.created_at) {
-        const d = new Date(item.created_at);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const hh = String(d.getHours()).padStart(2, '0');
-        const min = String(d.getMinutes()).padStart(2, '0');
-        displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
-      }
-      const masterItem = masterCatalog.find(m => m.artNo === item.artNo);
-      const loc = (masterItem && masterItem.location && masterItem.location !== '지정 안됨') ? masterItem.location : '위치 미지정';
+  pendingPicks.forEach(item => {
+    let displayTime = item.date;
+    if (item.created_at) {
+      const d = new Date(item.created_at);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+    }
+    const masterItem = masterCatalog.find(m => m.artNo === item.artNo);
+    const loc = (masterItem && masterItem.location && masterItem.location !== '지정 안됨') ? masterItem.location : '위치 미지정';
 
-      html += `
-        <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb; display: flex;">
-          <div class="hist-left" style="flex: 1;">
-            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
-            <div class="hist-name">${item.artName}</div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-              <span class="hist-artno">번호: ${item.artNo}</span>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size:12px; font-weight:bold; color:#b45309;">위치:</span>
-                <span style="font-size: 16px; font-weight:900; color:#b45309; padding:2px 8px; background:#fef3c7; border-radius:12px;">${loc}</span>
-              </div>
+    html += `
+      <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb; display: flex;">
+        <div class="hist-left" style="flex: 1;">
+          <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
+          <div class="hist-name">${item.artName}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="hist-artno">번호: ${item.artNo}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:12px; font-weight:bold; color:#b45309;">위치:</span>
+              <span style="font-size: 16px; font-weight:900; color:#b45309; padding:2px 8px; background:#fef3c7; border-radius:12px;">${loc}</span>
             </div>
           </div>
-          <div class="hist-right" style="align-items:flex-end;">
-            <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
-            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 11px; padding: 6px 10px; margin-top: 10px; border-radius: 6px; width: auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem(${index})">
+        </div>
+        <div class="hist-right" style="align-items:flex-end;">
+          <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
+          <div style="display:flex; flex-direction:column; gap:4px; margin-top:10px;">
+            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 11px; padding: 6px 10px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem('${item.id}')">
               <i class="fa-solid fa-check"></i> 챙김 완료
             </button>
+            ${isAdminUser ? `<button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 10px; border-radius:6px; font-size:11px; display:inline-flex; align-items:center; justify-content:center; gap:4px;" onclick="confirmDeletePickListItem('${item.id}', '${item.artName}')"><i class="fa-solid fa-trash"></i> 삭제</button>` : ''}
           </div>
         </div>
-      `;
-    }
+      </div>
+    `;
   });
   container.innerHTML = html;
 }
 
-async function completePickItem(index) {
-  const pickItem = orderLogs[index];
+window.confirmDeletePickListItem = async function(id, artName) {
+  if (!isAdminUser) {
+    showToast("관리자만 삭제할 수 있습니다.", "danger");
+    return;
+  }
+  if (confirm(`'${artName}' 창고 대기 목록(오더 요청)을 정말 삭제하시겠습니까?`)) {
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from("order_requests").delete().eq("id", id);
+      } catch (err) {
+        console.warn("Delete pick item error:", err);
+      }
+    }
+    
+    orderLogs = orderLogs.filter(log => String(log.id) !== String(id));
+    try {
+      localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+    } catch (err) {}
+    
+    showToast("해당 대기 목록이 삭제되었습니다.", "success");
+    renderOrderLogs(); // This also updates badges
+    renderPickList();
+  }
+}
+
+async function completePickItem(id) {
+  const pickItem = orderLogs.find(log => String(log.id) === String(id));
   if (!pickItem || pickItem.status !== "출고대기") return;
   
-  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   
   try {
@@ -2036,11 +2067,12 @@ function renderHistoryLogs() {
         <div class="hist-name">${log.artName}</div>
         <span class="hist-artno">번호: ${log.artNo}</span>
       </div>
-      <div class="hist-right">
+      <div class="hist-right" style="align-items:flex-end;">
         <span class="hist-badge type-${log.type}">${log.type}</span>
         <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
           ${log.type === '입고' ? '+' : '-'}${log.qty}개
         </div>
+        ${isAdminUser ? `<button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-top:4px;" onclick="confirmDeleteHistoryLog('${log.id}', '${log.artName}')"><i class="fa-solid fa-trash"></i> 삭제</button>` : ''}
       </div>
     </div>
     `;
@@ -2406,7 +2438,7 @@ window.undoLastAction = async function(id, toastElem) {
     }
   }
 
-  historyLogs = historyLogs.filter(log => log.id !== id);
+  historyLogs = historyLogs.filter(log => String(log.id) !== String(id));
   try {
     localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
   } catch (err) {}
@@ -2414,12 +2446,13 @@ window.undoLastAction = async function(id, toastElem) {
   invalidateStockCache();
   renderStockLookup();
   
-  if (currentTab === "history") {
+  const activeTab = document.querySelector('.tab-page.active');
+  if (activeTab && activeTab.id === "tab-history") {
     renderHistoryLogs();
   }
 
   if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
-  showToast("해당 기록이 취소되었습니다.", "success");
+  showToast("해당 기록이 삭제(취소)되었습니다.", "success");
 }
 
 // --- Supabase Realtime Subscriptions ---
@@ -2461,8 +2494,11 @@ function handleRealtimeInventory(payload) {
   
   invalidateStockCache();
   try {
-    if (currentTab === 'stock') renderStockLookup();
-    if (currentTab === 'history') renderHistoryLogs();
+    const activeTab = document.querySelector('.tab-page.active');
+    if (activeTab) {
+      if (activeTab.id === 'tab-stock') renderStockLookup();
+      if (activeTab.id === 'tab-history') renderHistoryLogs();
+    }
   } catch (e) {}
 }
 
@@ -2509,7 +2545,7 @@ function handleRealtimeOrder(payload) {
       }
     }
   } else if (eventType === 'DELETE') {
-    orderLogs = orderLogs.filter(log => log.id !== oldRecord.id);
+    orderLogs = orderLogs.filter(log => String(log.id) !== String(oldRecord.id));
   }
 
   try {
