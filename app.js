@@ -211,10 +211,6 @@ function checkLoginSession() {
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
-    if (typeof window.updateMyPresence === 'function') {
-      window.updateMyPresence();
-    }
-
     if (isAdminUser) {
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
@@ -226,7 +222,13 @@ function checkLoginSession() {
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
-      if (navHistoryBtn) navHistoryBtn.style.display = "flex";
+      if (navHistoryBtn) navHistoryBtn.style.display = "none";
+
+      const historyTab = document.getElementById("tab-history");
+      if (historyTab && historyTab.classList.contains("active")) {
+        const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
+        if (regNavBtn) switchTab("register", regNavBtn);
+      }
     }
 
     try { renderStockLookup(); } catch (e) { console.error(e); }
@@ -361,6 +363,7 @@ async function loadDataFromSupabase() {
           hfb: row.hfb || "",
           artNo: row.artno || row.artNo || "",
           artName: row.artname || row.artName || "",
+          location: row.location || "미지정",
           id: row.id
         }));
       } else {
@@ -811,7 +814,36 @@ function getItemStock(artNo) {
   return entry ? entry.currentStock : 0;
 }
 
-// --- NEW CART STATE ---
+function handleRealtimeMasterCatalog(payload) {
+  const { eventType, new: newRecord, old: oldRecord } = payload;
+  
+  if (eventType === 'INSERT' || eventType === 'UPDATE') {
+    const idx = masterCatalog.findIndex(item => item.id === newRecord.id || item.artNo === (newRecord.artno || newRecord.artNo));
+    const mapped = {
+      hfb: newRecord.hfb || "",
+      artNo: newRecord.artno || newRecord.artNo || "",
+      artName: newRecord.artname || newRecord.artName || "",
+      location: newRecord.location || "미지정",
+      id: newRecord.id
+    };
+    
+    if (idx !== -1) {
+      masterCatalog[idx] = { ...masterCatalog[idx], ...mapped };
+    } else {
+      masterCatalog.push(mapped);
+    }
+    rebuildMasterCatalogMap();
+  } else if (eventType === 'DELETE') {
+    masterCatalog = masterCatalog.filter(item => item.id !== oldRecord.id);
+    rebuildMasterCatalogMap();
+  }
+  
+  try {
+    if (typeof renderStockLookup === 'function') renderStockLookup();
+  } catch (e) {}
+}
+
+// --- 푸시 알림 및 오디오 피드백 함수 ---
 let regCartList = [];
 
 // --- REG CART LOGIC ---
@@ -1088,16 +1120,13 @@ function renderOrderLogs() {
 
     let displayTime = item.date;
     if (item.created_at) {
-      const dateStr = item.created_at.endsWith('Z') || item.created_at.includes('+') ? item.created_at : item.created_at + 'Z';
-      const d = new Date(dateStr);
-      const yyyy = d.getFullYear().toString().slice(2);
+      const d = new Date(item.created_at);
+      const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       const hh = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
-      displayTime = `${yyyy}.${mm}.${dd} ${hh}:${min}`;
-    } else {
-      displayTime = `${item.date.replace(/-/g, '.').substring(2)} --:--`;
+      displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
 
     return `
@@ -2132,58 +2161,19 @@ function initRealtimeSubscriptions() {
     .subscribe();
 
   supabaseClient
+    .channel('public:master_catalog')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_catalog' }, payload => {
+      handleRealtimeMasterCatalog(payload);
+    })
+    .subscribe();
+
+  supabaseClient
     .channel('public:order_requests')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'order_requests' }, payload => {
       handleRealtimeOrder(payload);
     })
     .subscribe();
-
-  if (!window.presenceChannel) {
-    window.presenceChannel = supabaseClient.channel('online-users');
-    window.presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = window.presenceChannel.presenceState();
-        updateOnlineUsers(state);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          if (typeof window.updateMyPresence === 'function') {
-            window.updateMyPresence();
-          }
-        }
-      });
-  }
 }
-
-function updateOnlineUsers(state) {
-  const users = [];
-  for (const id in state) {
-    if (state[id] && state[id].length > 0 && state[id][0].user) {
-      users.push(state[id][0].user);
-    }
-  }
-  const uniqueUsers = [...new Set(users)];
-  
-  const pill = document.getElementById('online-presence-pill');
-  const list = document.getElementById('online-users-list');
-  
-  if (pill && list) {
-    if (uniqueUsers.length > 0) {
-      list.textContent = uniqueUsers.join(', ');
-      pill.style.opacity = '1';
-    } else {
-      pill.style.opacity = '0';
-    }
-  }
-}
-
-window.updateMyPresence = async function() {
-  if (window.presenceChannel && currentUser) {
-    try {
-      await window.presenceChannel.track({ user: currentUser, loginTime: new Date().toISOString() });
-    } catch (err) {}
-  }
-};
 
 function handleRealtimeInventory(payload) {
   const { eventType, new: newRecord, old: oldRecord } = payload;
