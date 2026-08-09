@@ -1620,6 +1620,7 @@
         try {
           const dbLog = { ...log };
           delete dbLog.timestamp;
+          delete dbLog.created_at; // Ensure created_at is NOT sent to DB (it is auto-generated)
           if (dbLog.artNo) { dbLog.artno = dbLog.artNo; delete dbLog.artNo; }
           delete dbLog.artName;
           delete dbLog.artname;
@@ -1629,13 +1630,19 @@
             .insert([dbLog])
             .select();
             
-          if (!error && data && data.length > 0) {
+          if (error) {
+            console.error("Supabase saveHistoryLogs_custom error:", error);
+            showToast("데이터베이스 저장 오류: " + error.message, "danger");
+            return null;
+          }
+            
+          if (data && data.length > 0) {
             insertedId = data[0].id;
             log.id = insertedId;
             log.created_at = data[0].created_at;
           }
         } catch (err) {
-          console.warn("Custom saveHistoryLogs error:", err);
+          console.error("Custom saveHistoryLogs exception:", err);
         }
       }
       return insertedId;
@@ -1698,6 +1705,114 @@
       if (typeof window.renderOrderLogs === "function") window.renderOrderLogs();
       if (typeof window.renderHistoryLogs === "function") window.renderHistoryLogs();
       if (typeof window.renderStandardPickList === "function") window.renderStandardPickList();
+    };
+
+    // --- Override processRegCart to support offline sync and error fallback ---
+    window.processRegCart = async function() {
+      if (typeof regCartList === "undefined" || regCartList.length === 0) return;
+      
+      const saveBtn = document.getElementById("btn-save");
+      if (saveBtn) {
+        saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 처리 중...`;
+        saveBtn.disabled = true;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+      let serverErrorMsg = "";
+
+      // Try batch insert first if online
+      if (navigator.onLine && typeof supabaseClient !== "undefined") {
+        try {
+          const { data, error } = await supabaseClient
+            .from('inventory_logs')
+            .insert(regCartList.map(item => ({
+              date: item.date,
+              type: item.type,
+              artno: item.artNo,
+              qty: item.qty,
+              user: (typeof currentUser !== "undefined" ? currentUser : "system")
+            })))
+            .select();
+            
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            for (let i = 0; i < data.length; i++) {
+              const inserted = data[i];
+              const item = regCartList[i];
+              const localLog = {
+                ...inserted,
+                artNo: inserted.artno || item.artNo,
+                artName: inserted.artname || item.artName || (typeof masterCatalogMap !== "undefined" ? masterCatalogMap.get(inserted.artno || item.artNo) : "알 수 없음")
+              };
+              if (typeof historyLogs !== "undefined") historyLogs.unshift(localLog);
+              successCount++;
+              
+              if (typeof masterCatalogMap !== "undefined" && typeof masterCatalog !== "undefined" && !masterCatalogMap.has(localLog.artNo)) {
+                masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName });
+                if (typeof saveMasterCatalog === "function") saveMasterCatalog();
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Batch insert failed:", err);
+          serverErrorMsg = err.message;
+        }
+      }
+
+      // If batch failed or offline, fallback to local save
+      if (successCount === 0) {
+        for (let item of regCartList) {
+          const localLog = {
+            date: item.date,
+            type: item.type,
+            artNo: item.artNo,
+            artName: item.artName || (typeof masterCatalogMap !== "undefined" ? masterCatalogMap.get(item.artNo) : "알 수 없음"),
+            qty: item.qty,
+            user: (typeof currentUser !== "undefined" ? currentUser : "system"),
+            created_at: new Date().toISOString()
+          };
+          
+          if (typeof historyLogs !== "undefined") historyLogs.unshift(localLog);
+          failCount++;
+          
+          if (typeof masterCatalogMap !== "undefined" && typeof masterCatalog !== "undefined" && !masterCatalogMap.has(localLog.artNo)) {
+            masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName });
+            if (typeof saveMasterCatalog === "function") saveMasterCatalog();
+          }
+        }
+      }
+
+      // Save to localStorage
+      if (typeof historyLogs !== "undefined") {
+        try { localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs)); } catch(e){}
+      }
+      
+      if (typeof invalidateStockCache === "function") invalidateStockCache();
+      if (typeof renderStockLookup === "function") renderStockLookup();
+      if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+      if (typeof updateSyncStatusUI === "function") updateSyncStatusUI();
+      
+      if (failCount > 0) {
+        if (serverErrorMsg) {
+           showToast(`서버 오류(${serverErrorMsg})로 인해 ${failCount}건 임시 저장 (오프라인).`, "warning");
+        } else {
+           showToast(`${failCount}건 임시 저장 (오프라인). 나중에 동기화하세요.`, "warning");
+        }
+      } else {
+        showToast(`총 ${successCount}건 입출고 등록 완료!`, "success");
+        if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+      }
+      
+      regCartList = [];
+      if (typeof renderRegCart === "function") renderRegCart();
+      if (typeof initFormDate === "function") initFormDate();
+      
+      if (saveBtn) {
+        saveBtn.innerHTML = `<i class="fa-solid fa-check"></i> 일괄 입출고 등록`;
+        saveBtn.disabled = false;
+      }
     };
   </script>
 
