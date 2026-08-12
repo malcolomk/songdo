@@ -211,29 +211,33 @@ function checkLoginSession() {
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
+    const btnStockExcelExport = document.getElementById("btn-stock-excel-export");
+    const btnSigHistory = document.getElementById("btn-sig-history");
+
     if (isAdminUser) {
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "flex";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "flex";
+      if (btnSigHistory) btnSigHistory.style.display = "flex";
       if (excelExportLocked) excelExportLocked.style.display = "none";
-      if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     } else {
       if (adminRoleBadge) adminRoleBadge.style.display = "none";
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "none";
+      if (btnSigHistory) btnSigHistory.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
-      if (navHistoryBtn) navHistoryBtn.style.display = "none";
-
-      const historyTab = document.getElementById("tab-history");
-      if (historyTab && historyTab.classList.contains("active")) {
-        const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
-        if (regNavBtn) switchTab("register", regNavBtn);
-      }
     }
 
     try { renderStockLookup(); } catch (e) { console.error(e); }
     try { renderHistoryLogs(); } catch (e) { console.error(e); }
     try { renderOrderLogs(); } catch (e) { console.error(e); }
+    try { 
+      setTimeout(() => {
+        if (typeof checkNoticePopup === 'function') checkNoticePopup(isAdminUser);
+      }, 500); 
+    } catch (e) { console.error(e); }
     try { populateArticleFilterDropdown(); } catch (e) { console.error(e); }
   } else {
     currentUser = null;
@@ -682,15 +686,19 @@ function onArtNoInput(artNoValue) {
 
   if (!cleanNo) {
     artNameInput.value = "";
+    if (document.getElementById("reg-location")) document.getElementById("reg-location").value = "";
     stockPreview.textContent = "- 개";
     icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
     return;
   }
 
-  const artNameMatch = masterCatalogMap.get(cleanNo);
+  const masterItem = masterCatalog.find(m => m.artNo === cleanNo);
+  const artNameMatch = masterItem ? masterItem.artName : null;
+  const locationMatch = masterItem && masterItem.location && masterItem.location !== "미지정" ? masterItem.location : "";
 
   if (artNameMatch) {
     artNameInput.value = artNameMatch;
+    if (document.getElementById("reg-location")) document.getElementById("reg-location").value = locationMatch;
     icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
     
     const currentStock = getItemStock(cleanNo);
@@ -847,12 +855,27 @@ function handleRealtimeMasterCatalog(payload) {
 let regCartList = [];
 
 // --- REG CART LOGIC ---
+function toggleRegLocation(loc) {
+  const input = document.getElementById("reg-location");
+  if (!input) return;
+  
+  let current = input.value.split(',').map(s => s.trim()).filter(s => s);
+  const idx = current.indexOf(loc);
+  if (idx > -1) {
+    current.splice(idx, 1);
+  } else {
+    current.push(loc);
+  }
+  input.value = current.join(', ');
+}
+
 function handleAddRegCart() {
   const date = document.getElementById("reg-date").value;
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
   const type = typeOption ? typeOption.value : "입고";
   const artNo = document.getElementById("reg-artno").value.trim();
   const artName = document.getElementById("reg-artname").value.trim();
+  const location = document.getElementById("reg-location") ? document.getElementById("reg-location").value.trim() : "";
   const qty = Number(document.getElementById("reg-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
@@ -860,11 +883,12 @@ function handleAddRegCart() {
     return;
   }
 
-  regCartList.push({ date, type, artNo, artName: artName || "기타 품목", qty });
+  regCartList.push({ date, type, artNo, artName: artName || "신규 품목", location, qty });
   renderRegCart();
   
   document.getElementById("reg-artno").value = "";
   document.getElementById("reg-artname").value = "";
+  if (document.getElementById("reg-location")) document.getElementById("reg-location").value = "";
   document.getElementById("reg-qty").value = "";
   document.getElementById("reg-current-stock").textContent = "- 개";
   document.getElementById("reg-artno").focus();
@@ -903,7 +927,7 @@ function renderRegCart() {
       <div class="cart-item">
         <div class="cart-item-info">
           <span class="cart-item-title">${item.artNo} - ${item.artName}</span>
-          <span class="cart-item-sub">${item.date} | ${item.type}</span>
+          <span class="cart-item-sub">${item.date} | ${item.type}${item.location ? ` | 구역: ${item.location}` : ""}</span>
         </div>
         <div class="cart-item-action">
           <span class="cart-item-qty">${item.qty}개</span>
@@ -950,12 +974,60 @@ async function processRegCart() {
           artName: inserted.artname || inserted.artName
         };
         historyLogs.unshift(localLog);
-        if (!masterCatalogMap.has(localLog.artNo)) {
-          masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName || "신규 품목" });
-          saveMasterCatalog();
-        }
       });
       populateArticleFilterDropdown();
+      
+      // Update locations
+      const locationUpdates = regCartList.filter(item => item.location && item.location.trim() !== "");
+      for (const item of locationUpdates) {
+        let masterItem = masterCatalog.find(m => m.artNo === item.artNo);
+        if (masterItem) {
+          masterItem.location = item.location;
+        } else {
+          masterItem = { artNo: item.artNo, artName: item.artName || "신규 품목", location: item.location, hfb: "기본 HFB" };
+          masterCatalog.push(masterItem);
+        }
+        
+        if (supabaseClient) {
+          const dbPayload = {
+            artno: masterItem.artNo,
+            artname: masterItem.artName,
+            location: masterItem.location,
+            hfb: masterItem.hfb
+          };
+          
+          if (masterItem.id) {
+            supabaseClient.from("master_catalog").update(dbPayload).eq("id", masterItem.id).then();
+          } else {
+            supabaseClient.from("master_catalog").select("id").eq("artno", masterItem.artNo).maybeSingle().then(({data: existing}) => {
+               if (existing) {
+                 masterItem.id = existing.id;
+                 supabaseClient.from("master_catalog").update(dbPayload).eq("id", existing.id).then();
+               } else {
+                 supabaseClient.from("master_catalog").insert([dbPayload]).select().then(({data: inserted}) => {
+                   if (inserted && inserted.length > 0) masterItem.id = inserted[0].id;
+                 });
+               }
+            });
+          }
+        }
+      }
+      
+      // Check for new items without location
+      regCartList.forEach(item => {
+        if (!masterCatalog.some(m => m.artNo === item.artNo)) {
+           const newItem = { artNo: item.artNo, artName: item.artName || "신규 품목", location: "미지정", hfb: "기본 HFB" };
+           masterCatalog.push(newItem);
+           if (supabaseClient) {
+             supabaseClient.from("master_catalog").insert([{
+               artno: newItem.artNo, artname: newItem.artName, location: newItem.location, hfb: newItem.hfb
+             }]).select().then(({data}) => {
+               if(data && data.length>0) newItem.id = data[0].id;
+             });
+           }
+        }
+      });
+      saveMasterCatalog();
     }
     
     invalidateStockCache();
@@ -1756,11 +1828,15 @@ function renderHistoryLogs() {
       const min = String(d.getMinutes()).padStart(2, '0');
       displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
+    const isUnknown = log.artName.includes("알 수 없") || log.artName.includes("신규") || log.artName.includes("기타");
+    const isAdmin = typeof isAdminUser !== "undefined" && isAdminUser;
+    const editBtnHtml = (isAdmin && isUnknown) ? `<button type="button" onclick="if(typeof editArticleName==='function') editArticleName('${log.artNo}', '${log.artName}')" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; margin-left:6px;"><i class="fa-solid fa-pen"></i> 수정</button>` : '';
+
     return `
     <div class="history-item type-${log.type}">
       <div class="hist-left">
         <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
-        <div class="hist-name">${log.artName}</div>
+        <div class="hist-name">${log.artName} ${editBtnHtml}</div>
         <span class="hist-artno">번호: ${log.artNo}</span>
       </div>
       <div class="hist-right">
@@ -2245,6 +2321,17 @@ function handleRealtimeOrder(payload) {
   } else if (eventType === 'DELETE') {
     orderLogs = orderLogs.filter(log => log.id !== oldRecord.id);
   }
+  
+  if (typeof updateAllBadges === "function") updateAllBadges();
+  
+  try {
+    if (currentTab === 'picklist') {
+      if (typeof renderStandardPickList === "function") renderStandardPickList();
+    }
+    if (currentTab === 'order') {
+      if (typeof renderOrderLogs === "function") renderOrderLogs();
+    }
+  } catch (e) {}
 
   try {
     const activeTab = document.querySelector('.tab-page.active');
