@@ -902,7 +902,11 @@
             </div>
           </div>
           
-          <div style="display:flex; justify-content:flex-end; align-items:center; border-top:1px solid #e2e8f0; padding-top:15px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:15px;">
+            <label style="font-size:13px; color:#475569; display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="guest-manual-hide-day" style="width:16px; height:16px; cursor:pointer;">
+              하루 동안 보지 않기
+            </label>
             <div style="display:flex; gap:10px;">
               <button type="button" class="btn-secondary" style="padding:10px 15px; margin:0;" onclick="if(typeof nextGuestManualPage==='function') nextGuestManualPage(2)">이전</button>
               <button type="button" class="btn-submit" style="padding:10px 20px; margin:0;" onclick="if(typeof confirmGuestManualModal === 'function') confirmGuestManualModal()">확인 및 시작</button>
@@ -937,9 +941,9 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="ptag.js?v=1.7.44"></script>
-  <script src="app.js?v=1.7.44"></script>
-  <script src="custom.js?v=1.7.44"></script>
+  <script src="ptag.js?v=1.7.51"></script>
+  <script src="app.js?v=1.7.51"></script>
+  <script src="custom.js?v=1.7.51"></script>
   
   <script>
     // Premium Wait List Override & Features

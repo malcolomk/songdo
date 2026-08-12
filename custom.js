@@ -1328,8 +1328,14 @@ window.saveSingleLocation = async function(locStr) {
 
 // --- Notice Popup Logic ---
 window.checkNoticePopup = function(isAdminUser) {
-  if (isAdminUser === false) {
-    // Guest manual popup always shows
+  const isGuest = (typeof currentUser !== 'undefined' && currentUser && currentUser.toLowerCase().startsWith('guest'));
+  
+  if (isGuest) {
+    const hideUntil = localStorage.getItem('warehouse_guest_manual_hide_until');
+    if (hideUntil) {
+      const hideDate = new Date(hideUntil);
+      if (new Date() < hideDate) return;
+    }
     const modal = document.getElementById('guest-manual-modal');
     if (modal) {
       modal.classList.add('active');
@@ -1422,23 +1428,26 @@ window.clearNoticeSignature = function() {
 window.confirmNoticeModal = function() {
   const nameInput = document.getElementById('notice-signature-name');
   if (!nameInput || !nameInput.value.trim()) {
-    if (typeof showToast === 'function') showToast('이름을 입력해주세요.', 'warning');
-    else alert('이름을 입력해주세요.');
+    alert('이름을 입력해주세요.');
     return;
   }
   if (!noticeHasSignature) {
-    if (typeof showToast === 'function') showToast('서명을 입력해주세요.', 'warning');
-    else alert('서명을 입력해주세요.');
+    alert('서명을 입력해주세요.');
     return;
   }
-  
-  if (typeof saveSignatureHistory === 'function') saveSignatureHistory(nameInput.value.trim(), '관리자');
+  try {
+    if (typeof saveSignatureHistory === 'function') saveSignatureHistory(nameInput.value.trim(), '관리자');
+  } catch (e) {
+    console.error("Signature save error:", e);
+  }
   
   const hideCheckbox = document.getElementById('notice-hide-week');
   if (hideCheckbox && hideCheckbox.checked) {
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    localStorage.setItem('warehouse_notice_hide_until', nextWeek.toISOString());
+    try {
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      localStorage.setItem('warehouse_notice_hide_until', nextWeek.toISOString());
+    } catch (e) { console.warn("localStorage error", e); }
   }
   
   document.getElementById('notice-modal').classList.remove('active');
@@ -1621,17 +1630,27 @@ window.nextGuestManualPage = function(pageNumber) {
 window.confirmGuestManualModal = function() {
   const nameInput = document.getElementById('guest-signature-name');
   if (!nameInput || !nameInput.value.trim()) {
-    if (typeof showToast === 'function') showToast('이름을 입력해주세요.', 'warning');
-    else alert('이름을 입력해주세요.');
+    alert('이름을 입력해주세요.');
     return;
   }
   if (!guestManualHasSignature) {
-    if (typeof showToast === 'function') showToast('서명을 입력해주세요.', 'warning');
-    else alert('서명을 입력해주세요.');
+    alert('서명을 입력해주세요.');
     return;
   }
+  try {
+    if (typeof saveSignatureHistory === 'function') saveSignatureHistory(nameInput.value.trim(), '게스트');
+  } catch (e) {
+    console.error("Signature save error:", e);
+  }
   
-  if (typeof saveSignatureHistory === 'function') saveSignatureHistory(nameInput.value.trim(), '게스트');
+  const hideCheckbox = document.getElementById('guest-manual-hide-day');
+  if (hideCheckbox && hideCheckbox.checked) {
+    try {
+      const nextDay = new Date();
+      nextDay.setDate(nextDay.getDate() + 1);
+      localStorage.setItem('warehouse_guest_manual_hide_until', nextDay.toISOString());
+    } catch (e) { console.warn("localStorage error", e); }
+  }
   
   document.getElementById('guest-manual-modal').classList.remove('active');
 };
@@ -1647,6 +1666,14 @@ window.saveSignatureHistory = function(name, role) {
   const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   
   history.unshift({ name, role, date: dateStr, account: typeof currentUser !== "undefined" ? currentUser : "unknown" });
+  
+  const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000);
+  history = history.filter(item => {
+    if (!item.date) return false;
+    const itemDate = new Date(item.date).getTime();
+    return itemDate > twoDaysAgo;
+  });
+  
   if (history.length > 100) history = history.slice(0, 100);
   
   localStorage.setItem('warehouse_signature_history', JSON.stringify(history));
@@ -1662,6 +1689,14 @@ window.openSigHistoryModal = function() {
     const data = localStorage.getItem('warehouse_signature_history');
     if (data) history = JSON.parse(data);
   } catch(e) {}
+  
+  // Cleanup old history (keep only 48 hours)
+  const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000);
+  history = history.filter(item => {
+    if (!item.date) return false;
+    const itemDate = new Date(item.date).getTime();
+    return itemDate > twoDaysAgo;
+  });
   
   if (history.length === 0) {
     listContainer.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px 0;">서명 기록이 없습니다.</div>';

@@ -1209,6 +1209,7 @@ function renderOrderLogs() {
         <span class="hist-artno">번호: ${item.artNo}</span>
       </div>
       <div class="hist-right">
+        ${(isAdminUser || currentUser === item.user) ? `<button type="button" onclick="deleteOrderLog(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; margin-right:8px;" title="삭제"><i class="fa-solid fa-trash"></i></button>` : ''}
         ${statusHtml}
         <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
           ${item.qty}개
@@ -1337,9 +1338,43 @@ async function updateOrderStatus(index, newStatus) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
+  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
   renderOrderLogs();
 }
+
+window.deleteOrderLog = async function(index) {
+  const order = orderLogs[index];
+  if (!order) return;
+  
+  if (!isAdminUser && currentUser !== order.user) {
+    showToast("삭제 권한이 없습니다.", "danger");
+    return;
+  }
+  
+  if (!confirm(`'${order.artName}' 오더 요청을 삭제하시겠습니까?`)) return;
+  
+  if (supabaseClient && order.id) {
+    try {
+      const { error } = await supabaseClient
+        .from("order_requests")
+        .delete()
+        .eq("id", order.id);
+        
+      if (error) {
+        console.warn("Supabase delete error:", error);
+        showToast("서버 삭제 실패: " + error.message, "danger");
+        return;
+      }
+    } catch (err) {
+      console.warn("Supabase delete exception:", err);
+    }
+  }
+  
+  orderLogs.splice(index, 1);
+  saveOrderLogs();
+  showToast("오더 요청이 삭제되었습니다.", "success");
+  renderOrderLogs();
+};
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
 function exportOrdersToExcel() {
