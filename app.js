@@ -1252,16 +1252,26 @@ function renderPickList() {
         displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
       }
       html += `
-        <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb;">
-          <div class="hist-left">
-            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
-            <div class="hist-name">${item.artName}</div>
-            <span class="hist-artno">번호: ${item.artNo}</span>
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; align-items: stretch; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+          <div style="flex: 1; padding-right: 15px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="background: #e0f2fe; color: #0284c7; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="fa-solid fa-thumbtack"></i> 출고대기</span>
+              <span style="color: #64748b; font-size: 13px; font-weight: 600;">${item.artNo}</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.4; margin-bottom: 8px; word-break: keep-all;">
+              ${item.artName}
+            </div>
+            <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 4px;">
+              <i class="fa-regular fa-user"></i> ${item.user} · <i class="fa-regular fa-clock" style="margin-left:4px;"></i> ${displayTime}
+            </div>
           </div>
-          <div class="hist-right" style="align-items:flex-end;">
-            <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
-            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 12px; padding: 8px 12px; margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem(${index})">
-              <i class="fa-solid fa-check"></i> 챙김 완료 (출고)
+          <div style="border-left: 1px dashed #cbd5e1; padding-left: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px;">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 6px;">챙길 수량</div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 0; width: 100%; text-align: center; font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
+              ${item.qty}
+            </div>
+            <button type="button" onclick="completePickItem(${index})" style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 6px 0; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <i class="fa-solid fa-check"></i> 완료
             </button>
           </div>
         </div>
