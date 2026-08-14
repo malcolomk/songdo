@@ -481,16 +481,48 @@ async function saveOrderLogs(order) {
     try {
       const dbOrder = { ...order };
       delete dbOrder.timestamp; // Remove timestamp as it causes schema error
-      delete dbOrder.artName;
-      delete dbOrder.artname;
       
-      const { data, error } = await supabaseClient
-        .from("order_requests")
-        .insert([dbOrder])
-        .select();
+      // Attempt 1: Original keys (artNo, artName)
+      let { data, error } = await supabaseClient.from("order_requests").insert([dbOrder]).select();
       
       if (error) {
-        console.warn("Supabase saveOrderLogs error:", error);
+        console.warn("Attempt 1 failed:", error.message);
+        
+        // Attempt 2: Remove artName entirely, keep artNo
+        const f2 = { ...dbOrder };
+        delete f2.artName;
+        delete f2.artname;
+        let res2 = await supabaseClient.from("order_requests").insert([f2]).select();
+        
+        if (res2.error) {
+          console.warn("Attempt 2 failed:", res2.error.message);
+          
+          // Attempt 3: Lowercase both (artno, artname)
+          const f3 = { ...dbOrder };
+          if (f3.artNo) { f3.artno = f3.artNo; delete f3.artNo; }
+          if (f3.artName) { f3.artname = f3.artName; delete f3.artName; }
+          let res3 = await supabaseClient.from("order_requests").insert([f3]).select();
+          
+          if (res3.error) {
+            console.warn("Attempt 3 failed:", res3.error.message);
+            
+            // Attempt 4: Lowercase artno, remove artname
+            const f4 = { ...f3 };
+            delete f4.artname;
+            let res4 = await supabaseClient.from("order_requests").insert([f4]).select();
+            
+            if (res4.error) {
+              console.warn("Attempt 4 failed:", res4.error.message);
+              showToast("서버 동기화 실패 (오더가 모바일에 표시되지 않습니다): " + res4.error.message, "danger");
+            } else {
+              data = res4.data; error = null;
+            }
+          } else {
+            data = res3.data; error = null;
+          }
+        } else {
+          data = res2.data; error = null;
+        }
       }
       
       if (!error && data && data.length > 0) {
@@ -500,6 +532,7 @@ async function saveOrderLogs(order) {
       }
     } catch (err) {
       console.warn("Supabase saveOrderLogs exception:", err);
+      showToast("오더 저장 중 오류 발생: " + err.message, "danger");
     }
   }
   try {
