@@ -481,16 +481,8 @@ async function saveOrderLogs(order) {
     try {
       const dbOrder = { ...order };
       delete dbOrder.timestamp; // Remove timestamp as it causes schema error
-      
-      // Map to lowercase column names for Supabase compatibility
-      if (dbOrder.artNo !== undefined) {
-        dbOrder.artno = dbOrder.artNo;
-        delete dbOrder.artNo;
-      }
-      if (dbOrder.artName !== undefined) {
-        dbOrder.artname = dbOrder.artName;
-        delete dbOrder.artName;
-      }
+      delete dbOrder.artName;
+      delete dbOrder.artname;
       
       const { data, error } = await supabaseClient
         .from("order_requests")
@@ -586,15 +578,27 @@ function updateTypeToggle() {
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
 function handleAutocompleteInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
-  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  
+  let dropdownId, nameDropdownId;
+  if (target === "order") {
+    dropdownId = "order-autocomplete-dropdown";
+    nameDropdownId = "order-name-autocomplete-dropdown";
+  } else if (target === "ptag") {
+    dropdownId = "ptag-autocomplete-dropdown";
+    nameDropdownId = "ptag-name-autocomplete-dropdown";
+  } else {
+    dropdownId = "reg-autocomplete-dropdown";
+    nameDropdownId = "reg-name-autocomplete-dropdown";
+  }
   
   const dropdown = document.getElementById(dropdownId);
   const nameDropdown = document.getElementById(nameDropdownId);
   if (nameDropdown) nameDropdown.classList.remove("active");
 
   if (target === "order") onOrderArtNoInput(query);
-  else onArtNoInput(query);
+  else if (target === "ptag") {
+    if (typeof window.onPtagArtNoInput === 'function') window.onPtagArtNoInput(query);
+  } else onArtNoInput(query);
 
   if (!cleanQuery) {
     if (dropdown) dropdown.classList.remove("active");
@@ -630,8 +634,18 @@ function handleAutocompleteInput(query, target = "register") {
 
 function handleAutocompleteNameInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
-  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  
+  let dropdownId, artnoDropdownId;
+  if (target === "order") {
+    dropdownId = "order-name-autocomplete-dropdown";
+    artnoDropdownId = "order-autocomplete-dropdown";
+  } else if (target === "ptag") {
+    dropdownId = "ptag-name-autocomplete-dropdown";
+    artnoDropdownId = "ptag-autocomplete-dropdown";
+  } else {
+    dropdownId = "reg-name-autocomplete-dropdown";
+    artnoDropdownId = "reg-autocomplete-dropdown";
+  }
 
   const dropdown = document.getElementById(dropdownId);
   const artnoDropdown = document.getElementById(artnoDropdownId);
@@ -674,6 +688,10 @@ function selectAutocompleteItem(artNo, target = "register") {
     const artNoInput = document.getElementById("order-artno");
     if (artNoInput) artNoInput.value = artNo;
     onOrderArtNoInput(artNo);
+  } else if (target === "ptag") {
+    const artNoInput = document.getElementById("ptag-artno");
+    if (artNoInput) artNoInput.value = artNo;
+    if (typeof window.onPtagArtNoInput === 'function') window.onPtagArtNoInput(artNo);
   } else {
     const artNoInput = document.getElementById("reg-artno");
     if (artNoInput) artNoInput.value = artNo;
