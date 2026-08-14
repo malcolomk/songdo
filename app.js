@@ -211,33 +211,29 @@ function checkLoginSession() {
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
-    const btnStockExcelExport = document.getElementById("btn-stock-excel-export");
-    const btnSigHistory = document.getElementById("btn-sig-history");
-
     if (isAdminUser) {
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "flex";
-      if (btnStockExcelExport) btnStockExcelExport.style.display = "flex";
-      if (btnSigHistory) btnSigHistory.style.display = "flex";
       if (excelExportLocked) excelExportLocked.style.display = "none";
+      if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     } else {
       if (adminRoleBadge) adminRoleBadge.style.display = "none";
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
-      if (btnStockExcelExport) btnStockExcelExport.style.display = "none";
-      if (btnSigHistory) btnSigHistory.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
+      if (navHistoryBtn) navHistoryBtn.style.display = "none";
+
+      const historyTab = document.getElementById("tab-history");
+      if (historyTab && historyTab.classList.contains("active")) {
+        const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
+        if (regNavBtn) switchTab("register", regNavBtn);
+      }
     }
 
     try { renderStockLookup(); } catch (e) { console.error(e); }
     try { renderHistoryLogs(); } catch (e) { console.error(e); }
     try { renderOrderLogs(); } catch (e) { console.error(e); }
-    try { 
-      setTimeout(() => {
-        if (typeof checkNoticePopup === 'function') checkNoticePopup(isAdminUser);
-      }, 500); 
-    } catch (e) { console.error(e); }
     try { populateArticleFilterDropdown(); } catch (e) { console.error(e); }
   } else {
     currentUser = null;
@@ -367,7 +363,6 @@ async function loadDataFromSupabase() {
           hfb: row.hfb || "",
           artNo: row.artno || row.artNo || "",
           artName: row.artname || row.artName || "",
-          location: row.location || "미지정",
           id: row.id
         }));
       } else {
@@ -453,6 +448,7 @@ async function saveHistoryLogs(log) {
     try {
       const dbLog = { ...log };
       delete dbLog.timestamp; // Remove timestamp as it causes schema error
+      if (dbLog.artNo) { dbLog.artno = dbLog.artNo; delete dbLog.artNo; }
       delete dbLog.artName;
       delete dbLog.artname;
       
@@ -477,53 +473,14 @@ async function saveHistoryLogs(log) {
 
 async function saveOrderLogs(order) {
   let insertedId = null;
-  if (supabaseClient && order) {
+  if (supabaseClient) {
     try {
       const dbOrder = { ...order };
       delete dbOrder.timestamp; // Remove timestamp as it causes schema error
-      
-      // Attempt 1: Original keys (artNo, artName)
-      let { data, error } = await supabaseClient.from("order_requests").insert([dbOrder]).select();
-      
-      if (error) {
-        console.warn("Attempt 1 failed:", error.message);
-        
-        // Attempt 2: Remove artName entirely, keep artNo
-        const f2 = { ...dbOrder };
-        delete f2.artName;
-        delete f2.artname;
-        let res2 = await supabaseClient.from("order_requests").insert([f2]).select();
-        
-        if (res2.error) {
-          console.warn("Attempt 2 failed:", res2.error.message);
-          
-          // Attempt 3: Lowercase both (artno, artname)
-          const f3 = { ...dbOrder };
-          if (f3.artNo) { f3.artno = f3.artNo; delete f3.artNo; }
-          if (f3.artName) { f3.artname = f3.artName; delete f3.artName; }
-          let res3 = await supabaseClient.from("order_requests").insert([f3]).select();
-          
-          if (res3.error) {
-            console.warn("Attempt 3 failed:", res3.error.message);
-            
-            // Attempt 4: Lowercase artno, remove artname
-            const f4 = { ...f3 };
-            delete f4.artname;
-            let res4 = await supabaseClient.from("order_requests").insert([f4]).select();
-            
-            if (res4.error) {
-              console.warn("Attempt 4 failed:", res4.error.message);
-              showToast("서버 동기화 실패 (오더가 모바일에 표시되지 않습니다): " + res4.error.message, "danger");
-            } else {
-              data = res4.data; error = null;
-            }
-          } else {
-            data = res3.data; error = null;
-          }
-        } else {
-          data = res2.data; error = null;
-        }
-      }
+      const { data, error } = await supabaseClient
+        .from("order_requests")
+        .insert([dbOrder])
+        .select();
       
       if (!error && data && data.length > 0) {
         insertedId = data[0].id;
@@ -531,8 +488,7 @@ async function saveOrderLogs(order) {
         order.created_at = data[0].created_at;
       }
     } catch (err) {
-      console.warn("Supabase saveOrderLogs exception:", err);
-      showToast("오더 저장 중 오류 발생: " + err.message, "danger");
+      console.warn("Supabase saveOrderLogs error:", err);
     }
   }
   try {
@@ -555,7 +511,13 @@ function initFormDate() {
 function switchTab(tabId, btnElement) {
   // Access Restrictions
   if ((tabId === "history" || tabId === "master") && !isAdminUser) {
-    showToast("해당 메뉴는 관리자(jipar5, hycho30, junkoo, minjong)만 접근할 수 있습니다.", "danger");
+    showToast("해당 메뉴는 관리자 전용입니다.", "danger");
+    return;
+  }
+  
+  // Maintenance Block
+  if ((tabId === "order" || tabId === "ptag") && !isAdminUser) {
+    showToast("현재 시스템 서버 점검 중입니다. (관리자 외 접근 불가)", "danger");
     return;
   }
 
@@ -611,27 +573,15 @@ function updateTypeToggle() {
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
 function handleAutocompleteInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  
-  let dropdownId, nameDropdownId;
-  if (target === "order") {
-    dropdownId = "order-autocomplete-dropdown";
-    nameDropdownId = "order-name-autocomplete-dropdown";
-  } else if (target === "ptag") {
-    dropdownId = "ptag-autocomplete-dropdown";
-    nameDropdownId = "ptag-name-autocomplete-dropdown";
-  } else {
-    dropdownId = "reg-autocomplete-dropdown";
-    nameDropdownId = "reg-name-autocomplete-dropdown";
-  }
+  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
   
   const dropdown = document.getElementById(dropdownId);
   const nameDropdown = document.getElementById(nameDropdownId);
   if (nameDropdown) nameDropdown.classList.remove("active");
 
   if (target === "order") onOrderArtNoInput(query);
-  else if (target === "ptag") {
-    if (typeof window.onPtagArtNoInput === 'function') window.onPtagArtNoInput(query);
-  } else onArtNoInput(query);
+  else onArtNoInput(query);
 
   if (!cleanQuery) {
     if (dropdown) dropdown.classList.remove("active");
@@ -667,18 +617,8 @@ function handleAutocompleteInput(query, target = "register") {
 
 function handleAutocompleteNameInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  
-  let dropdownId, artnoDropdownId;
-  if (target === "order") {
-    dropdownId = "order-name-autocomplete-dropdown";
-    artnoDropdownId = "order-autocomplete-dropdown";
-  } else if (target === "ptag") {
-    dropdownId = "ptag-name-autocomplete-dropdown";
-    artnoDropdownId = "ptag-autocomplete-dropdown";
-  } else {
-    dropdownId = "reg-name-autocomplete-dropdown";
-    artnoDropdownId = "reg-autocomplete-dropdown";
-  }
+  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
 
   const dropdown = document.getElementById(dropdownId);
   const artnoDropdown = document.getElementById(artnoDropdownId);
@@ -721,10 +661,6 @@ function selectAutocompleteItem(artNo, target = "register") {
     const artNoInput = document.getElementById("order-artno");
     if (artNoInput) artNoInput.value = artNo;
     onOrderArtNoInput(artNo);
-  } else if (target === "ptag") {
-    const artNoInput = document.getElementById("ptag-artno");
-    if (artNoInput) artNoInput.value = artNo;
-    if (typeof window.onPtagArtNoInput === 'function') window.onPtagArtNoInput(artNo);
   } else {
     const artNoInput = document.getElementById("reg-artno");
     if (artNoInput) artNoInput.value = artNo;
@@ -752,19 +688,15 @@ function onArtNoInput(artNoValue) {
 
   if (!cleanNo) {
     artNameInput.value = "";
-    if (document.getElementById("reg-location")) document.getElementById("reg-location").value = "";
     stockPreview.textContent = "- 개";
     icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
     return;
   }
 
-  const masterItem = masterCatalog.find(m => m.artNo === cleanNo);
-  const artNameMatch = masterItem ? masterItem.artName : null;
-  const locationMatch = masterItem && masterItem.location && masterItem.location !== "미지정" ? masterItem.location : "";
+  const artNameMatch = masterCatalogMap.get(cleanNo);
 
   if (artNameMatch) {
     artNameInput.value = artNameMatch;
-    if (document.getElementById("reg-location")) document.getElementById("reg-location").value = locationMatch;
     icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
     
     const currentStock = getItemStock(cleanNo);
@@ -888,60 +820,16 @@ function getItemStock(artNo) {
   return entry ? entry.currentStock : 0;
 }
 
-function handleRealtimeMasterCatalog(payload) {
-  const { eventType, new: newRecord, old: oldRecord } = payload;
-  
-  if (eventType === 'INSERT' || eventType === 'UPDATE') {
-    const idx = masterCatalog.findIndex(item => item.id === newRecord.id || item.artNo === (newRecord.artno || newRecord.artNo));
-    const mapped = {
-      hfb: newRecord.hfb || "",
-      artNo: newRecord.artno || newRecord.artNo || "",
-      artName: newRecord.artname || newRecord.artName || "",
-      location: newRecord.location || "미지정",
-      id: newRecord.id
-    };
-    
-    if (idx !== -1) {
-      masterCatalog[idx] = { ...masterCatalog[idx], ...mapped };
-    } else {
-      masterCatalog.push(mapped);
-    }
-    rebuildMasterCatalogMap();
-  } else if (eventType === 'DELETE') {
-    masterCatalog = masterCatalog.filter(item => item.id !== oldRecord.id);
-    rebuildMasterCatalogMap();
-  }
-  
-  try {
-    if (typeof renderStockLookup === 'function') renderStockLookup();
-  } catch (e) {}
-}
-
-// --- 푸시 알림 및 오디오 피드백 함수 ---
+// --- NEW CART STATE ---
 let regCartList = [];
 
 // --- REG CART LOGIC ---
-function toggleRegLocation(loc) {
-  const input = document.getElementById("reg-location");
-  if (!input) return;
-  
-  let current = input.value.split(',').map(s => s.trim()).filter(s => s);
-  const idx = current.indexOf(loc);
-  if (idx > -1) {
-    current.splice(idx, 1);
-  } else {
-    current.push(loc);
-  }
-  input.value = current.join(', ');
-}
-
 function handleAddRegCart() {
   const date = document.getElementById("reg-date").value;
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
   const type = typeOption ? typeOption.value : "입고";
   const artNo = document.getElementById("reg-artno").value.trim();
   const artName = document.getElementById("reg-artname").value.trim();
-  const location = document.getElementById("reg-location") ? document.getElementById("reg-location").value.trim() : "";
   const qty = Number(document.getElementById("reg-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
@@ -949,12 +837,11 @@ function handleAddRegCart() {
     return;
   }
 
-  regCartList.push({ date, type, artNo, artName: artName || "신규 품목", location, qty });
+  regCartList.push({ date, type, artNo, artName: artName || "기타 품목", qty });
   renderRegCart();
   
   document.getElementById("reg-artno").value = "";
   document.getElementById("reg-artname").value = "";
-  if (document.getElementById("reg-location")) document.getElementById("reg-location").value = "";
   document.getElementById("reg-qty").value = "";
   document.getElementById("reg-current-stock").textContent = "- 개";
   document.getElementById("reg-artno").focus();
@@ -993,7 +880,7 @@ function renderRegCart() {
       <div class="cart-item">
         <div class="cart-item-info">
           <span class="cart-item-title">${item.artNo} - ${item.artName}</span>
-          <span class="cart-item-sub">${item.date} | ${item.type}${item.location ? ` | 구역: ${item.location}` : ""}</span>
+          <span class="cart-item-sub">${item.date} | ${item.type}</span>
         </div>
         <div class="cart-item-action">
           <span class="cart-item-qty">${item.qty}개</span>
@@ -1024,7 +911,7 @@ async function processRegCart() {
       .insert(regCartList.map(item => ({
         date: item.date,
         type: item.type,
-        artNo: item.artNo,
+        artno: item.artNo,
         qty: item.qty,
         user: currentUser || "system"
       })))
@@ -1040,60 +927,12 @@ async function processRegCart() {
           artName: inserted.artname || inserted.artName
         };
         historyLogs.unshift(localLog);
+        if (!masterCatalogMap.has(localLog.artNo)) {
+          masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName || "신규 품목" });
+          saveMasterCatalog();
+        }
       });
       populateArticleFilterDropdown();
-      
-      // Update locations
-      const locationUpdates = regCartList.filter(item => item.location && item.location.trim() !== "");
-      for (const item of locationUpdates) {
-        let masterItem = masterCatalog.find(m => m.artNo === item.artNo);
-        if (masterItem) {
-          masterItem.location = item.location;
-        } else {
-          masterItem = { artNo: item.artNo, artName: item.artName || "신규 품목", location: item.location, hfb: "기본 HFB" };
-          masterCatalog.push(masterItem);
-        }
-        
-        if (supabaseClient) {
-          const dbPayload = {
-            artno: masterItem.artNo,
-            artname: masterItem.artName,
-            location: masterItem.location,
-            hfb: masterItem.hfb
-          };
-          
-          if (masterItem.id) {
-            supabaseClient.from("master_catalog").update(dbPayload).eq("id", masterItem.id).then();
-          } else {
-            supabaseClient.from("master_catalog").select("id").eq("artno", masterItem.artNo).maybeSingle().then(({data: existing}) => {
-               if (existing) {
-                 masterItem.id = existing.id;
-                 supabaseClient.from("master_catalog").update(dbPayload).eq("id", existing.id).then();
-               } else {
-                 supabaseClient.from("master_catalog").insert([dbPayload]).select().then(({data: inserted}) => {
-                   if (inserted && inserted.length > 0) masterItem.id = inserted[0].id;
-                 });
-               }
-            });
-          }
-        }
-      }
-      
-      // Check for new items without location
-      regCartList.forEach(item => {
-        if (!masterCatalog.some(m => m.artNo === item.artNo)) {
-           const newItem = { artNo: item.artNo, artName: item.artName || "신규 품목", location: "미지정", hfb: "기본 HFB" };
-           masterCatalog.push(newItem);
-           if (supabaseClient) {
-             supabaseClient.from("master_catalog").insert([{
-               artno: newItem.artNo, artname: newItem.artName, location: newItem.location, hfb: newItem.hfb
-             }]).select().then(({data}) => {
-               if(data && data.length>0) newItem.id = data[0].id;
-             });
-           }
-        }
-      });
-      saveMasterCatalog();
     }
     
     invalidateStockCache();
@@ -1275,7 +1114,6 @@ function renderOrderLogs() {
         <span class="hist-artno">번호: ${item.artNo}</span>
       </div>
       <div class="hist-right">
-        ${(isAdminUser || currentUser === item.user) ? `<button type="button" onclick="deleteOrderLog(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; margin-right:8px;" title="삭제"><i class="fa-solid fa-trash"></i></button>` : ''}
         ${statusHtml}
         <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
           ${item.qty}개
@@ -1318,26 +1156,16 @@ function renderPickList() {
         displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
       }
       html += `
-        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; align-items: stretch; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-          <div style="flex: 1; padding-right: 15px; display: flex; flex-direction: column; justify-content: center;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="background: #e0f2fe; color: #0284c7; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="fa-solid fa-thumbtack"></i> 출고대기</span>
-              <span style="color: #64748b; font-size: 13px; font-weight: 600;">${item.artNo}</span>
-            </div>
-            <div style="font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.4; margin-bottom: 8px; word-break: keep-all;">
-              ${item.artName}
-            </div>
-            <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 4px;">
-              <i class="fa-regular fa-user"></i> ${item.user} · <i class="fa-regular fa-clock" style="margin-left:4px;"></i> ${displayTime}
-            </div>
+        <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb;">
+          <div class="hist-left">
+            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
+            <div class="hist-name">${item.artName}</div>
+            <span class="hist-artno">번호: ${item.artNo}</span>
           </div>
-          <div style="border-left: 1px dashed #cbd5e1; padding-left: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px;">
-            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 6px;">챙길 수량</div>
-            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 0; width: 100%; text-align: center; font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
-              ${item.qty}
-            </div>
-            <button type="button" onclick="completePickItem(${index})" style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 6px 0; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
-              <i class="fa-solid fa-check"></i> 완료
+          <div class="hist-right" style="align-items:flex-end;">
+            <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
+            <button type="button" class="btn-submit" style="background-color: #059669; font-size: 12px; padding: 8px 12px; margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem(${index})">
+              <i class="fa-solid fa-check"></i> 챙김 완료 (출고)
             </button>
           </div>
         </div>
@@ -1347,54 +1175,51 @@ function renderPickList() {
   container.innerHTML = html;
 }
 
-window.completePickItem = function(index) {
+async function completePickItem(index) {
   const pickItem = orderLogs[index];
   if (!pickItem || pickItem.status !== "출고대기") return;
   
   if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   
-  // Optimistic UI Update
-  pickItem.status = "출고완료";
-  
-  const newLog = {
-    date: new Date().toISOString().split('T')[0],
-    type: "출고",
-    artNo: pickItem.artNo,
-    artName: pickItem.artName,
-    qty: pickItem.qty,
-    user: currentUser || "system"
-  };
-  
-  historyLogs.unshift(newLog);
-  invalidateStockCache();
-  
-  showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success");
-  playSuccessFeedback();
-  
-  renderStockLookup();
-  renderHistoryLogs();
-  renderOrderLogs(); // This will also call renderPickList()
-  
-  // Background Tasks
-  if (supabaseClient && pickItem.id) {
-    supabaseClient
-      .from('order_requests')
-      .update({ status: '출고완료' })
-      .eq('id', pickItem.id)
-      .then(({ error: updateError }) => {
-        if (updateError) console.warn("Pick complete update error:", updateError);
-      });
-  }
-  
-  saveHistoryLogs(newLog).then(insertedId => {
-    if (insertedId) newLog.id = insertedId;
-  }).catch(err => {
+  try {
+    // 1. Update order status to 출고완료
+    pickItem.status = "출고완료";
+    if (supabaseClient && pickItem.id) {
+      const { error: updateError } = await supabaseClient
+        .from('order_requests')
+        .update({ status: '출고완료' })
+        .eq('id', pickItem.id);
+        
+      if (updateError) throw updateError;
+    }
+    
+    // 2. Insert into inventory_logs (actual checkout)
+    const newLog = {
+      date: new Date().toISOString().split('T')[0],
+      type: "출고",
+      artNo: pickItem.artNo,
+      artName: pickItem.artName,
+      qty: pickItem.qty,
+      user: currentUser || "system"
+    };
+    
+    const insertedId = await saveHistoryLogs(newLog);
+    historyLogs.unshift(newLog);
+    invalidateStockCache();
+    
+    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
+    playSuccessFeedback();
+    
+    renderStockLookup();
+    renderHistoryLogs();
+    renderOrderLogs(); // This will also call renderPickList()
+  } catch (err) {
     console.error("Pick complete error:", err);
-    showToast("출고 기록 동기화 지연: " + err.message, "danger");
-  });
+    showToast("출고 완료 처리 실패: " + err.message, "danger");
+  }
 }
 
-window.updateOrderStatus = function(index, newStatus) {
+async function updateOrderStatus(index, newStatus) {
   if (!isAdminUser) return;
   const order = orderLogs[index];
   if (!order) return;
@@ -1402,62 +1227,24 @@ window.updateOrderStatus = function(index, newStatus) {
   order.status = newStatus;
   order.date = new Date().toISOString().split("T")[0]; // 날짜 자동 업데이트
 
-  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
-  renderOrderLogs();
+  if (supabaseClient && order.id) {
+    try {
+      await supabaseClient
+        .from("order_requests")
+        .update({ status: newStatus, date: order.date })
+        .eq("id", order.id);
+    } catch (err) {
+      console.warn("Supabase update error:", err);
+    }
+  }
 
   try {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  if (supabaseClient && order.id) {
-    supabaseClient
-      .from("order_requests")
-      .update({ status: newStatus, date: order.date })
-      .eq("id", order.id)
-      .then(({ error }) => {
-        if (error) console.warn("Supabase update error:", error);
-      })
-      .catch(err => {
-        console.warn("Supabase update exception:", err);
-      });
-  }
-}
-
-window.deleteOrderLog = function(index) {
-  const order = orderLogs[index];
-  if (!order) return;
-  
-  if (!isAdminUser && currentUser !== order.user) {
-    showToast("삭제 권한이 없습니다.", "danger");
-    return;
-  }
-  
-  if (!confirm(`'${order.artName}' 오더 요청을 삭제하시겠습니까?`)) return;
-  
-  // Optimistic UI Update
-  orderLogs.splice(index, 1);
-  saveOrderLogs();
-  
-  showToast("오더 요청이 삭제되었습니다.", "success");
+  showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
   renderOrderLogs();
-  
-  // Background Task
-  if (supabaseClient && order.id) {
-    supabaseClient
-      .from("order_requests")
-      .delete()
-      .eq("id", order.id)
-      .then(({ error }) => {
-        if (error) {
-          console.warn("Supabase delete error:", error);
-          showToast("서버 삭제 지연: " + error.message, "danger");
-        }
-      })
-      .catch(err => {
-        console.warn("Supabase delete exception:", err);
-      });
-  }
-};
+}
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
 function exportOrdersToExcel() {
@@ -1946,15 +1733,11 @@ function renderHistoryLogs() {
       const min = String(d.getMinutes()).padStart(2, '0');
       displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
-    const isUnknown = log.artName.includes("알 수 없") || log.artName.includes("신규") || log.artName.includes("기타");
-    const isAdmin = typeof isAdminUser !== "undefined" && isAdminUser;
-    const editBtnHtml = (isAdmin && isUnknown) ? `<button type="button" onclick="if(typeof editArticleName==='function') editArticleName('${log.artNo}', '${log.artName}')" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; margin-left:6px;"><i class="fa-solid fa-pen"></i> 수정</button>` : '';
-
     return `
     <div class="history-item type-${log.type}">
       <div class="hist-left">
         <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
-        <div class="hist-name">${log.artName} ${editBtnHtml}</div>
+        <div class="hist-name">${log.artName}</div>
         <span class="hist-artno">번호: ${log.artNo}</span>
       </div>
       <div class="hist-right">
@@ -2355,13 +2138,6 @@ function initRealtimeSubscriptions() {
     .subscribe();
 
   supabaseClient
-    .channel('public:master_catalog')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_catalog' }, payload => {
-      handleRealtimeMasterCatalog(payload);
-    })
-    .subscribe();
-
-  supabaseClient
     .channel('public:order_requests')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'order_requests' }, payload => {
       handleRealtimeOrder(payload);
@@ -2439,17 +2215,6 @@ function handleRealtimeOrder(payload) {
   } else if (eventType === 'DELETE') {
     orderLogs = orderLogs.filter(log => log.id !== oldRecord.id);
   }
-  
-  if (typeof updateAllBadges === "function") updateAllBadges();
-  
-  try {
-    if (currentTab === 'picklist') {
-      if (typeof renderStandardPickList === "function") renderStandardPickList();
-    }
-    if (currentTab === 'order') {
-      if (typeof renderOrderLogs === "function") renderOrderLogs();
-    }
-  } catch (e) {}
 
   try {
     const activeTab = document.querySelector('.tab-page.active');
