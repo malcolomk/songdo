@@ -6,7 +6,9 @@
   <title>세일즈 창고 입출고 & 재고 관리</title>
   
   <!-- Google Fonts & FontAwesome -->
-  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- SheetJS for Excel Import/Export -->
@@ -34,46 +36,10 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     z-index: 10;
   }
-  
-  /* Mobile Header Adjustments */
-  @media (max-width: 768px) {
-    .app-header {
-      padding: 12px 16px !important;
-    }
-    .header-content {
-      flex-direction: column !important;
-      align-items: flex-start !important;
-      gap: 12px !important;
-    }
-    .header-actions {
-      width: 100% !important;
-      justify-content: flex-end !important;
-      gap: 8px !important;
-    }
-    .app-title {
-      font-size: 16px !important;
-      white-space: nowrap !important;
-    }
-    .app-subtitle {
-      font-size: 11px !important;
-    }
-
-    #user-profile-badge {
-      gap: 6px !important;
-    }
-    #online-presence-pill {
-      display: none !important;
-    }
-    #current-user-name {
-      max-width: 80px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
   </style>
 </head>
 <body>
+
   <!-- LOGIN OVERLAY SCREEN -->
   <div id="login-overlay" class="login-overlay active">
     <div class="login-card">
@@ -141,17 +107,10 @@
         </div>
       </div>
       <div class="header-actions">
-        <div id="user-profile-badge" class="user-badge" style="display:none; align-items: center; gap: 8px;">
-          <div id="online-presence-pill" style="background:#f1f5f9; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px; max-width: 120px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity:0; transition: opacity 0.3s ease;">
-            <div style="width:6px; height:6px; border-radius:50%; background-color:#10b981; box-shadow:0 0 4px #10b981; flex-shrink:0;"></div>
-            <span id="online-users-list" style="text-overflow:ellipsis; overflow:hidden;">접속중...</span>
-          </div>
+        <div id="user-profile-badge" class="user-badge" style="display:none;">
           <i class="fa-solid fa-circle-user"></i>
           <span id="current-user-name">guest1</span>
           <span id="admin-role-badge" class="role-badge" style="display:none;">관리자</span>
-          <button type="button" id="btn-sig-history" onclick="if(typeof openSigHistoryModal === 'function') openSigHistoryModal()" style="display:none; background:none; border:none; color:#3b82f6; font-size:16px; cursor:pointer; margin-left:4px; padding:4px;" title="서명 히스토리">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-          </button>
           <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃">
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
           </button>
@@ -214,17 +173,6 @@
                 <span id="artname-status-icon" class="status-icon"><i class="fa-solid fa-circle-info"></i></span>
               </div>
               <div id="reg-name-autocomplete-dropdown" class="autocomplete-dropdown"></div>
-            </div>
-          </div>
-
-          <!-- 창고(구역) 지정 -->
-          <div class="form-group">
-            <label for="reg-location"><i class="fa-solid fa-map-location-dot"></i> 창고 지정 (선택)</label>
-            <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 아래 버튼 선택" class="input-control">
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B1')">B1</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B2')">B2</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B3')">B3</button>
             </div>
           </div>
 
@@ -300,11 +248,10 @@
           </select>
 
           <select id="stock-sort-select" class="toolbar-select" onchange="onStockFilterChange()">
-            <option value="stock-desc">재고 많은순</option>
-            <option value="stock-asc">재고 적은순</option>
-            <option value="name-asc">품목 이름순</option>
-            <option value="artno-asc">아티클 번호순</option>
-            <option value="loc-asc">창고 구역순</option>
+            <option value="stock-desc">재고 많은 순 ↓</option>
+            <option value="stock-asc">재고 적은 순 ↑</option>
+            <option value="name-asc">품목 이름 순</option>
+            <option value="artno-asc">아티클 번호 순</option>
           </select>
         </div>
       </div>
@@ -315,15 +262,10 @@
             <h3 style="margin:0;"><i class="fa-solid fa-list-check"></i> 전체 품목 재고 현황</h3>
             <span class="count-badge" id="stock-count-text">0개 품목</span>
           </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <button type="button" id="btn-stock-excel-export" class="btn-excel-export" onclick="if(typeof exportStockToExcel === 'function') exportStockToExcel()" style="display:none; font-size:12px; padding:6px 10px; border-radius:6px; height:auto; margin:0;">
-              <i class="fa-solid fa-file-excel"></i> 엑셀 추출
-            </button>
-            <label style="font-size:13px; font-weight:bold; cursor:pointer; color:#4f46e5; display:flex; align-items:center; gap:6px;">
-              <input type="checkbox" id="stock-select-all" onclick="toggleStockSelectAll(this.checked)" style="transform: scale(1.2);">
-              전체 선택
-            </label>
-          </div>
+          <label style="font-size:13px; font-weight:bold; cursor:pointer; color:#4f46e5; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="stock-select-all" onclick="toggleStockSelectAll(this.checked)" style="transform: scale(1.2);">
+            전체 선택
+          </label>
         </div>
 
       <div id="stock-cards-container" class="stock-cards-list" style="padding-bottom: 70px;"></div>
@@ -342,7 +284,7 @@
     <section id="tab-order" class="tab-page">
       <div class="card-box" style="border-top: 4px solid #6366f1;">
         <div class="card-header space-between">
-          <h2><i class="fa-solid fa-cart-flatbed"></i> 고양 오더 작성</h2>
+          <h2><i class="fa-solid fa-cart-flatbed"></i> 오더 요청 작성</h2>
           <!-- Order Excel Export (Admin Only) -->
           <button type="button" id="btn-order-excel-export" class="btn-excel-export" onclick="exportOrdersToExcel()" style="display:none;">
             <i class="fa-solid fa-file-excel"></i> 오더 내역 엑셀 추출
@@ -400,7 +342,7 @@
             <i class="fa-solid fa-box-open"></i> 챙기기 목록 담기
           </button>
           <button type="submit" class="btn-submit" id="btn-order" style="flex:1;">
-            <i class="fa-solid fa-paper-plane"></i> 오더 하기
+            <i class="fa-solid fa-paper-plane"></i> 오더 요청
           </button>
           </div>
         </form>
@@ -430,36 +372,17 @@
 
     <!-- NEW TAB 4: 창고 챙기기 (PICK LIST) -->
     <section id="tab-picklist" class="tab-page">
-      <!-- 1. 창고 구역별 재고 담기 영역 -->
-      <div class="card-box" style="border-top: 4px solid #059669; margin-bottom: 20px;">
+      <div class="card-box" style="border-top: 4px solid #059669;">
         <div class="card-header space-between">
-          <h2><i class="fa-solid fa-map-location-dot"></i> 구역별 재고 담기</h2>
+          <h2><i class="fa-solid fa-box-open"></i> 창고 대기 목록</h2>
         </div>
-        <div style="padding: 0 15px 15px 15px;">
-          <!-- 구역 선택 버튼 영역 -->
-          <div id="picklist-location-buttons" style="margin-bottom:12px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; -ms-overflow-style:none;">
-            <!-- JS 렌더링 -->
+        <div style="padding: 0 15px 10px 15px;">
+          <div class="search-bar">
+            <i class="fa-solid fa-search" style="position: absolute; left: 25px; color: #94a3b8; margin-top: 2px;"></i>
+            <input type="text" id="picklist-search" placeholder="아티클 이름으로 검색..." class="input-control" style="background:#f8fafc; padding-left:36px; border-radius:8px;">
           </div>
-          
-          <!-- 체크박스가 있는 재고 카드 목록 -->
-          <div id="picklist-standard-inventory" class="stock-cards-list" style="max-height: 400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; padding:8px;">
-            <!-- JS 렌더링 -->
-          </div>
-          
-          <button type="button" class="btn-submit" style="margin-top:12px; width:100%; font-size:15px; padding:12px; background-color:#2563eb;" onclick="addStandardToPickList()">
-            <i class="fa-solid fa-cart-arrow-down"></i> 선택 항목 챙기기 목록으로 이동
-          </button>
         </div>
-      </div>
-
-      <!-- 2. 대기 목록 -->
-      <div class="card-box" style="border-top: 4px solid #f59e0b;">
-        <div class="card-header space-between">
-          <h2><i class="fa-solid fa-clipboard-check"></i> 대기 목록</h2>
-        </div>
-        <div id="picklist-standard-cart" class="history-list" style="padding-top:10px;">
-          <!-- JS 렌더링 -->
-        </div>
+        <div id="picklist-container" class="history-list"></div>
       </div>
     </section>
 
@@ -530,29 +453,25 @@
           <h2><i class="fa-solid fa-bars"></i> 전체 메뉴</h2>
         </div>
         <div class="menu-grid">
-          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
+          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:last-child'))">
             <i class="fa-solid fa-warehouse menu-icon"></i>
             <span class="menu-text">재고 조회</span>
           </a>
-          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <i class="fa-solid fa-box-open menu-icon" style="color:#ef4444;"></i>
-            <span class="menu-text">창고 챙기기</span>
-            <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
-          </a>
-          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
+          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:last-child'))" style="position:relative;">
             <i class="fa-solid fa-cart-flatbed menu-icon"></i>
             <span class="menu-text">오더 요청</span>
             <span id="badge-order" class="nav-badge" style="display:none;">0</span>
           </a>
-          <a class="menu-item" onclick="switchTab('ptag', document.querySelector('.bottom-nav .nav-item:first-child'))">
+          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:last-child'))" style="position:relative;">
+            <i class="fa-solid fa-box-open menu-icon"></i>
+            <span class="menu-text">창고 챙기기</span>
+            <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
+          </a>
+          <a class="menu-item" onclick="switchTab('ptag', document.querySelector('.bottom-nav .nav-item:last-child'))">
             <i class="fa-solid fa-tag menu-icon" style="color:#8b5cf6;"></i>
             <span class="menu-text">P-tag</span>
           </a>
-          <a class="menu-item" onclick="showToast('Prenote 기능은 준비 중입니다.', 'info')">
-            <i class="fa-solid fa-file-signature menu-icon" style="color:#10b981;"></i>
-            <span class="menu-text">Prenote</span>
-          </a>
-        </div>
+          </div>
 
           <div class="info-card" style="margin-top: 24px; background-color: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
             <h3 style="font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
@@ -692,11 +611,6 @@
 
   <!-- Bottom Navigation Bar for Mobile -->
   <nav class="bottom-nav">
-    <button type="button" class="nav-item" onclick="switchTab('menu', this)" style="position:relative;">
-      <i class="fa-solid fa-bars"></i>
-      <span>메뉴</span>
-      <span id="badge-menu-main" class="nav-badge" style="display:none; right:15px;">0</span>
-    </button>
     <button type="button" class="nav-item active" onclick="switchTab('register', this)">
       <i class="fa-solid fa-pen-to-square"></i>
       <span>입출고 등록</span>
@@ -704,6 +618,11 @@
     <button type="button" class="nav-item" id="nav-history-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
       <span>입출고 기록</span>
+    </button>
+    <button type="button" class="nav-item" onclick="switchTab('menu', this)" style="position:relative;">
+      <i class="fa-solid fa-bars"></i>
+      <span>메뉴</span>
+      <span id="badge-menu-main" class="nav-badge" style="display:none; right:15px;">0</span>
     </button>
   </nav>
 
@@ -817,926 +736,11 @@
     </div>
   </div>
 
-  <!-- MODAL 5: Notice Modal -->
-  <div id="notice-modal" class="modal-backdrop" style="z-index:9999;">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-circle-exclamation"></i> 송도 스토어 창고 재고 관리 안내</h3>
-      </div>
-      <div class="modal-body">
-        <div style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:15px; font-size:14px; color:#334155; line-height:1.6; border:1px solid #e2e8f0;">
-          <p style="font-weight:bold; color:#0f172a; margin-bottom:8px;">창고 재고 관리의 중요성</p>
-          <p>올바른 재고 관리는 원활한 스토어 운영의 핵심입니다. 입고와 출고 시 <b>정확한 수량 확인</b>과 <b>정확한 구역 지정</b>을 철저히 하여 재고 오차를 방지해 주시기 바랍니다.</p>
-          <p style="margin-top:8px; color:#ef4444; font-weight:bold;">※ 본인의 정확한 기록이 다른 동료들의 업무 효율을 높입니다.</p>
-        </div>
-        <div style="margin-bottom:15px;">
-          <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:8px; color:#1e293b;">서명 (내용 확인)</label>
-          <input type="text" id="notice-signature-name" placeholder="이름을 입력하세요" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:8px; box-sizing:border-box;">
-          <canvas id="notice-signature-pad" style="width:100%; height:120px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; cursor:crosshair; touch-action:none;"></canvas>
-          <div style="text-align:right; margin-top:4px;">
-            <button type="button" onclick="if(typeof clearNoticeSignature === 'function') clearNoticeSignature()" style="background:none; border:none; color:#64748b; font-size:12px; cursor:pointer;"><i class="fa-solid fa-eraser"></i> 서명 지우기</button>
-          </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:15px;">
-          <label style="font-size:13px; color:#475569; display:flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="checkbox" id="notice-hide-week" style="width:16px; height:16px; cursor:pointer;">
-            일주일 동안 보지 않기
-          </label>
-          <button type="button" class="btn-submit" style="padding:10px 20px; margin:0;" onclick="if(typeof confirmNoticeModal === 'function') confirmNoticeModal()">확인 및 닫기</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL 6: Guest Manual Modal -->
-  <div id="guest-manual-modal" class="modal-backdrop" style="z-index:9999;">
-    <div class="modal-content" style="max-width:400px;" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-book-open"></i> 송도 스토어 재고관리 메뉴얼</h3>
-      </div>
-      <div class="modal-body" style="padding-top:10px;">
-        
-        <!-- Page 1 -->
-        <div id="guest-manual-page-1" class="guest-manual-page">
-          <div style="text-align:center; margin-bottom:15px;">
-            <i class="fa-solid fa-boxes-stacked" style="font-size:40px; color:#3b82f6; margin-bottom:10px;"></i>
-            <h4 style="margin:0; color:#0f172a; font-size:18px;">환영합니다!</h4>
-          </div>
-          <div style="background:#f8fafc; padding:15px; border-radius:8px; font-size:14px; color:#334155; line-height:1.6; border:1px solid #e2e8f0; margin-bottom:15px;">
-            <p>이 시스템은 <b>송도 스토어의 창고 재고</b>를 실시간으로 정확하게 파악하고, 동료들과 원활하게 소통하기 위해 만들어졌습니다.</p>
-            <p style="margin-top:8px;">입출고를 기록할 때는 반드시 <b>정확한 품목명, 수량, 구역</b>을 확인 후 등록해 주시기 바랍니다.</p>
-          </div>
-          <button type="button" class="btn-submit" style="width:100%; padding:12px;" onclick="if(typeof nextGuestManualPage==='function') nextGuestManualPage(2)">다음으로 (1/3)</button>
-        </div>
-
-        <!-- Page 2 -->
-        <div id="guest-manual-page-2" class="guest-manual-page" style="display:none;">
-          <h4 style="margin:0 0 10px 0; color:#0f172a; font-size:16px;"><i class="fa-solid fa-pen-to-square"></i> 주요 기능 안내</h4>
-          <div style="background:#f8fafc; padding:15px; border-radius:8px; font-size:13px; color:#334155; line-height:1.6; border:1px solid #e2e8f0; margin-bottom:15px;">
-            <ul style="padding-left:20px; margin:0;">
-              <li style="margin-bottom:8px;"><b>입출고 등록:</b> 물건을 입고하거나 출고할 때 아티클 번호 또는 이름 입력으로 기록을 남깁니다.</li>
-              <li style="margin-bottom:8px;"><b>오더 요청:</b> 필요한 물품이 있을 경우 '오더' 탭에서 요청을 보낼 수 있습니다.<br><span style="color:#64748b; font-size:12px;">(해당 내역을 바탕으로 고양점 프리노트 오더의 기반이 됩니다.)</span></li>
-              <li><b>창고 챙기기:</b> 동료가 요청한 오더를 확인하고, 창고에서 물품을 준비한 뒤 매장 리플 후 완료 처리합니다.</li>
-            </ul>
-          </div>
-          <div style="display:flex; gap:10px;">
-            <button type="button" class="btn-secondary" style="flex:1; padding:12px;" onclick="if(typeof nextGuestManualPage==='function') nextGuestManualPage(1)">이전</button>
-            <button type="button" class="btn-submit" style="flex:1; padding:12px;" onclick="if(typeof nextGuestManualPage==='function') nextGuestManualPage(3)">다음으로 (2/3)</button>
-          </div>
-        </div>
-
-        <!-- Page 3 -->
-        <div id="guest-manual-page-3" class="guest-manual-page" style="display:none;">
-          <div style="background:#fff1f2; padding:15px; border-radius:8px; margin-bottom:15px; font-size:14px; color:#be123c; line-height:1.6; border:1px solid #fecdd3;">
-            <p style="font-weight:bold; margin-bottom:8px;"><i class="fa-solid fa-triangle-exclamation"></i> 주의 사항</p>
-            <p>잘못된 재고 등록은 송도 스토어뿐만 아니라 고양점에도 업무 지장을 초래합니다. <b>항상 본인이 직접 확인한 수량만 등록</b>해 주세요.</p>
-            <p style="margin-top:8px; font-size:13px; color:#9f1239;">※ 문의사항 및 버그 발생시 지인에게 문의해주세요.</p>
-          </div>
-          
-          <div style="margin-bottom:15px;">
-            <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:8px; color:#1e293b;">서명 (위 내용을 모두 숙지함)</label>
-            <input type="text" id="guest-signature-name" placeholder="이름을 입력하세요" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:8px; box-sizing:border-box;">
-            <canvas id="guest-manual-signature-pad" style="width:100%; height:120px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; cursor:crosshair; touch-action:none;"></canvas>
-            <div style="text-align:right; margin-top:4px;">
-              <button type="button" onclick="if(typeof clearGuestSignature === 'function') clearGuestSignature()" style="background:none; border:none; color:#64748b; font-size:12px; cursor:pointer;"><i class="fa-solid fa-eraser"></i> 서명 지우기</button>
-            </div>
-          </div>
-          
-          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:15px;">
-            <label style="font-size:13px; color:#475569; display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="guest-manual-hide-day" style="width:16px; height:16px; cursor:pointer;">
-              하루 동안 보지 않기
-            </label>
-            <div style="display:flex; gap:10px;">
-              <button type="button" class="btn-secondary" style="padding:10px 15px; margin:0;" onclick="if(typeof nextGuestManualPage==='function') nextGuestManualPage(2)">이전</button>
-              <button type="button" class="btn-submit" style="padding:10px 20px; margin:0;" onclick="if(typeof confirmGuestManualModal === 'function') confirmGuestManualModal()">확인 및 시작</button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- Single Item Location Modal -->
-  <div id="single-loc-modal" class="modal-backdrop" onclick="closeSingleLocationModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-map-pin"></i> 구역 변경</h3>
-        <button type="button" class="close-btn" onclick="closeSingleLocationModal()"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body">
-        <p id="single-loc-artname" style="margin-bottom:15px; color:#475569; font-size:14px; font-weight:bold;"></p>
-        <p style="margin-bottom:10px; color:#64748b; font-size:13px;">이동할 구역을 선택하세요:</p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 20px;">
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B1')">B1</button>
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B2')">B2</button>
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B3')">B3</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast Notification Box -->
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="ptag.js?v=1.7.67"></script>
-  <script src="app.js?v=1.7.67"></script>
-  <script src="custom.js?v=1.7.67"></script>
-  
-  <script>
-    // Premium Wait List Override & Features
-    
-    // 1. Delete Pick Item
-    window.deletePickItem_custom = async function(id) {
-      if (!confirm("대기 목록에서 이 항목을 삭제하시겠습니까?")) return;
-      try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null") {
-          try {
-            const { error } = await supabaseClient.from("order_requests").delete().eq("id", id);
-            if (error) {
-              console.warn("DB delete error (ignoring locally):", error);
-            }
-          } catch (dbErr) {
-            console.warn("DB SDK Exception during delete (ignoring locally):", dbErr);
-          }
-        }
-        
-        // Remove locally
-        if (typeof orderLogs !== "undefined") {
-          const idx = orderLogs.findIndex(log => String(log.id) === String(id));
-          if (idx !== -1) {
-            orderLogs.splice(idx, 1);
-            try { localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs)); } catch(e) {}
-          }
-        }
-        showToast("항목이 대기 목록에서 삭제되었습니다.", "info");
-        if (typeof window.renderStandardPickList === "function") window.renderStandardPickList();
-      } catch (err) {
-        console.error("Delete pick item error:", err);
-        showToast("항목 삭제 중 오류가 발생했습니다.", "danger");
-      }
-    };
-
-    // 2. Modify Pick Item
-    window.modifyPickItem_custom = async function(id) {
-      if (typeof orderLogs === "undefined") return;
-      const pickItem = orderLogs.find(log => String(log.id) === String(id));
-      if (!pickItem) return;
-      
-      const newQtyStr = prompt(`'${pickItem.artName}'의 새로운 수량을 입력하세요:`, pickItem.qty);
-      if (newQtyStr === null || newQtyStr.trim() === "") return;
-      
-      const newQty = parseInt(newQtyStr, 10);
-      if (isNaN(newQty) || newQty <= 0) {
-        showToast("유효한 수량을 입력해주세요.", "warning");
-        return;
-      }
-      
-      try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && pickItem.id) {
-          const { error } = await supabaseClient.from("order_requests").update({ qty: newQty }).eq("id", pickItem.id);
-          if (error) throw error;
-        }
-        pickItem.qty = newQty;
-        showToast("수량이 변경되었습니다.", "success");
-        if (typeof window.renderStandardPickList === "function") window.renderStandardPickList();
-      } catch (err) {
-        console.error("Modify pick item error:", err);
-        showToast("수량 변경 중 오류가 발생했습니다.", "danger");
-      }
-    };
-
-    // 3. Render Wait List
-    window.renderStandardPickList = function() {
-      const container = document.getElementById("picklist-standard-cart");
-      if (!container) return;
-      
-      // Fix: Filter by '출고대기' to match addStandardToPickList
-      const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기");
-      
-      // Update Picklist Badge (Not Menu Badge)
-      const badgePicklist = document.getElementById("badge-picklist");
-      if (badgePicklist) {
-        if (pendingPicks.length > 0) {
-          badgePicklist.textContent = pendingPicks.length;
-          badgePicklist.style.display = "inline-flex";
-          badgePicklist.style.backgroundColor = "#ef4444";
-          badgePicklist.style.position = "absolute";
-          badgePicklist.style.top = "10px";
-          badgePicklist.style.right = "10px";
-        } else {
-          badgePicklist.style.display = "none";
-        }
-      }
-      
-      if (pendingPicks.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:#94a3b8; font-size:14px;"><i class="fa-solid fa-box-open" style="font-size:32px; color:#cbd5e1; margin-bottom:12px; display:block;"></i>현재 대기 중인 항목이 없습니다.</div>`;
-        return;
-      }
-      
-      let html = "";
-      pendingPicks.forEach(item => {
-        const stockMap = buildStockMap();
-        const stockItem = stockMap.get(item.artNo);
-        let location = "미지정";
-        if (stockItem && stockItem.location) location = stockItem.location;
-        
-        html += `
-          <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 2px 4px -1px rgba(0,0,0,0.05); border:1px solid #f87171; gap:8px; transition:all 0.2s ease; position:relative; overflow:hidden;">
-            <!-- Left color bar -->
-            <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background-color:#ef4444;"></div>
-            
-            <div style="flex:1; padding-left:4px;">
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${location}</span>
-                <span style="font-size:12px; font-weight:bold; color:#64748b;">${item.artNo}</span>
-              </div>
-              <div style="font-size:14px; font-weight:900; margin-top:4px; color:#1e293b; line-height:1.3;">${item.artName}</div>
-              <div style="font-size:10px; color:#94a3b8; margin-top:4px;"><i class="fa-regular fa-clock"></i> ${item.date} | 요청: ${item.user}</div>
-            </div>
-            
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-              <div style="display:flex; align-items:center;">
-                <div style="font-size:16px; font-weight:900; color:#ef4444;">${item.qty}<span style="font-size:12px; color:#94a3b8; font-weight:bold; margin-left:2px;">개</span></div>
-              </div>
-              <div style="display:flex; gap:4px; margin-top:2px;">
-                <button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="modifyPickItem_custom('${item.id}')">
-                  수정
-                </button>
-                <button type="button" style="background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="deletePickItem_custom('${item.id}')">
-                  삭제
-                </button>
-                <button type="button" style="background:#ef4444; color:white; border:none; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 8px; cursor:pointer; box-shadow:0 1px 2px rgba(239,68,68,0.2);" onclick="completePickItem_custom('${item.id}')">
-                  완료
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    };
-
-    // 4. Override Order Requests Render (Separate from Pick List)
-    window.renderOrderLogs = function() {
-      const container = document.getElementById("order-logs-container");
-      if (!container) return;
-
-      if (typeof orderLogs === "undefined") return;
-
-      // Filter out Pick List items (including completed ones)
-      const pickListStatuses = ["대기", "출고대기", "완료", "출고완료"];
-      const filteredOrderLogs = orderLogs.map((item, index) => ({item, originalIndex: index}))
-                                         .filter(x => !pickListStatuses.includes(x.item.status));
-
-      // Update Order Badge
-      const badgeOrder = document.getElementById("badge-order");
-      if (badgeOrder) {
-        const activeOrders = filteredOrderLogs.filter(x => !x.item.status || x.item.status === "요청됨" || x.item.status === "보류");
-        if (activeOrders.length > 0) {
-          badgeOrder.textContent = activeOrders.length;
-          badgeOrder.style.display = "inline-flex";
-          badgeOrder.style.backgroundColor = "#3b82f6";
-          badgeOrder.style.position = "absolute";
-          badgeOrder.style.top = "10px";
-          badgeOrder.style.right = "10px";
-        } else {
-          badgeOrder.style.display = "none";
-        }
-      }
-
-      if (filteredOrderLogs.length === 0) {
-        container.innerHTML = `
-          <div style="text-align: center; padding: 30px; color: #94a3b8;">
-            <i class="fa-solid fa-cart-shopping" style="font-size: 32px; margin-bottom: 8px;"></i>
-            <p>등록된 오더 요청 내역이 없습니다.</p>
-          </div>
-        `;
-        return;
-      }
-      
-      container.innerHTML = filteredOrderLogs.map(({item, originalIndex}) => {
-        const statusText = item.status || '요청됨';
-        let bgColor = '#e0e7ff';
-        let textColor = '#4338ca';
-        if (statusText === '수락') { bgColor = '#dcfce7'; textColor = '#166534'; }
-        if (statusText === '보류') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
-        if (statusText === '출고대기') { bgColor = '#fef3c7'; textColor = '#b45309'; }
-        if (statusText === '출고완료') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
-
-        let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
-        
-        if (typeof isAdminUser !== "undefined" && isAdminUser) {
-          statusHtml = `
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-              ${statusHtml}
-              <div style="display:flex; gap:4px; margin-top:2px;">
-                <button type="button" onclick="updateOrderStatus(${originalIndex}, '수락')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">수락</button>
-                <button type="button" onclick="updateOrderStatus(${originalIndex}, '보류')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">보류</button>
-              </div>
-            </div>
-          `;
-        }
-
-        let displayTime = item.date;
-        if (item.created_at) {
-          const dateStr = item.created_at.endsWith('Z') || item.created_at.includes('+') ? item.created_at : item.created_at + 'Z';
-          const d = new Date(dateStr);
-          const yyyy = d.getFullYear().toString().slice(2);
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
-          const hh = String(d.getHours()).padStart(2, '0');
-          const min = String(d.getMinutes()).padStart(2, '0');
-          displayTime = `${yyyy}.${mm}.${dd} ${hh}:${min}`;
-        } else {
-          displayTime = `${item.date.replace(/-/g, '.').substring(2)} --:--`;
-        }
-
-        let displayName = item.artName;
-        if (typeof masterCatalogMap !== "undefined") {
-          const mappedName = masterCatalogMap.get(item.artNo);
-          if (mappedName) displayName = mappedName;
-        }
-
-        return `
-        <div class="history-item" style="border-left-color: #6366f1;">
-          <div class="hist-left">
-            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user}</span>
-            <div class="hist-name">${displayName}</div>
-            <span class="hist-artno">번호: ${item.artNo}</span>
-          </div>
-          <div class="hist-right">
-            ${statusHtml}
-            <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
-              ${item.qty}개
-            </div>
-          </div>
-        </div>
-        `;
-      }).join("");
-    };
-
-    // 5. Override switchTab to allow everyone to access History
-    window.switchTab = function(tabId, btnElement) {
-      if (tabId === "master" && (typeof isAdminUser !== "undefined" && !isAdminUser)) {
-        showToast("해당 메뉴는 관리자만 접근할 수 있습니다.", "danger");
-        return;
-      }
-      
-      document.querySelectorAll(".tab-page").forEach(page => page.classList.remove("active"));
-      document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
-
-      const targetTab = document.getElementById(`tab-${tabId}`);
-      if (targetTab) targetTab.classList.add("active");
-      if (btnElement) btnElement.classList.add("active");
-
-      if (tabId === "stock") {
-        if (typeof stockDisplayLimit !== "undefined") stockDisplayLimit = typeof RENDER_LIMIT !== "undefined" ? RENDER_LIMIT : 20;
-        if (typeof renderStockLookup === "function") renderStockLookup();
-      }
-      if (tabId === "register" || tabId === "order") {
-        if (typeof initFormDate === "function") initFormDate();
-      }
-      if (tabId === "order") {
-        if (typeof renderOrderLogs === "function") renderOrderLogs();
-      }
-      if (tabId === "picklist") {
-        if (typeof renderStandardLocationButtons === "function") renderStandardLocationButtons();
-        if (typeof renderStandardPickList === "function") renderStandardPickList();
-      }
-      if (tabId === "history") {
-        if (typeof historyDisplayLimit !== "undefined") historyDisplayLimit = typeof RENDER_LIMIT !== "undefined" ? RENDER_LIMIT : 20;
-        if (typeof populateArticleFilterDropdown === "function") populateArticleFilterDropdown();
-        if (typeof renderHistoryLogs === "function") renderHistoryLogs();
-      }
-      if (tabId === "master") {
-        if (typeof masterDisplayLimit !== "undefined") masterDisplayLimit = typeof RENDER_LIMIT !== "undefined" ? RENDER_LIMIT : 20;
-        if (typeof renderMasterCatalog === "function") renderMasterCatalog();
-      }
-    };
-
-    // 6. Edit Article Name Functionality
-    window.editArticleName = async function(artNo, currentName) {
-      const newName = prompt(`'${artNo}'의 새로운 아티클 이름을 입력하세요:`, currentName === "알 수 없음" ? "" : currentName);
-      if (newName === null || newName.trim() === "") return;
-      
-      const trimmedName = newName.trim();
-      
-      let masterItem = typeof masterCatalog !== "undefined" ? masterCatalog.find(m => m.artNo === artNo) : null;
-      if (masterItem) {
-        masterItem.artName = trimmedName;
-      } else {
-        masterItem = { artNo: artNo, artName: trimmedName, location: "미지정", hfb: "기본 HFB" };
-        if (typeof masterCatalog !== "undefined") masterCatalog.push(masterItem);
-      }
-      
-      if (typeof rebuildMasterCatalogMap === "function") rebuildMasterCatalogMap();
-      
-      try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient) {
-          // Check if it already exists
-          const { data: existing, error: selErr } = await supabaseClient
-            .from("master_catalog")
-            .select("id")
-            .eq("artno", artNo);
-            
-          if (selErr) throw selErr;
-          
-          if (existing && existing.length > 0) {
-            // Update
-            const { error: updErr } = await supabaseClient
-              .from("master_catalog")
-              .update({ artname: trimmedName, hfb: masterItem.hfb })
-              .eq("id", existing[0].id);
-            if (updErr) throw updErr;
-          } else {
-            const { error: insErr } = await supabaseClient
-              .from("master_catalog")
-              .insert([{ artno: artNo, artname: trimmedName, hfb: masterItem.hfb }]);
-            if (insErr) throw insErr;
-          }
-          
-          // Also update inventory_logs for this artno
-          const { error: invErr } = await supabaseClient
-            .from("inventory_logs")
-            .update({ artname: trimmedName })
-            .eq("artno", artNo);
-          if (invErr) console.warn("Could not update inventory_logs:", invErr);
-        }
-        
-        // Update local history logs
-        if (typeof historyLogs !== "undefined") {
-          historyLogs.forEach(log => {
-            if (log.artNo === artNo) log.artName = trimmedName;
-          });
-          try { localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs)); } catch(e){}
-        }
-        
-        showToast(`아티클 이름이 변경되었습니다.`, "success");
-        if (typeof renderStockLookup === "function") renderStockLookup();
-        if (typeof renderHistoryLogs === "function") renderHistoryLogs();
-      } catch (err) {
-        console.error("Name update error", err);
-        showToast(`오류 발생: ${err.message || "이름을 저장할 수 없습니다."}`, "danger");
-      }
-    };
-
-    // 7. Override renderStockLookup to show Edit button + Restore Premium UI
-    window.renderStockLookup = function() {
-      const container = document.getElementById("stock-cards-container");
-      if (!container) return;
-
-      if (typeof populateStockHFBDropdown === "function") populateStockHFBDropdown();
-
-      const searchQuery = document.getElementById("stock-search").value.trim().toLowerCase();
-      const stockMap = typeof buildStockMap === "function" ? buildStockMap() : new Map();
-
-      const stockList = [];
-      stockMap.forEach(item => {
-        let loc = "미지정";
-        if (!item.hfb) {
-          const matchedMaster = typeof masterCatalog !== "undefined" ? masterCatalog.find(m => m.artNo === item.artNo) : null;
-          item.hfb = matchedMaster ? matchedMaster.hfb || "기본 HFB" : "기본 HFB";
-          loc = matchedMaster ? matchedMaster.location || "미지정" : "미지정";
-        } else {
-          const matchedMaster = typeof masterCatalog !== "undefined" ? masterCatalog.find(m => m.artNo === item.artNo) : null;
-          loc = matchedMaster ? matchedMaster.location || "미지정" : "미지정";
-        }
-        item.location = loc;
-        
-        // Always try to fetch the most up-to-date name
-        const mappedName = typeof masterCatalogMap !== "undefined" ? masterCatalogMap.get(item.artNo) : null;
-        if (mappedName) item.artName = mappedName;
-        
-        stockList.push(item);
-      });
-
-      let filteredList = stockList;
-
-      if (searchQuery) {
-        filteredList = filteredList.filter(item =>
-          item.artNo.toLowerCase().includes(searchQuery) ||
-          item.artName.toLowerCase().includes(searchQuery) ||
-          (item.hfb && item.hfb.toLowerCase().includes(searchQuery))
-        );
-      }
-
-      if (typeof currentStockStatusFilter !== "undefined") {
-        if (currentStockStatusFilter === "good") {
-          filteredList = filteredList.filter(item => item.currentStock > 5);
-        } else if (currentStockStatusFilter === "low") {
-          filteredList = filteredList.filter(item => item.currentStock > 0 && item.currentStock <= 5);
-        } else if (currentStockStatusFilter === "out") {
-          filteredList = filteredList.filter(item => item.currentStock <= 0);
-        }
-      }
-
-      if (typeof currentStockHFBFilter !== "undefined" && currentStockHFBFilter !== "ALL") {
-        filteredList = filteredList.filter(item => item.hfb === currentStockHFBFilter);
-      }
-
-      if (typeof currentStockSort !== "undefined") {
-        filteredList.sort((a, b) => {
-          if (currentStockSort === "stock-desc") return b.currentStock - a.currentStock;
-          if (currentStockSort === "stock-asc") return a.currentStock - b.currentStock;
-          if (currentStockSort === "name-asc") return a.artName.localeCompare(b.artName, "ko");
-          if (currentStockSort === "artno-asc") return a.artNo.localeCompare(b.artNo);
-          if (currentStockSort === "loc-asc") return (a.location || "").localeCompare(b.location || "", "ko");
-          return 0;
-        });
-      }
-
-      document.getElementById("stock-count-text").textContent = `${filteredList.length}개 품목`;
-
-      if (filteredList.length === 0) {
-        container.innerHTML = `
-          <div style="text-align: center; padding: 40px 20px; color: #94a3b8; background:#fff; border-radius:14px; border:1px dashed #cbd5e1;">
-            <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 12px; color:#cbd5e1;"></i>
-            <p style="font-weight:700; color:#64748b;">조건에 맞는 재고 기록이 없습니다.</p>
-            <button type="button" class="btn-secondary sm" style="margin-top:12px;" onclick="if(typeof resetStockFilters==='function') resetStockFilters()">
-              <i class="fa-solid fa-rotate-left"></i> 전체 보기로 필터 초기화
-            </button>
-          </div>
-        `;
-        return;
-      }
-
-      const limit = typeof stockDisplayLimit !== "undefined" ? stockDisplayLimit : 20;
-      const visibleList = filteredList.slice(0, limit);
-
-      let html = visibleList.map(item => {
-        const isOut = item.currentStock <= 0;
-        const isLow = item.currentStock > 0 && item.currentStock <= 5;
-        
-        const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-        const statusText = isOut ? "품절" : isLow ? "부족" : "안전";
-        const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
-
-        // Only show edit button to Admin and ONLY if name contains "알 수 없음", "신규", or "기타"
-        const isUnknown = item.artName.includes("알 수 없") || item.artName.includes("신규") || item.artName.includes("기타");
-        const isAdmin = typeof isAdminUser !== "undefined" && isAdminUser;
-        const editBtnHtml = (isAdmin && isUnknown) ? `<button type="button" onclick="editArticleName('${item.artNo}', '${item.artName}')" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; margin-left:6px;"><i class="fa-solid fa-pen"></i> 수정</button>` : '';
-
-        return `
-          <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="position:relative;">
-            <div style="position: absolute; top: 12px; left: 12px; z-index: 2;">
-              <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="if(typeof updateBulkSelection==='function') updateBulkSelection()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
-            </div>
-            <div class="ssc-left" style="padding-left: 30px;">
-              <div style="display:flex; flex-direction:column; gap:8px;">
-                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                  ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
-                  <span class="ssc-artno" style="margin-left:2px;">${item.artNo}</span>
-                </div>
-                <div class="ssc-quick-btns">
-                  <button type="button" class="btn-sm btn-quick-in" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">입고</button>
-                  <button type="button" class="btn-sm btn-quick-out" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '출고')">출고</button>
-                  <button type="button" class="btn-sm btn-quick-order" onclick="if(typeof quickActionOrder==='function') quickActionOrder('${item.artNo}')">고양 오더</button>
-                </div>
-              </div>
-              <span class="ssc-name" style="display:flex; align-items:center;">${item.artName} ${editBtnHtml}</span>
-              <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
-                <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1; letter-spacing:-0.2px;">
-                  <i class="fa-solid fa-map-pin"></i> 구역: ${item.location}
-                </span>
-                <button type="button" style="background:#e0f2fe; color:#0284c7; border:none; font-size:10px; font-weight:800; padding:4px 8px; border-radius:4px; cursor:pointer; box-shadow:0 1px 2px rgba(2,132,199,0.1);" onclick="if(typeof setSingleLocation==='function') setSingleLocation('${item.artNo}')">구역 변경</button>
-              </div>
-            </div>
-            <div class="ssc-right">
-              <span class="ssc-status ${statusClass}">${statusText}</span>
-              <div class="ssc-qty">
-                <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}">${item.currentStock}</span>
-                <span class="ssc-unit">개</span>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      if (filteredList.length > limit) {
-        html += `
-          <div style="text-align: center; margin-top: 15px;">
-            <button type="button" class="btn-secondary" onclick="if(typeof loadMoreStockItems==='function') loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
-          </div>
-        `;
-      }
-
-      container.innerHTML = html;
-      
-      const actionBar = document.getElementById('bulk-action-bar');
-      if (actionBar && actionBar.style.display !== 'none') {
-        const checkedNos = Array.from(document.querySelectorAll('.stock-checkbox:checked')).map(cb => cb.value);
-        if (checkedNos.length > 0) {
-          document.querySelectorAll('.stock-checkbox').forEach(cb => {
-            if (checkedNos.includes(cb.value)) cb.checked = true;
-          });
-          if(typeof updateBulkSelection==='function') updateBulkSelection();
-        }
-      }
-    };
-
-    // 8. Override renderHistoryLogs to map names dynamically
-    window.renderHistoryLogs = function() {
-      const container = document.getElementById("history-logs-container");
-      if (!container) return;
-
-      const startDate = document.getElementById("filter-start-date") ? document.getElementById("filter-start-date").value : "";
-      const endDate = document.getElementById("filter-end-date") ? document.getElementById("filter-end-date").value : "";
-      const typeFilter = document.getElementById("filter-type") ? document.getElementById("filter-type").value : "ALL";
-      const articleFilter = document.getElementById("filter-article") ? document.getElementById("filter-article").value : "ALL";
-
-      if (typeof historyLogs === "undefined") return;
-      let filteredLogs = historyLogs;
-
-      const isDefaultFilter = !startDate && !endDate && typeFilter === "ALL" && articleFilter === "ALL";
-
-      if (!isDefaultFilter) {
-        filteredLogs = historyLogs.filter(log => {
-          if (startDate && log.date < startDate) return false;
-          if (endDate && log.date > endDate) return false;
-          if (typeFilter !== "ALL" && log.type !== typeFilter) return false;
-          if (articleFilter !== "ALL" && log.artNo !== articleFilter) return false;
-          return true;
-        });
-      } else if (typeof historyDisplayLimit !== "undefined" && typeof RENDER_LIMIT !== "undefined" && historyDisplayLimit === RENDER_LIMIT) {
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
-        filteredLogs = historyLogs.filter(log => log.date >= yesterdayStr);
-      }
-
-      let totalIn = 0;
-      let totalOut = 0;
-      for (let i = 0; i < filteredLogs.length; i++) {
-        const log = filteredLogs[i];
-        const qty = Number(log.qty) || 0;
-        if (log.type === "입고") totalIn += qty;
-        if (log.type === "출고") totalOut += qty;
-      }
-
-      const countEl = document.getElementById("hist-count");
-      if (countEl) countEl.textContent = filteredLogs.length;
-      const inEl = document.getElementById("hist-total-in");
-      if (inEl) inEl.textContent = totalIn;
-      const outEl = document.getElementById("hist-total-out");
-      if (outEl) outEl.textContent = totalOut;
-
-      if (filteredLogs.length === 0) {
-        container.innerHTML = `
-          <div style="text-align: center; padding: 30px; color: #94a3b8;">
-            <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 8px;"></i>
-            <p>조건에 맞는 기록이 없습니다.</p>
-          </div>
-        `;
-        return;
-      }
-
-      const limit = typeof historyDisplayLimit !== "undefined" ? historyDisplayLimit : 20;
-      const visibleLogs = filteredLogs.slice(0, limit);
-
-      let html = visibleLogs.map(log => {
-        let displayTime = log.date;
-        if (log.created_at) {
-          const dateStr = log.created_at.endsWith('Z') || log.created_at.includes('+') ? log.created_at : log.created_at + 'Z';
-          const d = new Date(dateStr);
-          const yyyy = d.getFullYear();
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
-          const hh = String(d.getHours()).padStart(2, '0');
-          const min = String(d.getMinutes()).padStart(2, '0');
-          displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
-        }
-        
-        // Dynamically fetch updated name from masterCatalog
-        let displayName = log.artName;
-        if (typeof masterCatalogMap !== "undefined") {
-          const mappedName = masterCatalogMap.get(log.artNo);
-          if (mappedName) displayName = mappedName;
-        }
-
-        return `
-        <div class="history-item type-${log.type}">
-          <div class="hist-left">
-            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
-            <div class="hist-name">${displayName}</div>
-            <span class="hist-artno">번호: ${log.artNo}</span>
-          </div>
-          <div class="hist-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="hist-badge type-${log.type}">${log.type}</span>
-              <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
-                ${log.type === '입고' ? '+' : '-'}${log.qty}개
-              </div>
-            </div>
-            <button type="button" style="background:#fee2e2; color:#ef4444; border:none; font-weight:bold; font-size:11px; border-radius:4px; padding:4px 8px; cursor:pointer; transition:all 0.2s;" onclick="deleteHistoryLog_custom('${log.id}', '${displayName}')">
-              <i class="fa-solid fa-trash"></i> 삭제
-            </button>
-          </div>
-        </div>
-        `;
-      }).join("");
-
-      container.innerHTML = html;
-    };
-
-    window.deleteHistoryLog_custom = async function(id, artName) {
-      if (!confirm(`'${artName}'의 입출고 기록을 정말 삭제하시겠습니까?\n(삭제 시 현재 재고 수량에 즉시 반영됩니다.)`)) return;
-      try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null") {
-          try {
-            const { error } = await supabaseClient.from("inventory_logs").delete().eq("id", id);
-            if (error) console.warn("DB delete error:", error);
-          } catch(e) {
-            console.warn("DB SDK error:", e);
-          }
-        }
-        
-        if (typeof historyLogs !== "undefined") {
-          const idx = historyLogs.findIndex(log => String(log.id) === String(id));
-          if (idx !== -1) {
-            historyLogs.splice(idx, 1);
-            try { localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs)); } catch(e){}
-          }
-        }
-        
-        if (typeof invalidateStockCache === "function") invalidateStockCache();
-        showToast("입출고 기록이 삭제되었습니다.", "info");
-        
-        if (typeof window.renderStockLookup === "function") window.renderStockLookup();
-        if (typeof window.renderHistoryLogs === "function") window.renderHistoryLogs();
-      } catch (err) {
-        console.error("Delete history log error:", err);
-        showToast("기록 삭제 중 오류가 발생했습니다.", "danger");
-      }
-    };
-
-    // 9. Override handleOrderSubmit to intercept and show modal
-    let pendingOrderData = null;
-
-    window.handleOrderSubmit = function(e) {
-      e.preventDefault();
-
-      const date = document.getElementById("order-date").value;
-      const artNo = document.getElementById("order-artno").value.trim();
-      const artName = document.getElementById("order-artname").value.trim();
-      const qty = Number(document.getElementById("order-qty").value);
-
-      if (!artNo || !qty || qty <= 0) {
-        showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
-        return;
-      }
-
-      const stockMap = typeof buildStockMap === "function" ? buildStockMap() : new Map();
-      const stockItem = stockMap.get(artNo);
-      const currentStock = stockItem ? stockItem.currentStock : 0;
-
-      let loc = "미지정";
-      if (typeof masterCatalog !== "undefined") {
-        const matchedMaster = masterCatalog.find(m => m.artNo === artNo);
-        if (matchedMaster && matchedMaster.location) loc = matchedMaster.location;
-      }
-
-      pendingOrderData = { date, artNo, artName, qty };
-
-      if (currentStock > 0) {
-        document.getElementById("modal-stock-loc").textContent = loc;
-        document.getElementById("modal-stock-qty").textContent = currentStock;
-        document.getElementById("order-stock-modal").style.display = "flex";
-      } else {
-        processOrderNormal();
-      }
-    };
-
-    window.closeOrderStockModal = function() {
-      document.getElementById("order-stock-modal").style.display = "none";
-    };
-
-    window.processOrderAsPicklist = async function() {
-      closeOrderStockModal();
-      if (!pendingOrderData) return;
-      
-      const { date, artNo, artName, qty } = pendingOrderData;
-      const newOrder = {
-        date: date,
-        artNo: artNo,
-        artName: artName || "알 수 없음",
-        qty: qty,
-        user: typeof currentUser !== "undefined" ? currentUser : "guest",
-        status: "대기" // This status automatically puts it in the Picklist
-      };
-
-      await finalizeOrderSubmission(newOrder, "창고 챙기기 대기 목록에 추가되었습니다.");
-    };
-
-    window.processOrderNormal = async function() {
-      closeOrderStockModal();
-      if (!pendingOrderData) return;
-      
-      const { date, artNo, artName, qty } = pendingOrderData;
-      const newOrder = {
-        date: date,
-        artNo: artNo,
-        artName: artName || "알 수 없음",
-        qty: qty,
-        user: typeof currentUser !== "undefined" ? currentUser : "guest",
-        status: "요청"
-      };
-
-      await finalizeOrderSubmission(newOrder, "오더 작성이 완료되었습니다.");
-    };
-
-    window.saveOrderLogs_custom = async function(order) {
-      let insertedId = null;
-      if (typeof supabaseClient !== "undefined" && supabaseClient) {
-        try {
-          const dbOrder = { ...order };
-          delete dbOrder.timestamp;
-          if (dbOrder.artNo) { dbOrder.artno = dbOrder.artNo; delete dbOrder.artNo; }
-          if (dbOrder.artName) { dbOrder.artname = dbOrder.artName; delete dbOrder.artName; }
-          
-          const { data, error } = await supabaseClient
-            .from("order_requests")
-            .insert([dbOrder])
-            .select();
-            
-          if (!error && data && data.length > 0) {
-            insertedId = data[0].id;
-            order.id = insertedId;
-            order.created_at = data[0].created_at;
-          }
-        } catch (err) {
-          console.warn("Custom saveOrderLogs error:", err);
-        }
-      }
-      return insertedId;
-    };
-
-    window.finalizeOrderSubmission = async function(newOrder, successMsg) {
-      try {
-        await saveOrderLogs_custom(newOrder);
-        if (typeof orderLogs !== "undefined") orderLogs.unshift(newOrder);
-
-        showToast(successMsg, "success");
-        if (typeof playSuccessFeedback === "function") playSuccessFeedback();
-
-        // Reset form
-        document.getElementById("order-artno").value = "";
-        document.getElementById("order-artname").value = "";
-        document.getElementById("order-qty").value = "";
-        if (typeof initFormDate === "function") initFormDate();
-
-        if (typeof renderOrderLogs === "function") renderOrderLogs();
-        
-        // Also save to localStorage as fallback
-        try {
-          localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
-        } catch (err) {}
-        
-      } catch (err) {
-        console.error("Order submit error:", err);
-        showToast("저장 중 오류 발생: " + err.message, "danger");
-      }
-    };
-
-
-  </script>
-
-  <!-- Order Stock Confirmation Modal -->
-  <div id="order-stock-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-    <div class="modal-content" style="background:#fff; width:90%; max-width:400px; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-      <div class="modal-header" style="background:#f8fafc; padding:15px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="margin:0; font-size:16px; color:#1e293b;"><i class="fa-solid fa-boxes-stacked" style="color:#3b82f6;"></i> 창고 재고 확인</h3>
-        <span class="close" style="font-size:24px; cursor:pointer; color:#64748b;" onclick="closeOrderStockModal()">&times;</span>
-      </div>
-      <div style="padding: 20px; font-size: 15px; color: #334155; line-height: 1.5; text-align:center;">
-        <p style="margin:0 0 12px 0; font-weight: bold; color: #0f172a; font-size:16px;">현재 창고에 재고가 있습니다!</p>
-        <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: left; margin-bottom: 15px; border:1px solid #e2e8f0;">
-          <div style="margin-bottom:8px;"><i class="fa-solid fa-map-pin" style="color:#64748b; width:20px;"></i> 구역: <span id="modal-stock-loc" style="font-weight:700; color:#0f172a;"></span></div>
-          <div><i class="fa-solid fa-box" style="color:#64748b; width:20px;"></i> 수량: <span id="modal-stock-qty" style="font-weight:800; color:#0284c7; font-size:16px;"></span>개</div>
-        </div>
-        <p style="margin:0; color:#475569; font-size:14px;">창고에서 직접 챙기시겠습니까?<br>아니면 이대로 오더를 진행하시겠습니까?</p>
-      </div>
-      <div style="display:flex; gap:10px; padding: 0 20px 20px;">
-        <button type="button" style="flex:1; padding:12px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; cursor:pointer;" onclick="processOrderAsPicklist()"><i class="fa-solid fa-box-open"></i> 창고 챙기기</button>
-        <button type="button" style="flex:1; padding:12px; background:#3b82f6; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="processOrderNormal()"><i class="fa-solid fa-paper-plane"></i> 오더 하기</button>
-      </div>
-    </div>
-  </div>
-  <!-- Signature History Modal -->
-  <div id="sig-history-modal" class="modal-backdrop" onclick="if(typeof closeSigHistoryModal==='function') closeSigHistoryModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-clock-rotate-left"></i> 서명 히스토리</h3>
-        <button type="button" class="close-btn" onclick="if(typeof closeSigHistoryModal==='function') closeSigHistoryModal()"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body">
-        <div id="sig-history-list" style="max-height: 400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
-        </div>
-      </div>
-    </div>
-  </div>
+  <script src="ptag.js?v=1.7.38"></script>
+  <script src="app.js?v=1.7.38"></script>
 </body>
 </html>
