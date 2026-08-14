@@ -477,14 +477,29 @@ async function saveHistoryLogs(log) {
 
 async function saveOrderLogs(order) {
   let insertedId = null;
-  if (supabaseClient) {
+  if (supabaseClient && order) {
     try {
       const dbOrder = { ...order };
       delete dbOrder.timestamp; // Remove timestamp as it causes schema error
+      
+      // Map to lowercase column names for Supabase compatibility
+      if (dbOrder.artNo !== undefined) {
+        dbOrder.artno = dbOrder.artNo;
+        delete dbOrder.artNo;
+      }
+      if (dbOrder.artName !== undefined) {
+        dbOrder.artname = dbOrder.artName;
+        delete dbOrder.artName;
+      }
+      
       const { data, error } = await supabaseClient
         .from("order_requests")
         .insert([dbOrder])
         .select();
+      
+      if (error) {
+        console.warn("Supabase saveOrderLogs error:", error);
+      }
       
       if (!error && data && data.length > 0) {
         insertedId = data[0].id;
@@ -492,7 +507,7 @@ async function saveOrderLogs(order) {
         order.created_at = data[0].created_at;
       }
     } catch (err) {
-      console.warn("Supabase saveOrderLogs error:", err);
+      console.warn("Supabase saveOrderLogs exception:", err);
     }
   }
   try {
@@ -1281,51 +1296,54 @@ function renderPickList() {
   container.innerHTML = html;
 }
 
-async function completePickItem(index) {
+window.completePickItem = function(index) {
   const pickItem = orderLogs[index];
   if (!pickItem || pickItem.status !== "출고대기") return;
   
   if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   
-  try {
-    // 1. Update order status to 출고완료
-    pickItem.status = "출고완료";
-    if (supabaseClient && pickItem.id) {
-      const { error: updateError } = await supabaseClient
-        .from('order_requests')
-        .update({ status: '출고완료' })
-        .eq('id', pickItem.id);
-        
-      if (updateError) throw updateError;
-    }
-    
-    // 2. Insert into inventory_logs (actual checkout)
-    const newLog = {
-      date: new Date().toISOString().split('T')[0],
-      type: "출고",
-      artNo: pickItem.artNo,
-      artName: pickItem.artName,
-      qty: pickItem.qty,
-      user: currentUser || "system"
-    };
-    
-    const insertedId = await saveHistoryLogs(newLog);
-    historyLogs.unshift(newLog);
-    invalidateStockCache();
-    
-    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
-    playSuccessFeedback();
-    
-    renderStockLookup();
-    renderHistoryLogs();
-    renderOrderLogs(); // This will also call renderPickList()
-  } catch (err) {
-    console.error("Pick complete error:", err);
-    showToast("출고 완료 처리 실패: " + err.message, "danger");
+  // Optimistic UI Update
+  pickItem.status = "출고완료";
+  
+  const newLog = {
+    date: new Date().toISOString().split('T')[0],
+    type: "출고",
+    artNo: pickItem.artNo,
+    artName: pickItem.artName,
+    qty: pickItem.qty,
+    user: currentUser || "system"
+  };
+  
+  historyLogs.unshift(newLog);
+  invalidateStockCache();
+  
+  showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success");
+  playSuccessFeedback();
+  
+  renderStockLookup();
+  renderHistoryLogs();
+  renderOrderLogs(); // This will also call renderPickList()
+  
+  // Background Tasks
+  if (supabaseClient && pickItem.id) {
+    supabaseClient
+      .from('order_requests')
+      .update({ status: '출고완료' })
+      .eq('id', pickItem.id)
+      .then(({ error: updateError }) => {
+        if (updateError) console.warn("Pick complete update error:", updateError);
+      });
   }
+  
+  saveHistoryLogs(newLog).then(insertedId => {
+    if (insertedId) newLog.id = insertedId;
+  }).catch(err => {
+    console.error("Pick complete error:", err);
+    showToast("출고 기록 동기화 지연: " + err.message, "danger");
+  });
 }
 
-async function updateOrderStatus(index, newStatus) {
+window.updateOrderStatus = function(index, newStatus) {
   if (!isAdminUser) return;
   const order = orderLogs[index];
   if (!order) return;
@@ -1333,26 +1351,28 @@ async function updateOrderStatus(index, newStatus) {
   order.status = newStatus;
   order.date = new Date().toISOString().split("T")[0]; // 날짜 자동 업데이트
 
-  if (supabaseClient && order.id) {
-    try {
-      await supabaseClient
-        .from("order_requests")
-        .update({ status: newStatus, date: order.date })
-        .eq("id", order.id);
-    } catch (err) {
-      console.warn("Supabase update error:", err);
-    }
-  }
+  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
+  renderOrderLogs();
 
   try {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
-  renderOrderLogs();
+  if (supabaseClient && order.id) {
+    supabaseClient
+      .from("order_requests")
+      .update({ status: newStatus, date: order.date })
+      .eq("id", order.id)
+      .then(({ error }) => {
+        if (error) console.warn("Supabase update error:", error);
+      })
+      .catch(err => {
+        console.warn("Supabase update exception:", err);
+      });
+  }
 }
 
-window.deleteOrderLog = async function(index) {
+window.deleteOrderLog = function(index) {
   const order = orderLogs[index];
   if (!order) return;
   
@@ -1363,27 +1383,29 @@ window.deleteOrderLog = async function(index) {
   
   if (!confirm(`'${order.artName}' 오더 요청을 삭제하시겠습니까?`)) return;
   
-  if (supabaseClient && order.id) {
-    try {
-      const { error } = await supabaseClient
-        .from("order_requests")
-        .delete()
-        .eq("id", order.id);
-        
-      if (error) {
-        console.warn("Supabase delete error:", error);
-        showToast("서버 삭제 실패: " + error.message, "danger");
-        return;
-      }
-    } catch (err) {
-      console.warn("Supabase delete exception:", err);
-    }
-  }
-  
+  // Optimistic UI Update
   orderLogs.splice(index, 1);
   saveOrderLogs();
+  
   showToast("오더 요청이 삭제되었습니다.", "success");
   renderOrderLogs();
+  
+  // Background Task
+  if (supabaseClient && order.id) {
+    supabaseClient
+      .from("order_requests")
+      .delete()
+      .eq("id", order.id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn("Supabase delete error:", error);
+          showToast("서버 삭제 지연: " + error.message, "danger");
+        }
+      })
+      .catch(err => {
+        console.warn("Supabase delete exception:", err);
+      });
+  }
 };
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
