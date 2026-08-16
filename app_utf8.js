@@ -447,7 +447,6 @@ async function saveHistoryLogs(log) {
     try {
       const dbLog = { ...log };
       delete dbLog.timestamp; // Remove timestamp as it causes schema error
-      if (dbLog.artNo) { dbLog.artno = dbLog.artNo; delete dbLog.artNo; }
       delete dbLog.artName;
       delete dbLog.artname;
       
@@ -998,7 +997,7 @@ async function processRegCart() {
       .insert(regCartList.map(item => ({
         date: item.date,
         type: item.type,
-        artno: item.artNo,
+        artNo: item.artNo,
         qty: item.qty,
         user: currentUser || "system"
       })))
