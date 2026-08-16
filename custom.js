@@ -480,7 +480,7 @@ window.renderStockLookup = function() {
               <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">고양 오더</button>
             </div>
           </div>
-          <span class="ssc-name">${item.artName}</span>
+          <span class="ssc-name" style="display:flex; align-items:center; gap:6px;">${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}</span>
           <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
             <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1; letter-spacing:-0.2px;">
               <i class="fa-solid fa-map-pin"></i> 구역: ${item.location}
@@ -1718,4 +1718,148 @@ window.openSigHistoryModal = function() {
 window.closeSigHistoryModal = function() {
   const modal = document.getElementById('sig-history-modal');
   if (modal) modal.classList.remove('active');
+};
+
+// --- Edit Unknown Item Name Logic ---
+let currentEditItemNameArtNo = null;
+
+window.openEditItemNameModal = function(artNo, currentName) {
+  currentEditItemNameArtNo = artNo;
+  
+  let modal = document.getElementById("edit-item-name-modal");
+  if (!modal) {
+    const modalHtml = `
+      <div id="edit-item-name-modal" class="modal-backdrop" onclick="closeEditItemNameModal()">
+        <div class="modal-content" style="max-width: 400px;" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3>품목명 수정</h3>
+            <button type="button" class="close-btn" onclick="closeEditItemNameModal()"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:13px; color:#64748b; margin-bottom:15px;">알 수 없는 품목의 이름을 지정합니다.</p>
+            <div class="form-group">
+              <label>아티클 번호</label>
+              <input type="text" id="edit-item-name-artno" readonly style="background:#f8fafc; font-weight:bold; color:#475569;">
+            </div>
+            <div class="form-group">
+              <label>새 품목명</label>
+              <input type="text" id="edit-item-name-input" placeholder="정확한 품목명을 입력하세요">
+            </div>
+            <button type="button" class="btn-submit" style="width:100%; margin-top:10px;" onclick="saveEditItemName()">저장 및 동기화</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+    modal = document.getElementById("edit-item-name-modal");
+  }
+  
+  document.getElementById("edit-item-name-artno").value = artNo;
+  document.getElementById("edit-item-name-input").value = currentName === "알 수 없는 품목" || currentName === "알 수 없음" || currentName.includes("품목") ? "" : currentName;
+  
+  modal.classList.add("active");
+  setTimeout(() => document.getElementById("edit-item-name-input").focus(), 100);
+};
+
+window.closeEditItemNameModal = function() {
+  const modal = document.getElementById("edit-item-name-modal");
+  if (modal) modal.classList.remove("active");
+  currentEditItemNameArtNo = null;
+};
+
+window.saveEditItemName = async function() {
+  if (!currentEditItemNameArtNo) return;
+  const artNo = currentEditItemNameArtNo;
+  const newName = document.getElementById("edit-item-name-input").value.trim();
+  
+  if (!newName) {
+    showToast("품목명을 입력해주세요.", "danger");
+    return;
+  }
+  
+  // 1. Update Master Catalog
+  let masterItem = masterCatalog.find(m => m.artNo === artNo);
+  if (masterItem) {
+    masterItem.artName = newName;
+  } else {
+    masterItem = { artNo: artNo, artName: newName, location: "미지정", hfb: "기본 HFB" };
+    masterCatalog.push(masterItem);
+  }
+  
+  saveMasterCatalog();
+  rebuildMasterCatalogMap();
+  
+  // 2. Update History Logs
+  let historyUpdated = false;
+  historyLogs.forEach(log => {
+    if (log.artNo === artNo) {
+      log.artName = newName;
+      historyUpdated = true;
+    }
+  });
+  if (historyUpdated) {
+    try {
+      localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+    } catch(e){}
+  }
+  
+  // 3. Update Order Logs
+  let orderUpdated = false;
+  orderLogs.forEach(log => {
+    if (log.artNo === artNo) {
+      log.artName = newName;
+      orderUpdated = true;
+    }
+  });
+  if (orderUpdated) {
+    try {
+      localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+    } catch(e){}
+  }
+  
+  // 4. Sync to Supabase
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      // Sync master_catalog
+      const dbPayload = {
+        artno: masterItem.artNo,
+        artname: masterItem.artName,
+        location: masterItem.location || "미지정",
+        hfb: masterItem.hfb || "기본 HFB"
+      };
+      
+      if (masterItem.id) {
+        await supabaseClient.from("master_catalog").update(dbPayload).eq("id", masterItem.id);
+      } else {
+        const { data: existing } = await supabaseClient.from("master_catalog").select("id").eq("artno", masterItem.artNo).maybeSingle();
+        if (existing) {
+          masterItem.id = existing.id;
+          await supabaseClient.from("master_catalog").update(dbPayload).eq("id", existing.id);
+        } else {
+          const { data: inserted } = await supabaseClient.from("master_catalog").insert([dbPayload]).select();
+          if (inserted && inserted.length > 0) masterItem.id = inserted[0].id;
+        }
+      }
+      
+      // Update inventory_logs artname
+      await supabaseClient.from("inventory_logs").update({ artname: newName }).eq("artno", artNo);
+      // Update order_requests artname
+      await supabaseClient.from("order_requests").update({ artname: newName }).eq("artno", artNo);
+      
+    } catch (err) {
+      console.error("Supabase item name update error:", err);
+    }
+  }
+  
+  showToast(`품목명이 [${newName}] (으)로 변경되었습니다.`, "success");
+  if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+  
+  closeEditItemNameModal();
+  
+  // Refresh views
+  invalidateStockCache();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+  if (typeof renderOrderLogs === "function") renderOrderLogs();
+  if (typeof renderPickList === "function") renderPickList();
 };

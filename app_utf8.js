@@ -1,4 +1,4 @@
-﻿const supabaseUrl = "https://zblzdqwqxagqnkrojyda.supabase.co";
+const supabaseUrl = "https://zblzdqwqxagqnkrojyda.supabase.co";
 
 const supabaseKey = "sb_publishable_rV-ZqhhA4pxsIN_9NhPEcg_EoiM_xo1";
 
@@ -222,13 +222,7 @@ function checkLoginSession() {
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
-      if (navHistoryBtn) navHistoryBtn.style.display = "none";
-
-      const historyTab = document.getElementById("tab-history");
-      if (historyTab && historyTab.classList.contains("active")) {
-        const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
-        if (regNavBtn) switchTab("register", regNavBtn);
-      }
+      if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     }
 
     try { renderStockLookup(); } catch (e) { console.error(e); }
@@ -419,6 +413,8 @@ async function loadDataFromSupabase() {
       historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
       const savedOrders = localStorage.getItem("warehouse_order_logs");
       orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
+      const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+      mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
     }
   } else {
     const savedCatalog = localStorage.getItem("warehouse_master_catalog");
@@ -427,17 +423,20 @@ async function loadDataFromSupabase() {
     historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
     const savedOrders = localStorage.getItem("warehouse_order_logs");
     orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
+    const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+    mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
   }
 
   rebuildMasterCatalogMap();
   invalidateStockCache();
+  updateMfaqBadge();
 }
 
 function saveMasterCatalog() {
   try {
     localStorage.setItem("warehouse_master_catalog", JSON.stringify(masterCatalog));
   } catch (err) {
-    showToast("濡쒖뺄 ?ㅽ넗由ъ??⑸웾??遺議깊븯??留덉뒪???곗씠????μ뿉 ?ㅽ뙣?덉뒿?덈떎.", "danger");
+    showToast("濡쒖뺄 ?ㅽ넗由ъ??⑸웾??遺€議깊븯??留덉뒪???곗씠???€?μ뿉 ?ㅽ뙣?덉뒿?덈떎.", "danger");
   }
   rebuildMasterCatalogMap();
 }
@@ -497,6 +496,95 @@ async function saveOrderLogs(order) {
   return insertedId;
 }
 
+function saveMfaqLogs() {
+  try {
+    localStorage.setItem("warehouse_mfaq_logs", JSON.stringify(mfaqLogs));
+  } catch (err) {}
+}
+
+async function incrementMfaqCount(mfaqId) {
+  const mfaq = mfaqLogs.find(l => l.id === mfaqId);
+  if (!mfaq) return;
+  
+  mfaq.count += 1;
+  mfaq.lastUpdated = new Date().toISOString();
+  
+  if (supabaseClient) {
+    await supabaseClient
+      .from("mfaq_logs")
+      .update({ count: mfaq.count, last_updated: mfaq.lastUpdated })
+      .eq("id", mfaqId);
+  }
+  saveMfaqLogs();
+  renderMfaq();
+}
+
+function updateMfaqBadge() {
+  const badge = document.getElementById("badge-mfaq");
+  if (!badge) return;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const newCount = mfaqLogs.filter(log => {
+    if (!log.createdAt) return false;
+    return log.createdAt.startsWith(todayStr);
+  }).length;
+
+  if (newCount > 0) {
+    badge.textContent = newCount;
+    badge.style.display = "inline-flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+async function handleAddMfaqSubmit(event) {
+  event.preventDefault();
+  const category = document.getElementById("mfaq-new-category").value;
+  const question = document.getElementById("mfaq-new-question").value.trim();
+  if (!question) return;
+
+  const existing = mfaqLogs.find(l => l.question === question && l.category === category);
+  if (existing) {
+    existing.count += 1;
+    existing.lastUpdated = new Date().toISOString();
+    showToast("이미 존재하는 항목입니다. 건수가 +1 증가했습니다.", "success");
+    
+    if (supabaseClient) {
+      await supabaseClient
+        .from("mfaq_logs")
+        .update({ count: existing.count, last_updated: existing.lastUpdated })
+        .eq("id", existing.id);
+    }
+  } else {
+    const newLog = {
+      id: "mfaq_" + Date.now() + "_" + Math.floor(Math.random()*1000),
+      category: category,
+      question: question,
+      count: 1,
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+    mfaqLogs.push(newLog);
+    showToast("새 질문/요청이 등록되었습니다.", "success");
+    
+    if (supabaseClient) {
+      await supabaseClient
+        .from("mfaq_logs")
+        .insert([{
+          id: newLog.id,
+          category: newLog.category,
+          question: newLog.question,
+          count: newLog.count,
+          created_at: newLog.createdAt,
+          last_updated: newLog.lastUpdated
+        }]);
+    }
+  }
+  saveMfaqLogs();
+  updateMfaqBadge();
+  closeMfaqModal();
+  renderMfaq();
+}
+
 // Date Default (Today)
 function initFormDate() {
   const today = new Date().toISOString().split("T")[0];
@@ -510,8 +598,8 @@ function initFormDate() {
 // Tab Switching (With Access Control)
 function switchTab(tabId, btnElement) {
   // Access Restrictions
-  if ((tabId === "history" || tabId === "master") && !isAdminUser) {
-    showToast("?대떦 硫붾돱??愿由ъ옄(jipar5, hycho30, junkoo, minjong)留??묎렐?????덉뒿?덈떎.", "danger");
+  if (tabId === "master" && !isAdminUser) {
+    showToast("?대떦 硫붾돱??愿€由ъ옄(jipar5, hycho30, junkoo, minjong)留??묎렐?????덉뒿?덈떎.", "danger");
     return;
   }
 
@@ -567,14 +655,15 @@ function updateTypeToggle() {
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
 function handleAutocompleteInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
-  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
   
   const dropdown = document.getElementById(dropdownId);
   const nameDropdown = document.getElementById(nameDropdownId);
   if (nameDropdown) nameDropdown.classList.remove("active");
 
   if (target === "order") onOrderArtNoInput(query);
+  else if (target === "ptag") onPtagArtNoInput(query);
   else onArtNoInput(query);
 
   if (!cleanQuery) {
@@ -611,8 +700,8 @@ function handleAutocompleteInput(query, target = "register") {
 
 function handleAutocompleteNameInput(query, target = "register") {
   const cleanQuery = query.trim().toLowerCase();
-  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
-  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
 
   const dropdown = document.getElementById(dropdownId);
   const artnoDropdown = document.getElementById(artnoDropdownId);
@@ -655,6 +744,10 @@ function selectAutocompleteItem(artNo, target = "register") {
     const artNoInput = document.getElementById("order-artno");
     if (artNoInput) artNoInput.value = artNo;
     onOrderArtNoInput(artNo);
+  } else if (target === "ptag") {
+    const artNoInput = document.getElementById("ptag-artno");
+    if (artNoInput) artNoInput.value = artNo;
+    onPtagArtNoInput(artNo);
   } else {
     const artNoInput = document.getElementById("reg-artno");
     if (artNoInput) artNoInput.value = artNo;
@@ -706,7 +799,7 @@ function onArtNoInput(artNoValue) {
 
 function getPendingPickQty(artNo) {
   return orderLogs
-    .filter(log => log.artNo === artNo && log.status === "異쒓퀬?湲?)
+    .filter(log => log.artNo === artNo && log.status === "異쒓퀬?€湲?)
     .reduce((sum, log) => sum + log.qty, 0);
 }
 
@@ -739,8 +832,8 @@ function onOrderArtNoInput(artNoValue) {
         stockPreview.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:4px; font-size:14px; padding:4px 0;">
             <div>珥??ш퀬: ${currentStock}媛?/div>
-            <div style="color:#b45309;">(異쒓퀬 ?湲? -${pendingQty}媛?</div>
-            <div style="font-size:16px; color:${availableStock > 0 ? '#059669' : '#dc2626'};">媛???섎웾: ${availableStock}媛?/div>
+            <div style="color:#b45309;">(異쒓퀬 ?€湲? -${pendingQty}媛?</div>
+            <div style="font-size:16px; color:${availableStock > 0 ? '#059669' : '#dc2626'};">媛€???섎웾: ${availableStock}媛?/div>
           </div>
         `;
       } else {
@@ -750,7 +843,7 @@ function onOrderArtNoInput(artNoValue) {
     }
     
     if (availableStock > 0) {
-      showToast(`媛???ш퀬媛 ${availableStock}媛??덉뒿?덈떎! 梨숆만 紐⑸줉??諛붾줈 ?댁쓣 ???덉뒿?덈떎.`, "success");
+      showToast(`媛€???ш퀬媛€ ${availableStock}媛??덉뒿?덈떎! 梨숆만 紐⑸줉??諛붾줈 ?댁쓣 ???덉뒿?덈떎.`, "success");
       if (takeFromStockBtn) takeFromStockBtn.style.display = 'flex';
     } else {
       if (takeFromStockBtn) takeFromStockBtn.style.display = 'none';
@@ -827,7 +920,7 @@ function handleAddRegCart() {
   const qty = Number(document.getElementById("reg-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇? ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
     return;
   }
 
@@ -846,7 +939,7 @@ function handleSingleRegSave() {
   const qty = Number(document.getElementById("reg-qty").value);
   
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇? ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
     return;
   }
   
@@ -896,7 +989,7 @@ async function processRegCart() {
   if (regCartList.length === 0) return;
   
   const originalBtnText = document.getElementById("btn-save").innerHTML;
-  document.getElementById("btn-save").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ???以?..`;
+  document.getElementById("btn-save").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ?€??以?..`;
   document.getElementById("btn-save").disabled = true;
 
   try {
@@ -933,7 +1026,7 @@ async function processRegCart() {
     renderStockLookup();
     renderHistoryLogs();
     
-    showToast(`珥?${regCartList.length}嫄댁쓽 ??ぉ???쇨큵 ??λ릺?덉뒿?덈떎!`, "success");
+    showToast(`珥?${regCartList.length}嫄댁쓽 ??ぉ???쇨큵 ?€?λ릺?덉뒿?덈떎!`, "success");
     playSuccessFeedback();
     
     regCartList = [];
@@ -941,7 +1034,7 @@ async function processRegCart() {
     initFormDate();
   } catch (err) {
     console.error("Supabase insert error:", err);
-    showToast("?쇨큵 ????ㅽ뙣: " + err.message, "danger");
+    showToast("?쇨큵 ?€???ㅽ뙣: " + err.message, "danger");
   } finally {
     document.getElementById("btn-save").innerHTML = originalBtnText;
     document.getElementById("btn-save").disabled = false;
@@ -956,7 +1049,7 @@ async function handleAddToPickList() {
   const qty = Number(document.getElementById("order-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇? ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
     return;
   }
 
@@ -964,7 +1057,7 @@ async function handleAddToPickList() {
   const pendingQty = getPendingPickQty(artNo);
   const availableStock = currentStock - pendingQty;
   if (qty > availableStock) {
-    showToast(`媛???ш퀬(${availableStock}媛?蹂대떎 梨숆만 ?섎웾??留롮뒿?덈떎. ?섎웾??議곗젙?댁＜?몄슂.`, "danger");
+    showToast(`媛€???ш퀬(${availableStock}媛?蹂대떎 梨숆만 ?섎웾??留롮뒿?덈떎. ?섎웾??議곗젙?댁＜?몄슂.`, "danger");
     return;
   }
 
@@ -974,12 +1067,12 @@ async function handleAddToPickList() {
     artName: artName || "湲고? ?덈ぉ",
     qty: qty,
     user: currentUser || "guest1",
-    status: "異쒓퀬?湲?
+    status: "異쒓퀬?€湲?
   };
 
   try {
     const originalBtnText = document.getElementById("btn-take-from-stock").innerHTML;
-    document.getElementById("btn-take-from-stock").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ???以?..`;
+    document.getElementById("btn-take-from-stock").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ?€??以?..`;
     document.getElementById("btn-take-from-stock").disabled = true;
 
     await saveOrderLogs(newPick);
@@ -1005,7 +1098,7 @@ async function handleAddToPickList() {
     document.getElementById("btn-take-from-stock").disabled = false;
   } catch (err) {
     console.error("Supabase insert error:", err);
-    showToast("梨숆린湲?紐⑸줉 ????ㅽ뙣: " + err.message, "danger");
+    showToast("梨숆린湲?紐⑸줉 ?€???ㅽ뙣: " + err.message, "danger");
     document.getElementById("btn-take-from-stock").disabled = false;
   }
 }
@@ -1019,7 +1112,7 @@ async function handleOrderSubmit(e) {
   const qty = Number(document.getElementById("order-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇? ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
     return;
   }
 
@@ -1049,7 +1142,7 @@ async function handleOrderSubmit(e) {
     renderOrderLogs();
   } catch (err) {
     console.error("Supabase order insert error:", err);
-    showToast("?ㅻ뜑 ????ㅽ뙣: " + err.message, "danger");
+    showToast("?ㅻ뜑 ?€???ㅽ뙣: " + err.message, "danger");
   }
 }
 
@@ -1072,7 +1165,7 @@ function renderOrderLogs() {
     let textColor = '#4338ca';
     if (statusText === '?섎씫') { bgColor = '#dcfce7'; textColor = '#166534'; }
     if (statusText === '蹂대쪟') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
-    if (statusText === '異쒓퀬?湲?) { bgColor = '#fef3c7'; textColor = '#b45309'; }
+    if (statusText === '異쒓퀬?€湲?) { bgColor = '#fef3c7'; textColor = '#b45309'; }
     if (statusText === '異쒓퀬?꾨즺') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
 
     let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
@@ -1123,13 +1216,13 @@ function renderPickList() {
   const container = document.getElementById("picklist-container");
   if (!container) return;
 
-  const pendingPicks = orderLogs.filter(log => log.status === "異쒓퀬?湲?);
+  const pendingPicks = orderLogs.filter(log => log.status === "異쒓퀬?€湲?);
 
   if (pendingPicks.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 30px; color: #94a3b8;">
         <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 8px;"></i>
-        <p>梨숆꺼?????湲?紐⑸줉???놁뒿?덈떎.</p>
+        <p>梨숆꺼?????€湲?紐⑸줉???놁뒿?덈떎.</p>
       </div>
     `;
     return;
@@ -1137,7 +1230,7 @@ function renderPickList() {
 
   let html = "";
   orderLogs.forEach((item, index) => {
-    if (item.status === "異쒓퀬?湲?) {
+    if (item.status === "異쒓퀬?€湲?) {
       let displayTime = item.date;
       if (item.created_at) {
         const d = new Date(item.created_at);
@@ -1170,7 +1263,7 @@ function renderPickList() {
 
 async function completePickItem(index) {
   const pickItem = orderLogs[index];
-  if (!pickItem || pickItem.status !== "異쒓퀬?湲?) return;
+  if (!pickItem || pickItem.status !== "異쒓퀬?€湲?) return;
   
   if (!confirm(`'${pickItem.artName}' ${pickItem.qty}媛쒕? 李쎄퀬?먯꽌 梨숆꼈?듬땲源?\\n(?뺤씤 ??利됱떆 異쒓퀬 湲곕줉???앹꽦?⑸땲??`)) return;
   
@@ -1200,7 +1293,7 @@ async function completePickItem(index) {
     historyLogs.unshift(newLog);
     invalidateStockCache();
     
-    showToast(`'${pickItem.artName}' 異쒓퀬媛 ?꾨즺?섏뿀?듬땲??`, "success", insertedId);
+    showToast(`'${pickItem.artName}' 異쒓퀬媛€ ?꾨즺?섏뿀?듬땲??`, "success", insertedId);
     playSuccessFeedback();
     
     renderStockLookup();
@@ -1235,14 +1328,14 @@ async function updateOrderStatus(index, newStatus) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`?ㅻ뜑 ?곹깭媛 '${newStatus}'(??濡?蹂寃쎈릺?덉뒿?덈떎.`, "success");
+  showToast(`?ㅻ뜑 ?곹깭媛€ '${newStatus}'(??濡?蹂€寃쎈릺?덉뒿?덈떎.`, "success");
   renderOrderLogs();
 }
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
 function exportOrdersToExcel() {
   if (!isAdminUser) {
-    showToast("?ㅻ뜑 異붿텧 沅뚰븳???놁뒿?덈떎. (愿由ъ옄 ?꾩슜)", "danger");
+    showToast("?ㅻ뜑 異붿텧 沅뚰븳???놁뒿?덈떎. (愿€由ъ옄 ?꾩슜)", "danger");
     return;
   }
 
@@ -1267,7 +1360,7 @@ function exportOrdersToExcel() {
 
   const todayStr = new Date().toISOString().split("T")[0];
   XLSX.writeFile(workbook, `?ㅻ뜑_?붿껌_?댁뿭_${todayStr}.xlsx`);
-  showToast("愿由ъ옄 沅뚰븳?쇰줈 ?ㅻ뜑 ?붿껌 ?묒? ?뚯씪(.xlsx) 異붿텧???꾨즺?덉뒿?덈떎!", "success");
+  showToast("愿€由ъ옄 沅뚰븳?쇰줈 ?ㅻ뜑 ?붿껌 ?묒? ?뚯씪(.xlsx) 異붿텧???꾨즺?덉뒿?덈떎!", "success");
 }
 
 // --- Stock Lookup View Logic & Enhanced Dashboard ---
@@ -1403,7 +1496,7 @@ function renderStockLookup() {
     const isLow = item.currentStock > 0 && item.currentStock <= 5;
     
     const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-    const statusText = isOut ? "?덉젅" : isLow ? "遺議? : "?덉쟾";
+    const statusText = isOut ? "?덉젅" : isLow ? "遺€議? : "?덉쟾";
     const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
 
     return `
@@ -1770,7 +1863,7 @@ function resetHistoryFilters() {
 // --- Excel Export Functionality ---
 function exportHistoryToExcel() {
   if (!isAdminUser) {
-    showToast("?묒? 異붿텧 沅뚰븳???놁뒿?덈떎. (愿由ъ옄 ?꾩슜)", "danger");
+    showToast("?묒? 異붿텧 沅뚰븳???놁뒿?덈떎. (愿€由ъ옄 ?꾩슜)", "danger");
     return;
   }
 
@@ -1795,13 +1888,13 @@ function exportHistoryToExcel() {
 
   const todayStr = new Date().toISOString().split("T")[0];
   XLSX.writeFile(workbook, `?낆텧怨?湲곕줉_${todayStr}.xlsx`);
-  showToast("愿由ъ옄 沅뚰븳?쇰줈 ?묒? ?뚯씪(.xlsx) 異붿텧???쒖옉?덉뒿?덈떎!", "success");
+  showToast("愿€由ъ옄 沅뚰븳?쇰줈 ?묒? ?뚯씪(.xlsx) 異붿텧???쒖옉?덉뒿?덈떎!", "success");
 }
 
 // --- Excel Import Functionality ---
 function handleExcelImport(e) {
   if (!isAdminUser) {
-    showToast("留덉뒪???곗씠???묒? ?낅줈?쒕뒗 愿由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
+    showToast("留덉뒪???곗씠???묒? ?낅줈?쒕뒗 愿€由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
     return;
   }
 
@@ -1827,7 +1920,7 @@ function handleExcelImport(e) {
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (rows.length < 2) {
-          throw new Error("?묒? ?쒗듃???곗씠?곌? 遺議깊빀?덈떎.");
+          throw new Error("?묒? ?쒗듃???곗씠?곌? 遺€議깊빀?덈떎.");
         }
 
         let hfbIdx = -1;
@@ -1996,7 +2089,7 @@ function renderModalMasterList() {
   if (filtered.length > maxModalItems) {
     html += `
       <div style="text-align:center; padding:10px; font-size:12px; color:#64748b;">
-        ?곸쐞 ${maxModalItems}媛쒕쭔 ?쒖떆?⑸땲?? ?곸꽭 寃?됱뼱瑜??낅젰??二쇱꽭??
+        ?곸쐞 ${maxModalItems}媛쒕쭔 ?쒖떆?⑸땲?? ?곸꽭 寃€?됱뼱瑜??낅젰??二쇱꽭??
       </div>
     `;
   }
@@ -2008,6 +2101,9 @@ function chooseModalItem(artNo) {
   if (modalSelectTarget === "order") {
     document.getElementById("order-artno").value = artNo;
     onOrderArtNoInput(artNo);
+  } else if (modalSelectTarget === "ptag") {
+    document.getElementById("ptag-artno").value = artNo;
+    onPtagArtNoInput(artNo);
   } else {
     document.getElementById("reg-artno").value = artNo;
     onArtNoInput(artNo);
@@ -2015,9 +2111,31 @@ function chooseModalItem(artNo) {
   closeMasterSelectModal();
 }
 
+function onPtagArtNoInput(artNoValue) {
+  const cleanNo = artNoValue.trim();
+  const artNameInput = document.getElementById("ptag-artname");
+  const icon = document.getElementById("ptag-artname-status-icon");
+
+  if (!cleanNo) {
+    if (artNameInput) artNameInput.value = "";
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    return;
+  }
+
+  const artNameMatch = masterCatalogMap.get(cleanNo);
+
+  if (artNameMatch) {
+    if (artNameInput) artNameInput.value = artNameMatch;
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
+  } else {
+    if (artNameInput) artNameInput.value = "품목명 자동 입력 불가 (마스터 데이터 없음)";
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #d97706;"></i>';
+  }
+}
+
 function openAddMasterModal() {
   if (!isAdminUser) {
-    showToast("?좉퇋 ?꾪떚??媛쒕퀎 異붽???愿由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
+    showToast("?좉퇋 ?꾪떚??媛쒕퀎 異붽???愿€由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
     return;
   }
   document.getElementById("add-master-modal").classList.add("active");
@@ -2030,7 +2148,7 @@ function closeAddMasterModal() {
 function handleAddMasterSubmit(e) {
   e.preventDefault();
   if (!isAdminUser) {
-    showToast("愿由ъ옄 沅뚰븳???꾩슂?⑸땲??", "danger");
+    showToast("愿€由ъ옄 沅뚰븳???꾩슂?⑸땲??", "danger");
     return;
   }
 
@@ -2051,7 +2169,7 @@ function handleAddMasterSubmit(e) {
   populateArticleFilterDropdown();
   closeAddMasterModal();
 
-  showToast(`?좉퇋 ?덈ぉ '${artName}'??媛) 異붽??섏뿀?듬땲??`, "success");
+  showToast(`?좉퇋 ?덈ぉ '${artName}'??媛€) 異붽??섏뿀?듬땲??`, "success");
   document.getElementById("add-master-form").reset();
 }
 
@@ -2134,6 +2252,49 @@ function initRealtimeSubscriptions() {
       handleRealtimeOrder(payload);
     })
     .subscribe();
+
+  supabaseClient
+    .channel('public:mfaq_logs')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'mfaq_logs' }, payload => {
+      handleRealtimeMfaq(payload);
+    })
+    .subscribe();
+}
+
+function handleRealtimeMfaq(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload;
+  if (eventType === 'INSERT') {
+    const exists = mfaqLogs.find(l => l.id === newRow.id);
+    if (!exists) {
+      mfaqLogs.push({
+        id: newRow.id,
+        category: newRow.category,
+        question: newRow.question,
+        count: newRow.count,
+        createdAt: newRow.created_at,
+        lastUpdated: newRow.last_updated
+      });
+    }
+  } else if (eventType === 'UPDATE') {
+    const idx = mfaqLogs.findIndex(l => l.id === newRow.id);
+    if (idx !== -1) {
+      mfaqLogs[idx] = {
+        ...mfaqLogs[idx],
+        count: newRow.count,
+        lastUpdated: newRow.last_updated
+      };
+    }
+  } else if (eventType === 'DELETE') {
+    mfaqLogs = mfaqLogs.filter(l => l.id !== oldRow.id);
+  }
+  
+  saveMfaqLogs();
+  updateMfaqBadge();
+  
+  const mfaqTab = document.getElementById("tab-mfaq");
+  if (mfaqTab && mfaqTab.classList.contains("active")) {
+    renderMfaq();
+  }
 }
 
 function handleRealtimeInventory(payload) {
