@@ -694,9 +694,14 @@
       <div class="card-box" style="display:flex; flex-direction:column; height: 100%;">
         <div class="card-header space-between" style="flex-wrap: wrap; gap:10px;">
           <h2><i class="fa-solid fa-clipboard-question"></i> 송도 MFAQ</h2>
-          <button type="button" class="btn-excel-export" style="margin-left:0; padding:6px 12px; font-size:13px;" onclick="exportMfaqToExcel()">
-            <i class="fa-solid fa-file-excel"></i> 엑셀 추출
-          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-secondary" style="padding:6px 12px; font-size:13px;" onclick="refreshMfaqData()">
+              <i class="fa-solid fa-rotate-right"></i> 새로고침
+            </button>
+            <button type="button" class="btn-excel-export" style="margin-left:0; padding:6px 12px; font-size:13px;" onclick="exportMfaqToExcel()">
+              <i class="fa-solid fa-file-excel"></i> 엑셀 추출
+            </button>
+          </div>
         </div>
         
         <div style="padding: 10px; display: flex; gap: 8px;">

@@ -2541,3 +2541,41 @@ function updateMfaqBadge() {
     badge.style.display = "none";
   }
 }
+
+async function refreshMfaqData() {
+  if (supabaseClient) {
+    const btn = document.querySelector("#tab-mfaq .fa-rotate-right");
+    if (btn) btn.classList.add("fa-spin");
+    
+    try {
+      const { data: mfaq, error: mfaqErr } = await supabaseClient
+        .from("mfaq_logs")
+        .select("*")
+        .order("last_updated", { ascending: false });
+
+      if (!mfaqErr && mfaq) {
+        mfaqLogs = mfaq.map(row => ({
+          id: row.id,
+          category: row.category,
+          question: row.question,
+          count: row.count,
+          createdAt: row.created_at,
+          lastUpdated: row.last_updated
+        }));
+        saveMfaqLogs();
+        updateMfaqBadge();
+        renderMfaq();
+        showToast("MFAQ 데이터가 최신 상태로 새로고침 되었습니다.", "success");
+      } else if (mfaqErr) {
+        throw mfaqErr;
+      }
+    } catch (err) {
+      console.warn("Supabase MFAQ refresh error:", err);
+      showToast("새로고침 중 오류가 발생했습니다.", "danger");
+    } finally {
+      if (btn) btn.classList.remove("fa-spin");
+    }
+  } else {
+    showToast("데이터베이스에 연결되어 있지 않습니다.", "danger");
+  }
+}
