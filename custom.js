@@ -742,12 +742,12 @@ window.renderPicklistInventory = function() {
       <div class="stock-card" style="display:flex; align-items:center; padding:10px; border-bottom:1px solid #f1f5f9; gap:10px;">
         <input type="checkbox" class="picklist-add-cb" data-artno="${item.artNo}" data-artname="${item.artName}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#059669; cursor:pointer;">
         
-        <div style="flex:1;">
+        <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
             <span style="font-size:12px; font-weight:bold; color:#475569;">${item.artNo}</span>
           </div>
-          <div style="font-size:13px; font-weight:bold; margin-top:4px;">${item.artName}</div>
+          <div style="font-size:13px; font-weight:bold; margin-top:4px; word-break:break-word;">${item.artName}</div>
           <div style="font-size:11px; color:#64748b; margin-top:2px;">현재 재고: ${item.currentStock}개</div>
         </div>
         
@@ -894,12 +894,12 @@ window.renderPremiumInventory = function() {
   inventory.forEach((item) => {
     html += `
       <div style="display:flex; align-items:center; padding:12px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02); gap:12px;">
-        <div style="flex:1;">
-          <div style="display:flex; align-items:center; gap:6px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:8px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
-            <span style="font-size:12px; font-weight:800; color:#334155;">${item.artNo}</span>
+            <span style="font-size:13px; font-weight:bold; color:#64748b; letter-spacing:0.5px;">${item.artNo}</span>
           </div>
-          <div style="font-size:14px; font-weight:800; color:#0f172a; margin-top:4px; line-height:1.2;">${item.artName}</div>
+          <div style="font-size:14px; font-weight:800; color:#0f172a; margin-top:4px; line-height:1.2; word-break:break-word;">${item.artName}</div>
           <div style="font-size:11px; color:#64748b; margin-top:4px;">창고 잔여 재고: <strong style="color:#059669;">${item.currentStock}개</strong></div>
         </div>
         
@@ -1112,16 +1112,16 @@ window.renderStandardInventory = function() {
           <input type="checkbox" class="std-picklist-cb" data-artno="${item.artNo}" data-artname="${item.artName.replace(/"/g, "&quot;")}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#0ea5e9; cursor:pointer; transform:scale(1.2);">
         </div>
         
-        <div style="flex:1;">
+        <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f0f9ff; color:#0369a1; font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
             <span style="font-size:13px; font-weight:bold; color:#64748b; letter-spacing:0.5px;">${item.artNo}</span>
           </div>
-          <div style="font-size:15px; font-weight:900; margin-top:6px; color:#1e293b;">${item.artName}</div>
+          <div style="font-size:15px; font-weight:900; margin-top:6px; color:#1e293b; word-break:break-all; overflow-wrap:anywhere;">${item.artName}</div>
           <div style="font-size:12px; color:#64748b; margin-top:4px; font-weight:600;"><i class="fa-solid fa-box"></i> 잔여 재고: <span style="color:#0ea5e9;">${item.currentStock}개</span></div>
         </div>
         
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-left:10px; border-left:1px dashed #e2e8f0;">
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-left:10px; border-left:1px dashed #e2e8f0; flex-shrink:0;">
           <span style="font-size:12px; font-weight:bold; color:#475569;">챙길 수량</span>
           <input type="number" id="std-qty-${item.artNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:70px; padding:8px; text-align:center; border:2px solid #e2e8f0; border-radius:8px; font-size:15px; font-weight:bold; color:#0f172a; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='#e2e8f0'">
         </div>
@@ -1863,4 +1863,5 @@ window.saveEditItemName = async function() {
   if (typeof renderOrderLogs === "function") renderOrderLogs();
   if (typeof renderPickList === "function") renderPickList();
 };
+
 
