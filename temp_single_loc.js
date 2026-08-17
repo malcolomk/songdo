@@ -15,6 +15,8 @@ window.setSingleLocation = async function(artNo) {
   }
   
   saveMasterCatalog(); // Save locally
+  rebuildMasterCatalogMap();
+  invalidateStockCache();
   
   // Sync to Supabase
   if (typeof supabaseClient !== "undefined" && supabaseClient) {

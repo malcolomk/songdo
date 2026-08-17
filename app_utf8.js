@@ -96,7 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   checkLoginSession();
   initFormDate();
   setupDebouncedInputs();
-
+  initRegLocation();
 });
 
 function setupDebouncedInputs() {
@@ -357,6 +357,7 @@ async function loadDataFromSupabase() {
           hfb: row.hfb || "",
           artNo: row.artno || row.artNo || "",
           artName: row.artname || row.artName || "",
+          location: row.location || "미지정",
           id: row.id
         }));
       } else {
@@ -569,7 +570,61 @@ async function refreshMfaqData() {
       if (btn) btn.classList.remove("fa-spin");
     }
   } else {
-    showToast("데이터베이스에 연결되어 있지 않습니다.", "danger");
+    showToast("?곗씠?곕쿋?댁뒪???곌껐?섏뼱 ?덉? ?딆뒿?덈떎.", "danger");
+  }
+}
+
+window.toggleRegLocation = function(loc) {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    if (input.value === loc) {
+      input.value = "";
+    } else {
+      input.value = loc;
+    }
+    saveActiveRegLocation();
+  }
+};
+
+function saveActiveRegLocation() {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    localStorage.setItem("active_reg_location", input.value.trim());
+    updateRegLocationButtons();
+  }
+}
+
+function initRegLocation() {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    const saved = localStorage.getItem("active_reg_location");
+    if (saved) {
+      input.value = saved;
+    }
+    input.addEventListener("input", saveActiveRegLocation);
+    updateRegLocationButtons();
+  }
+}
+
+function updateRegLocationButtons() {
+  const input = document.getElementById("reg-location");
+  if (!input) return;
+  const val = input.value.trim();
+  
+  const container = input.nextElementSibling;
+  if (container && container.tagName === "DIV") {
+    const buttons = container.querySelectorAll("button");
+    buttons.forEach(btn => {
+      if (btn.innerText.trim() === val) {
+        btn.style.background = "#2563eb";
+        btn.style.color = "white";
+        btn.style.borderColor = "#2563eb";
+      } else {
+        btn.style.background = "#f1f5f9";
+        btn.style.color = "#334155";
+        btn.style.borderColor = "#cbd5e1";
+      }
+    });
   }
 }
 
@@ -906,6 +961,7 @@ function buildStockMap() {
     stockMap.set(item.artNo, {
       artNo: item.artNo,
       artName: item.artName,
+      location: item.location || "미지정",
       totalIn: 0,
       totalOut: 0,
       currentStock: 0
@@ -1057,6 +1113,35 @@ async function processRegCart() {
         }
       });
       populateArticleFilterDropdown();
+      
+      const locInput = document.getElementById("reg-location");
+      const locVal = locInput ? locInput.value.trim() : "";
+      
+      if (locVal && supabaseClient) {
+        const uniqueArtNos = [...new Set(regCartList.map(item => item.artNo))];
+        let masterUpdated = false;
+        
+        uniqueArtNos.forEach(artNo => {
+          let mItem = masterCatalog.find(m => m.artNo === artNo);
+          if (!mItem) {
+            mItem = { artNo: artNo, artName: "?좉퇋 ?덈ぉ" };
+            masterCatalog.push(mItem);
+          }
+          mItem.location = locVal;
+          masterUpdated = true;
+        });
+        
+        if (masterUpdated) {
+          saveMasterCatalog();
+          rebuildMasterCatalogMap();
+        }
+        
+        for (const artNo of uniqueArtNos) {
+          supabaseClient.from("master_catalog").update({ location: locVal }).eq("artno", artNo).then(({error}) => {
+            if (error) console.warn("Failed to update location for " + artNo, error);
+          });
+        }
+      }
     }
     
     invalidateStockCache();

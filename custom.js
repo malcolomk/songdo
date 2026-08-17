@@ -1,4 +1,4 @@
-// custom.js - Patches for inventory app features without modifying original app.js encoding
+﻿// custom.js - Patches for inventory app features without modifying original app.js encoding
 
 // Override: Allow any user to delete history logs (remove isAdminUser check)
 window.confirmDeleteHistoryLog = async function(id, artName) {
@@ -744,14 +744,14 @@ window.renderPicklistInventory = function() {
         
         <div style="flex:1;">
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
+            <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
             <span style="font-size:12px; font-weight:bold; color:#475569;">${item.artNo}</span>
           </div>
           <div style="font-size:13px; font-weight:bold; margin-top:4px;">${item.artName}</div>
           <div style="font-size:11px; color:#64748b; margin-top:2px;">현재 재고: ${item.currentStock}개</div>
         </div>
         
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
           <label style="font-size:11px; font-weight:bold; color:#475569;">추가할 수량</label>
           <input type="number" class="picklist-add-qty" id="pl-qty-${item.artNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" style="width:60px; padding:4px; text-align:center; border:1px solid #cbd5e1; border-radius:4px;">
         </div>
@@ -896,14 +896,14 @@ window.renderPremiumInventory = function() {
       <div style="display:flex; align-items:center; padding:12px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02); gap:12px;">
         <div style="flex:1;">
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
+            <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
             <span style="font-size:12px; font-weight:800; color:#334155;">${item.artNo}</span>
           </div>
           <div style="font-size:14px; font-weight:800; color:#0f172a; margin-top:4px; line-height:1.2;">${item.artName}</div>
           <div style="font-size:11px; color:#64748b; margin-top:4px;">창고 잔여 재고: <strong style="color:#059669;">${item.currentStock}개</strong></div>
         </div>
         
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
           <input type="number" id="premium-qty-${item.artNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" style="width:60px; padding:6px; text-align:center; border:1px solid #cbd5e1; border-radius:8px; font-weight:700; color:#0f172a; background:#f8fafc;">
           <button type="button" style="background:#e0f2fe; color:#0369a1; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer;" onclick="addToPremiumCart('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}', ${item.currentStock})">
             <i class="fa-solid fa-plus"></i> 담기
@@ -1114,7 +1114,7 @@ window.renderStandardInventory = function() {
         
         <div style="flex:1;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="background:#f0f9ff; color:#0369a1; font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
+            <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f0f9ff; color:#0369a1; font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
             <span style="font-size:13px; font-weight:bold; color:#64748b; letter-spacing:0.5px;">${item.artNo}</span>
           </div>
           <div style="font-size:15px; font-weight:900; margin-top:6px; color:#1e293b;">${item.artName}</div>
@@ -1863,3 +1863,4 @@ window.saveEditItemName = async function() {
   if (typeof renderOrderLogs === "function") renderOrderLogs();
   if (typeof renderPickList === "function") renderPickList();
 };
+

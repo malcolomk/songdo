@@ -217,17 +217,6 @@
             </div>
           </div>
 
-          <!-- 창고(구역) 지정 -->
-          <div class="form-group">
-            <label for="reg-location"><i class="fa-solid fa-map-location-dot"></i> 창고 지정 (선택)</label>
-            <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 아래 버튼 선택" class="input-control">
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B1')">B1</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B2')">B2</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B3')">B3</button>
-            </div>
-          </div>
-
           <!-- 수량 및 현재재고 표시 -->
           <div class="form-row">
             <div class="form-group col-half">
@@ -237,6 +226,17 @@
             <div class="form-group col-half">
               <label><i class="fa-solid fa-warehouse"></i> 현재 남은 재고</label>
               <div id="reg-current-stock" class="stock-preview-box">- 개</div>
+            </div>
+          </div>
+
+          <!-- 창고(구역) 지정 -->
+          <div class="form-group">
+            <label for="reg-location"><i class="fa-solid fa-map-location-dot"></i> 창고 지정 (선택)</label>
+            <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 아래 버튼 선택" class="input-control">
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B1')">B1</button>
+              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B2')">B2</button>
+              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B3')">B3</button>
             </div>
           </div>
 
