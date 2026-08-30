@@ -32,15 +32,15 @@ const INITIAL_PASSWORD = "522";
 
 // --- Sample Initial Master Data ---
 const defaultMasterCatalog = [
-  { hfb: "HFB 01 Living", artNo: "70582028", artName: "EKET ?먯???硫?곕??붿뼱?좊컲 70x35x35 ?붿씠??AP" },
-  { hfb: "HFB 01 Living", artNo: "90513393", artName: "KUGGIS 荑좉린???섎궔?곸옄 18x26x8 ?붿씠?? },
-  { hfb: "HFB 02 Bedding", artNo: "20351884", artName: "KALLAX 罹섎씫???좊컲?좊떅 77x147 ?붿씠??AP" },
-  { hfb: "HFB 03 Children", artNo: "30279944", artName: "ANTILOP ?좎븘?⑹떇?곸쓽???쒗듃 AP Sales" },
-  { hfb: "HFB 01 Living", artNo: "10501548", artName: "LACK ?됱꽭 ?좊컲?좊떅 92x76 洹몃젅???ㅼ쇅?? },
-  { hfb: "HFB 02 Bedding", artNo: "70483882", artName: "BAGGEBO 諛붽쾶蹂??꾩뼱?섎궔??50x30x80" },
-  { hfb: "HFB 04 Workspace", artNo: "40354283", artName: "MICKE ?대룞?앹꽌?띿쑀 35x75 ?붿씠??AP" },
-  { hfb: "HFB 05 Clothes", artNo: "30231631", artName: "RIGGA ?됯굅 ?붿씠??AP CN" },
-  { hfb: "HFB 01 Living", artNo: "40308700", artName: "TROFAST N ?좊컲 30 ?쇱씠?명솕?댄듃?ㅻ뜲?? }
+  { hfb: "HFB 01 Living", artNo: "70582028", artName: "EKET 에케트 멀티미디어선반 70x35x35 화이트 AP" },
+  { hfb: "HFB 01 Living", artNo: "90513393", artName: "KUGGIS 쿠기스 수납상자 18x26x8 화이트" },
+  { hfb: "HFB 02 Bedding", artNo: "20351884", artName: "KALLAX 캘락스 선반유닛 77x147 화이트 AP" },
+  { hfb: "HFB 03 Children", artNo: "30279944", artName: "ANTILOP 유아용식탁의자 시트 AP Sales" },
+  { hfb: "HFB 01 Living", artNo: "10501548", artName: "LACK 렉세 선반유닛 92x76 그레이 실외용" },
+  { hfb: "HFB 02 Bedding", artNo: "70483882", artName: "BAGGEBO 바게보 도어수납장 50x30x80" },
+  { hfb: "HFB 04 Workspace", artNo: "40354283", artName: "MICKE 이동식서랍유 35x75 화이트 AP" },
+  { hfb: "HFB 05 Clothes", artNo: "30231631", artName: "RIGGA 행거 화이트 AP CN" },
+  { hfb: "HFB 01 Living", artNo: "40308700", artName: "TROFAST N 선반 30 라이트화이트스데인" }
 ];
 
 // --- Cleaned Transaction History & Order Requests for Actual Usage ---
@@ -51,6 +51,7 @@ const defaultOrderLogs = [];
 let masterCatalog = [];
 let historyLogs = [];
 let orderLogs = [];
+let mfaqLogs = [];
 let userPasswords = {};
 let currentUser = null;
 let isAdminUser = false;
@@ -142,7 +143,13 @@ function rebuildMasterCatalogMap() {
   masterCatalogMap.clear();
   for (let i = 0; i < masterCatalog.length; i++) {
     const item = masterCatalog[i];
-    masterCatalogMap.set(item.artNo, item.artName);
+    if (item && item.artNo) {
+      masterCatalogMap.set(item.artNo, item.artName);
+      const rawNo = item.artNo.replace(/^0+/, '');
+      if (rawNo && rawNo !== item.artNo) {
+        masterCatalogMap.set(rawNo, item.artName);
+      }
+    }
   }
 }
 
@@ -193,6 +200,7 @@ function checkLoginSession() {
 
   const btnExcelExport = document.getElementById("btn-excel-export");
   const btnOrderExcelExport = document.getElementById("btn-order-excel-export");
+  const btnStockExcelExport = document.getElementById("btn-stock-excel-export");
   const excelExportLocked = document.getElementById("excel-export-locked");
 
   const navHistoryBtn = document.getElementById("nav-history-btn");
@@ -215,12 +223,14 @@ function checkLoginSession() {
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "flex";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "flex";
       if (excelExportLocked) excelExportLocked.style.display = "none";
       if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     } else {
       if (adminRoleBadge) adminRoleBadge.style.display = "none";
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
       if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     }
@@ -255,29 +265,29 @@ function handleLoginSubmit(e) {
   const inputPw = loginPwElem.value.trim();
 
   if (!rawInputId) {
-    showToast("?꾩씠?붾? ?낅젰??二쇱꽭??", "danger");
+    showToast("아이디를 입력해 주세요.", "danger");
     return;
   }
 
   const matchedId = ALLOWED_USER_IDS.find(id => id.toLowerCase() === rawInputId);
 
   if (!matchedId) {
-    showToast(`'${rawInputId}'?(?? ?덉슜?섏? ?딆? ?꾩씠?붿엯?덈떎. (?덉슜: junkoo, guest1 ??`, "danger");
+    showToast(`'${rawInputId}'은(는) 허용되지 않은 아이디입니다. (허용: junkoo, guest1 등)`, "danger");
     return;
   }
 
   const storedPw = userPasswords[matchedId] || INITIAL_PASSWORD;
 
   if (inputPw !== storedPw) {
-    showToast(`鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎. (湲곕낯 鍮꾨?踰덊샇: ${INITIAL_PASSWORD})`, "danger");
+    showToast(`비밀번호가 올바르지 않습니다. (기본 비밀번호: ${INITIAL_PASSWORD})`, "danger");
     return;
   }
 
   currentUser = matchedId;
   isAdminUser = ADMIN_USERS.includes(matchedId);
 
-  const roleTitle = isAdminUser ? "?몣 愿由ъ옄" : "?쇰컲 ?ъ슜??;
-  showToast(`?〓룄 CMP! 留밸━!<br>?ш퀬 ?뺥솗?꾨뒗 ?곕━ 紐⑤몢 ?④퍡!`, "success");
+  const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
+  showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
 
   const loginOverlay = document.getElementById("login-overlay");
   if (loginOverlay) {
@@ -288,7 +298,7 @@ function handleLoginSubmit(e) {
     loginOverlay.style.pointerEvents = "none";
   }
 
-  // --- 釉뚮씪?곗? ?뚮┝(Push) 沅뚰븳 ?붿껌 ---
+  // --- 브라우저 알림(Push) 권한 요청 ---
   if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
     Notification.requestPermission();
   }
@@ -299,7 +309,7 @@ function handleLoginSubmit(e) {
 function handleLogout() {
   currentUser = null;
   isAdminUser = false;
-  showToast("濡쒓렇?꾩썐 ?섏뿀?듬땲??", "success");
+  showToast("로그아웃 되었습니다.", "success");
   checkLoginSession();
 }
 
@@ -319,19 +329,19 @@ function handleResetPasswordSubmit(e) {
   const newPw = document.getElementById("reset-new-pw").value.trim();
 
   if (!selectId) {
-    showToast("?꾩씠?붾? ?좏깮??二쇱꽭??", "danger");
+    showToast("아이디를 선택해 주세요.", "danger");
     return;
   }
 
   const currentPw = userPasswords[selectId] || INITIAL_PASSWORD;
 
   if (oldPw !== currentPw) {
-    showToast("?꾩옱 鍮꾨?踰덊샇媛 ?쇱튂?섏? ?딆뒿?덈떎.", "danger");
+    showToast("현재 비밀번호가 일치하지 않습니다.", "danger");
     return;
   }
 
   if (!newPw) {
-    showToast("??鍮꾨?踰덊샇瑜??낅젰??二쇱꽭??", "danger");
+    showToast("새 비밀번호를 입력해 주세요.", "danger");
     return;
   }
 
@@ -339,7 +349,7 @@ function handleResetPasswordSubmit(e) {
   saveUserPasswords();
   closeResetPasswordModal();
 
-  showToast(`'${selectId}'??鍮꾨?踰덊샇媛 ?깃났?곸쑝濡?蹂寃쎈릺?덉뒿?덈떎!`, "success");
+  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success");
   document.getElementById("login-pw").value = newPw;
 }
 
@@ -347,19 +357,52 @@ function handleResetPasswordSubmit(e) {
 async function loadDataFromSupabase() {
   if (supabaseClient) {
     try {
-      const { data: catalog, error: catErr } =
-        await supabaseClient
+      // Chunked master catalog fetch to retrieve all 13,800+ records (bypassing PostgREST 1,000 row limit)
+      let catalog = [];
+      try {
+        const { count, error: countErr } = await supabaseClient
           .from("master_catalog")
-          .select("*");
+          .select("*", { count: 'exact', head: true });
+        
+        const totalRows = (!countErr && typeof count === 'number' && count > 0) ? count : 15000;
+        const CHUNK_SIZE = 1000;
+        const totalChunks = Math.ceil(totalRows / CHUNK_SIZE);
+        const chunkPromises = [];
 
-      if (!catErr && catalog && catalog.length > 0) {
-        masterCatalog = catalog.map(row => ({
-          hfb: row.hfb || "",
-          artNo: row.artno || row.artNo || "",
-          artName: row.artname || row.artName || "",
-          location: row.location || "미지정",
-          id: row.id
-        }));
+        for (let i = 0; i < totalChunks; i++) {
+          const from = i * CHUNK_SIZE;
+          const to = from + CHUNK_SIZE - 1;
+          chunkPromises.push(
+            supabaseClient
+              .from("master_catalog")
+              .select("*")
+              .range(from, to)
+              .order("id", { ascending: true })
+              .then(res => res.data || [])
+          );
+        }
+
+        const chunkResults = await Promise.all(chunkPromises);
+        catalog = chunkResults.flat();
+      } catch (err) {
+        console.warn("Chunked master catalog fetch error:", err);
+      }
+
+      if (catalog && catalog.length > 0) {
+        masterCatalog = catalog.map(row => {
+          let cleanArtNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = cleanArtNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            cleanArtNo = digitsOnly.padStart(8, '0');
+          }
+          return {
+            hfb: row.hfb ? String(row.hfb).trim() : "",
+            artNo: cleanArtNo,
+            artName: row.artname || row.artName || "",
+            location: row.location || "미지정",
+            id: row.id
+          };
+        });
       } else {
         const savedCatalog = localStorage.getItem("warehouse_master_catalog");
         masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
@@ -379,7 +422,7 @@ async function loadDataFromSupabase() {
           return {
             ...row,
             artNo: mappedArtNo,
-            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "?????녿뒗 ?덈ぉ"
+            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
           };
         });
       } else {
@@ -399,7 +442,7 @@ async function loadDataFromSupabase() {
           return {
             ...row,
             artNo: mappedArtNo,
-            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "?????녿뒗 ?덈ぉ"
+            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
           };
         });
       } else {
@@ -414,8 +457,6 @@ async function loadDataFromSupabase() {
       historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
       const savedOrders = localStorage.getItem("warehouse_order_logs");
       orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
-      const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
-      mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
     }
   } else {
     const savedCatalog = localStorage.getItem("warehouse_master_catalog");
@@ -424,6 +465,34 @@ async function loadDataFromSupabase() {
     historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
     const savedOrders = localStorage.getItem("warehouse_order_logs");
     orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
+  }
+
+  if (supabaseClient) {
+    try {
+      const { data: mfaq, error: mfaqErr } = await supabaseClient
+        .from("mfaq_logs")
+        .select("*")
+        .order("last_updated", { ascending: false });
+
+      if (!mfaqErr && mfaq) {
+        mfaqLogs = mfaq.map(row => ({
+          id: row.id,
+          category: row.category,
+          question: row.question,
+          count: row.count,
+          createdAt: row.created_at,
+          lastUpdated: row.last_updated
+        }));
+      } else {
+        const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+        mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
+      }
+    } catch (err) {
+      console.warn("Supabase MFAQ load error:", err);
+      const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+      mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
+    }
+  } else {
     const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
     mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
   }
@@ -437,7 +506,7 @@ function saveMasterCatalog() {
   try {
     localStorage.setItem("warehouse_master_catalog", JSON.stringify(masterCatalog));
   } catch (err) {
-    showToast("濡쒖뺄 ?ㅽ넗由ъ??⑸웾??遺€議깊븯??留덉뒪???곗씠???€?μ뿉 ?ㅽ뙣?덉뒿?덈떎.", "danger");
+    showToast("로컬 스토리지용량이 부족하여 마스터 데이터 저장에 실패했습니다.", "danger");
   }
   rebuildMasterCatalogMap();
 }
@@ -496,187 +565,6 @@ async function saveOrderLogs(order) {
   return insertedId;
 }
 
-function saveMfaqLogs() {
-  try {
-    localStorage.setItem("warehouse_mfaq_logs", JSON.stringify(mfaqLogs));
-  } catch (err) {}
-}
-
-async function incrementMfaqCount(mfaqId) {
-  const mfaq = mfaqLogs.find(l => l.id === mfaqId);
-  if (!mfaq) return;
-  
-  mfaq.count += 1;
-  mfaq.lastUpdated = new Date().toISOString();
-  
-  if (supabaseClient) {
-    await supabaseClient
-      .from("mfaq_logs")
-      .update({ count: mfaq.count, last_updated: mfaq.lastUpdated })
-      .eq("id", mfaqId);
-  }
-  saveMfaqLogs();
-  renderMfaq();
-}
-
-function updateMfaqBadge() {
-  const badge = document.getElementById("badge-mfaq");
-  if (!badge) return;
-  const todayStr = new Date().toISOString().split("T")[0];
-  const newCount = mfaqLogs.filter(log => {
-    if (!log.createdAt) return false;
-    return log.createdAt.startsWith(todayStr);
-  }).length;
-
-  if (newCount > 0) {
-    badge.textContent = newCount;
-    badge.style.display = "inline-flex";
-  } else {
-    badge.style.display = "none";
-  }
-}
-
-async function refreshMfaqData() {
-  if (supabaseClient) {
-    const btn = document.querySelector("#tab-mfaq .fa-rotate-right");
-    if (btn) btn.classList.add("fa-spin");
-    
-    try {
-      const { data: mfaq, error: mfaqErr } = await supabaseClient
-        .from("mfaq_logs")
-        .select("*")
-        .order("last_updated", { ascending: false });
-
-      if (!mfaqErr && mfaq) {
-        mfaqLogs = mfaq.map(row => ({
-          id: row.id,
-          category: row.category,
-          question: row.question,
-          count: row.count,
-          createdAt: row.created_at,
-          lastUpdated: row.last_updated
-        }));
-        saveMfaqLogs();
-        updateMfaqBadge();
-        renderMfaq();
-        showToast("MFAQ 데이터가 최신 상태로 새로고침 되었습니다.", "success");
-      } else if (mfaqErr) {
-        throw mfaqErr;
-      }
-    } catch (err) {
-      console.warn("Supabase MFAQ refresh error:", err);
-      showToast("새로고침 중 오류가 발생했습니다.", "danger");
-    } finally {
-      if (btn) btn.classList.remove("fa-spin");
-    }
-  } else {
-    showToast("?곗씠?곕쿋?댁뒪???곌껐?섏뼱 ?덉? ?딆뒿?덈떎.", "danger");
-  }
-}
-
-window.toggleRegLocation = function(loc) {
-  const input = document.getElementById("reg-location");
-  if (input) {
-    if (input.value === loc) {
-      input.value = "";
-    } else {
-      input.value = loc;
-    }
-    saveActiveRegLocation();
-  }
-};
-
-function saveActiveRegLocation() {
-  const input = document.getElementById("reg-location");
-  if (input) {
-    localStorage.setItem("active_reg_location", input.value.trim());
-    updateRegLocationButtons();
-  }
-}
-
-function initRegLocation() {
-  const input = document.getElementById("reg-location");
-  if (input) {
-    const saved = localStorage.getItem("active_reg_location");
-    if (saved) {
-      input.value = saved;
-    }
-    input.addEventListener("input", saveActiveRegLocation);
-    updateRegLocationButtons();
-  }
-}
-
-function updateRegLocationButtons() {
-  const input = document.getElementById("reg-location");
-  if (!input) return;
-  const val = input.value.trim();
-  
-  const container = input.nextElementSibling;
-  if (container && container.tagName === "DIV") {
-    const buttons = container.querySelectorAll("button");
-    buttons.forEach(btn => {
-      if (btn.innerText.trim() === val) {
-        btn.style.background = "#2563eb";
-        btn.style.color = "white";
-        btn.style.borderColor = "#2563eb";
-      } else {
-        btn.style.background = "#f1f5f9";
-        btn.style.color = "#334155";
-        btn.style.borderColor = "#cbd5e1";
-      }
-    });
-  }
-}
-
-async function handleAddMfaqSubmit(event) {
-  event.preventDefault();
-  const category = document.getElementById("mfaq-new-category").value;
-  const question = document.getElementById("mfaq-new-question").value.trim();
-  if (!question) return;
-
-  const existing = mfaqLogs.find(l => l.question === question && l.category === category);
-  if (existing) {
-    existing.count += 1;
-    existing.lastUpdated = new Date().toISOString();
-    showToast("이미 존재하는 항목입니다. 건수가 +1 증가했습니다.", "success");
-    
-    if (supabaseClient) {
-      await supabaseClient
-        .from("mfaq_logs")
-        .update({ count: existing.count, last_updated: existing.lastUpdated })
-        .eq("id", existing.id);
-    }
-  } else {
-    const newLog = {
-      id: "mfaq_" + Date.now() + "_" + Math.floor(Math.random()*1000),
-      category: category,
-      question: question,
-      count: 1,
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString()
-    };
-    mfaqLogs.push(newLog);
-    showToast("새 질문/요청이 등록되었습니다.", "success");
-    
-    if (supabaseClient) {
-      await supabaseClient
-        .from("mfaq_logs")
-        .insert([{
-          id: newLog.id,
-          category: newLog.category,
-          question: newLog.question,
-          count: newLog.count,
-          created_at: newLog.createdAt,
-          last_updated: newLog.lastUpdated
-        }]);
-    }
-  }
-  saveMfaqLogs();
-  updateMfaqBadge();
-  closeMfaqModal();
-  renderMfaq();
-}
-
 // Date Default (Today)
 function initFormDate() {
   const today = new Date().toISOString().split("T")[0];
@@ -691,9 +579,10 @@ function initFormDate() {
 function switchTab(tabId, btnElement) {
   // Access Restrictions
   if (tabId === "master" && !isAdminUser) {
-    showToast("?대떦 硫붾돱??愿€由ъ옄(jipar5, hycho30, junkoo, minjong)留??묎렐?????덉뒿?덈떎.", "danger");
+    showToast("해당 메뉴는 관리자 전용입니다.", "danger");
     return;
   }
+
 
   document.querySelectorAll(".tab-page").forEach(page => page.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
@@ -724,9 +613,12 @@ function switchTab(tabId, btnElement) {
     masterDisplayLimit = RENDER_LIMIT;
     renderMasterCatalog();
   }
+  if (tabId === "mfaq") {
+    renderMfaq();
+  }
 }
 
-// Type Toggle (?낃퀬/異쒓퀬)
+// Type Toggle (입고/출고)
 function updateTypeToggle() {
   const checkedOption = document.querySelector('input[name="reg-type"]:checked');
   if (!checkedOption) return;
@@ -735,7 +627,7 @@ function updateTypeToggle() {
   const labelIn = document.getElementById("label-type-in");
   const labelOut = document.getElementById("label-type-out");
 
-  if (selectedType === "?낃퀬") {
+  if (selectedType === "입고") {
     labelIn.className = "toggle-option active-in";
     labelOut.className = "toggle-option";
   } else {
@@ -867,7 +759,7 @@ function onArtNoInput(artNoValue) {
 
   if (!cleanNo) {
     artNameInput.value = "";
-    stockPreview.textContent = "- 媛?;
+    stockPreview.textContent = "- 개";
     icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
     return;
   }
@@ -879,19 +771,21 @@ function onArtNoInput(artNoValue) {
     icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
     
     const currentStock = getItemStock(cleanNo);
-    stockPreview.textContent = `${currentStock} 媛?;
+    stockPreview.textContent = `${currentStock} 개`;
     stockPreview.style.color = currentStock > 0 ? "#059669" : "#dc2626";
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, artNameMatch);
   } else {
     icon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #d97706;"></i>';
     const currentStock = getItemStock(cleanNo);
-    stockPreview.textContent = `${currentStock} 媛?;
+    stockPreview.textContent = `${currentStock} 개`;
     stockPreview.style.color = currentStock > 0 ? "#059669" : "#64748b";
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, "");
   }
 }
 
 function getPendingPickQty(artNo) {
   return orderLogs
-    .filter(log => log.artNo === artNo && log.status === "異쒓퀬?€湲?)
+    .filter(log => log.artNo === artNo && log.status === "출고대기")
     .reduce((sum, log) => sum + log.qty, 0);
 }
 
@@ -905,7 +799,7 @@ function onOrderArtNoInput(artNoValue) {
 
   if (!cleanNo) {
     artNameInput.value = "";
-    if (stockPreview) stockPreview.textContent = "- 媛?;
+    if (stockPreview) stockPreview.textContent = "- 개";
     if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
     if (takeFromStockBtn) takeFromStockBtn.style.display = 'none';
     return;
@@ -923,19 +817,19 @@ function onOrderArtNoInput(artNoValue) {
       if (pendingQty > 0) {
         stockPreview.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:4px; font-size:14px; padding:4px 0;">
-            <div>珥??ш퀬: ${currentStock}媛?/div>
-            <div style="color:#b45309;">(異쒓퀬 ?€湲? -${pendingQty}媛?</div>
-            <div style="font-size:16px; color:${availableStock > 0 ? '#059669' : '#dc2626'};">媛€???섎웾: ${availableStock}媛?/div>
+            <div>총 재고: ${currentStock}개</div>
+            <div style="color:#b45309;">(출고 대기: -${pendingQty}개)</div>
+            <div style="font-size:16px; color:${availableStock > 0 ? '#059669' : '#dc2626'};">가용 수량: ${availableStock}개</div>
           </div>
         `;
       } else {
-        stockPreview.textContent = `${availableStock} 媛?;
+        stockPreview.textContent = `${availableStock} 개`;
         stockPreview.style.color = availableStock > 0 ? "#059669" : "#dc2626";
       }
     }
     
     if (availableStock > 0) {
-      showToast(`媛€???ш퀬媛€ ${availableStock}媛??덉뒿?덈떎! 梨숆만 紐⑸줉??諛붾줈 ?댁쓣 ???덉뒿?덈떎.`, "success");
+      showToast(`가용 재고가 ${availableStock}개 있습니다! 챙길 목록에 바로 담을 수 있습니다.`, "success");
       if (takeFromStockBtn) takeFromStockBtn.style.display = 'flex';
     } else {
       if (takeFromStockBtn) takeFromStockBtn.style.display = 'none';
@@ -943,7 +837,7 @@ function onOrderArtNoInput(artNoValue) {
   } else {
     if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #d97706;"></i>';
     if (stockPreview) {
-      stockPreview.textContent = `${availableStock} 媛?;
+      stockPreview.textContent = `${availableStock} 개`;
       stockPreview.style.color = availableStock > 0 ? "#059669" : "#64748b";
     }
     if (takeFromStockBtn) takeFromStockBtn.style.display = 'none';
@@ -982,8 +876,8 @@ function buildStockMap() {
       stockMap.set(log.artNo, entry);
     }
     const qty = Number(log.qty) || 0;
-    if (log.type === "?낃퀬") entry.totalIn += qty;
-    if (log.type === "異쒓퀬") entry.totalOut += qty;
+    if (log.type === "입고") entry.totalIn += qty;
+    if (log.type === "출고") entry.totalOut += qty;
   }
 
   stockMap.forEach(entry => {
@@ -1007,23 +901,24 @@ let regCartList = [];
 function handleAddRegCart() {
   const date = document.getElementById("reg-date").value;
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
-  const type = typeOption ? typeOption.value : "?낃퀬";
+  const type = typeOption ? typeOption.value : "입고";
   const artNo = document.getElementById("reg-artno").value.trim();
   const artName = document.getElementById("reg-artname").value.trim();
   const qty = Number(document.getElementById("reg-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
 
-  regCartList.push({ date, type, artNo, artName: artName || "湲고? ?덈ぉ", qty });
+  regCartList.push({ date, type, artNo, artName: artName || "기타 품목", qty });
   renderRegCart();
   
   document.getElementById("reg-artno").value = "";
   document.getElementById("reg-artname").value = "";
   document.getElementById("reg-qty").value = "";
-  document.getElementById("reg-current-stock").textContent = "- 媛?;
+  document.getElementById("reg-current-stock").textContent = "- 개";
+  if (typeof updateRegProductThumb === 'function') updateRegProductThumb("", "");
   document.getElementById("reg-artno").focus();
 }
 
@@ -1032,7 +927,7 @@ function handleSingleRegSave() {
   const qty = Number(document.getElementById("reg-qty").value);
   
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
   
@@ -1057,20 +952,22 @@ function renderRegCart() {
   let html = "";
   regCartList.forEach((item, idx) => {
     html += `
-      <div class="cart-item">
-        <div class="cart-item-info">
-          <span class="cart-item-title">${item.artNo} - ${item.artName}</span>
+      <div class="cart-item" style="display:flex; align-items:center; gap:10px;">
+        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 40) : ''}
+        <div class="cart-item-info" style="flex:1; min-width:0;">
+          <span class="cart-item-title" style="word-break:break-all;">${item.artNo} - ${item.artName}</span>
           <span class="cart-item-sub">${item.date} | ${item.type}</span>
         </div>
-        <div class="cart-item-action">
-          <span class="cart-item-qty">${item.qty}媛?/span>
+        <div class="cart-item-action" style="flex-shrink:0;">
+          <span class="cart-item-qty">${item.qty}개</span>
           <button type="button" class="btn-remove-cart" onclick="removeRegCart(${idx})"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
     `;
   });
-  html += `<div class="cart-summary"><span>珥??닿릿 ??ぉ</span><span style="color:#2563eb">${regCartList.length}嫄?/span></div>`;
+  html += `<div class="cart-summary"><span>총 담긴 항목</span><span style="color:#2563eb">${regCartList.length}건</span></div>`;
   container.innerHTML = html;
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 }
 
 function removeRegCart(idx) {
@@ -1082,7 +979,7 @@ async function processRegCart() {
   if (regCartList.length === 0) return;
   
   const originalBtnText = document.getElementById("btn-save").innerHTML;
-  document.getElementById("btn-save").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ?€??以?..`;
+  document.getElementById("btn-save").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...`;
   document.getElementById("btn-save").disabled = true;
 
   try {
@@ -1108,7 +1005,7 @@ async function processRegCart() {
         };
         historyLogs.unshift(localLog);
         if (!masterCatalogMap.has(localLog.artNo)) {
-          masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName || "?좉퇋 ?덈ぉ" });
+          masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName || "신규 품목" });
           saveMasterCatalog();
         }
       });
@@ -1124,7 +1021,7 @@ async function processRegCart() {
         uniqueArtNos.forEach(artNo => {
           let mItem = masterCatalog.find(m => m.artNo === artNo);
           if (!mItem) {
-            mItem = { artNo: artNo, artName: "?좉퇋 ?덈ぉ" };
+            mItem = { artNo: artNo, artName: "신규 품목" };
             masterCatalog.push(mItem);
           }
           mItem.location = locVal;
@@ -1148,7 +1045,7 @@ async function processRegCart() {
     renderStockLookup();
     renderHistoryLogs();
     
-    showToast(`珥?${regCartList.length}嫄댁쓽 ??ぉ???쇨큵 ?€?λ릺?덉뒿?덈떎!`, "success");
+    showToast(`총 ${regCartList.length}건의 항목이 일괄 저장되었습니다!`, "success");
     playSuccessFeedback();
     
     regCartList = [];
@@ -1156,7 +1053,7 @@ async function processRegCart() {
     initFormDate();
   } catch (err) {
     console.error("Supabase insert error:", err);
-    showToast("?쇨큵 ?€???ㅽ뙣: " + err.message, "danger");
+    showToast("일괄 저장 실패: " + err.message, "danger");
   } finally {
     document.getElementById("btn-save").innerHTML = originalBtnText;
     document.getElementById("btn-save").disabled = false;
@@ -1171,7 +1068,7 @@ async function handleAddToPickList() {
   const qty = Number(document.getElementById("order-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
 
@@ -1179,29 +1076,29 @@ async function handleAddToPickList() {
   const pendingQty = getPendingPickQty(artNo);
   const availableStock = currentStock - pendingQty;
   if (qty > availableStock) {
-    showToast(`媛€???ш퀬(${availableStock}媛?蹂대떎 梨숆만 ?섎웾??留롮뒿?덈떎. ?섎웾??議곗젙?댁＜?몄슂.`, "danger");
+    showToast(`가용 재고(${availableStock}개)보다 챙길 수량이 많습니다. 수량을 조정해주세요.`, "danger");
     return;
   }
 
   const newPick = {
     date: date,
     artNo: artNo,
-    artName: artName || "湲고? ?덈ぉ",
+    artName: artName || "기타 품목",
     qty: qty,
     user: currentUser || "guest1",
-    status: "異쒓퀬?€湲?
+    status: "출고대기"
   };
 
   try {
     const originalBtnText = document.getElementById("btn-take-from-stock").innerHTML;
-    document.getElementById("btn-take-from-stock").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ?€??以?..`;
+    document.getElementById("btn-take-from-stock").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...`;
     document.getElementById("btn-take-from-stock").disabled = true;
 
     await saveOrderLogs(newPick);
 
     orderLogs.unshift(newPick);
 
-    showToast(`'${artName}' ${qty}媛쒓? 李쎄퀬 梨숆린湲?紐⑸줉???닿꼈?듬땲??`, "success");
+    showToast(`'${artName}' ${qty}개가 창고 챙기기 목록에 담겼습니다!`, "success");
     playSuccessFeedback();
 
     // Reset form
@@ -1210,9 +1107,9 @@ async function handleAddToPickList() {
     document.getElementById("order-qty").value = "";
     const takeFromStockBtn = document.getElementById("btn-take-from-stock");
     if (takeFromStockBtn) takeFromStockBtn.style.display = 'none';
-    document.getElementById("order-current-stock").textContent = "- 媛?;
+    document.getElementById("order-current-stock").textContent = "- 개";
 
-    initFormDate(); // ?좎쭨 ?먮룞 ?낅뜲?댄듃
+    initFormDate(); // 날짜 자동 업데이트
 
     renderOrderLogs();
     
@@ -1220,7 +1117,7 @@ async function handleAddToPickList() {
     document.getElementById("btn-take-from-stock").disabled = false;
   } catch (err) {
     console.error("Supabase insert error:", err);
-    showToast("梨숆린湲?紐⑸줉 ?€???ㅽ뙣: " + err.message, "danger");
+    showToast("챙기기 목록 저장 실패: " + err.message, "danger");
     document.getElementById("btn-take-from-stock").disabled = false;
   }
 }
@@ -1234,17 +1131,17 @@ async function handleOrderSubmit(e) {
   const qty = Number(document.getElementById("order-qty").value);
 
   if (!artNo || !qty || qty <= 0) {
-    showToast("?꾪떚??踰덊샇?€ ?섎웾???щ컮瑜닿쾶 ?낅젰?댁＜?몄슂.", "danger");
+    showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
 
   const newOrder = {
     date: date,
     artNo: artNo,
-    artName: artName || "湲고? ?덈ぉ",
+    artName: artName || "기타 품목",
     qty: qty,
     user: currentUser || "guest1",
-    status: "?붿껌??
+    status: "요청됨"
   };
 
   try {
@@ -1252,19 +1149,19 @@ async function handleOrderSubmit(e) {
 
     orderLogs.unshift(newOrder);
 
-    showToast(`'${artName}' ${qty}媛??ㅻ뜑 ?붿껌???꾨즺?섏뿀?듬땲??`, "success");
+    showToast(`'${artName}' ${qty}개 오더 요청이 완료되었습니다!`, "success");
     playSuccessFeedback();
 
     // Reset form
     document.getElementById("order-artno").value = "";
     document.getElementById("order-artname").value = "";
     document.getElementById("order-qty").value = "";
-    initFormDate(); // ?좎쭨 ?먮룞 ?낅뜲?댄듃
+    initFormDate(); // 날짜 자동 업데이트
 
     renderOrderLogs();
   } catch (err) {
     console.error("Supabase order insert error:", err);
-    showToast("?ㅻ뜑 ?€???ㅽ뙣: " + err.message, "danger");
+    showToast("오더 저장 실패: " + err.message, "danger");
   }
 }
 
@@ -1276,19 +1173,19 @@ function renderOrderLogs() {
     container.innerHTML = `
       <div style="text-align: center; padding: 30px; color: #94a3b8;">
         <i class="fa-solid fa-cart-shopping" style="font-size: 32px; margin-bottom: 8px;"></i>
-        <p>?깅줉???ㅻ뜑 ?붿껌 ?댁뿭???놁뒿?덈떎.</p>
+        <p>등록된 오더 요청 내역이 없습니다.</p>
       </div>
     `;
     return;
   }
   container.innerHTML = orderLogs.map((item, index) => {
-    const statusText = item.status || '?붿껌??;
+    const statusText = item.status || '요청됨';
     let bgColor = '#e0e7ff';
     let textColor = '#4338ca';
-    if (statusText === '?섎씫') { bgColor = '#dcfce7'; textColor = '#166534'; }
-    if (statusText === '蹂대쪟') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
-    if (statusText === '異쒓퀬?€湲?) { bgColor = '#fef3c7'; textColor = '#b45309'; }
-    if (statusText === '異쒓퀬?꾨즺') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
+    if (statusText === '수락') { bgColor = '#dcfce7'; textColor = '#166534'; }
+    if (statusText === '보류') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
+    if (statusText === '출고대기') { bgColor = '#fef3c7'; textColor = '#b45309'; }
+    if (statusText === '출고완료') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
 
     let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
     
@@ -1297,8 +1194,18 @@ function renderOrderLogs() {
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
           ${statusHtml}
           <div style="display:flex; gap:4px; margin-top:2px;">
-            <button type="button" onclick="updateOrderStatus(${index}, '?섎씫')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">?섎씫</button>
-            <button type="button" onclick="updateOrderStatus(${index}, '蹂대쪟')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">蹂대쪟</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 7px; border:none; background:#16a34a; color:white; border-radius:4px; font-weight:700; cursor:pointer;">수락</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 7px; border:none; background:#d97706; color:white; border-radius:4px; font-weight:700; cursor:pointer;">보류</button>
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
+          </div>
+        </div>
+      `;
+    } else {
+      statusHtml = `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          ${statusHtml}
+          <div style="display:flex; gap:4px; margin-top:2px;">
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
           </div>
         </div>
       `;
@@ -1318,14 +1225,15 @@ function renderOrderLogs() {
     return `
     <div class="history-item" style="border-left-color: #6366f1;">
       <div class="hist-left">
-        <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} 쨌 ${item.user}</span>
+        <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user}</span>
         <div class="hist-name">${item.artName}</div>
-        <span class="hist-artno">踰덊샇: ${item.artNo}</span>
+        <span class="hist-artno">번호: ${item.artNo}</span>
       </div>
       <div class="hist-right">
         ${statusHtml}
         <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
-          ${item.qty}媛?        </div>
+          ${item.qty}개
+        </div>
       </div>
     </div>
     `;
@@ -1338,13 +1246,13 @@ function renderPickList() {
   const container = document.getElementById("picklist-container");
   if (!container) return;
 
-  const pendingPicks = orderLogs.filter(log => log.status === "異쒓퀬?€湲?);
+  const pendingPicks = orderLogs.filter(log => log.status === "출고대기");
 
   if (pendingPicks.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 30px; color: #94a3b8;">
         <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 8px;"></i>
-        <p>梨숆꺼?????€湲?紐⑸줉???놁뒿?덈떎.</p>
+        <p>챙겨야 할 대기 목록이 없습니다.</p>
       </div>
     `;
     return;
@@ -1352,7 +1260,7 @@ function renderPickList() {
 
   let html = "";
   orderLogs.forEach((item, index) => {
-    if (item.status === "異쒓퀬?€湲?) {
+    if (item.status === "출고대기") {
       let displayTime = item.date;
       if (item.created_at) {
         const d = new Date(item.created_at);
@@ -1366,14 +1274,14 @@ function renderPickList() {
       html += `
         <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb;">
           <div class="hist-left">
-            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} 쨌 ${item.user} ?붿껌</span>
+            <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user} 요청</span>
             <div class="hist-name">${item.artName}</div>
-            <span class="hist-artno">踰덊샇: ${item.artNo}</span>
+            <span class="hist-artno">번호: ${item.artNo}</span>
           </div>
           <div class="hist-right" style="align-items:flex-end;">
-            <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}媛?/div>
+            <div class="hist-qty" style="color: #b45309; font-size: 18px;">${item.qty}개</div>
             <button type="button" class="btn-submit" style="background-color: #059669; font-size: 12px; padding: 8px 12px; margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="completePickItem(${index})">
-              <i class="fa-solid fa-check"></i> 梨숆? ?꾨즺 (異쒓퀬)
+              <i class="fa-solid fa-check"></i> 챙김 완료 (출고)
             </button>
           </div>
         </div>
@@ -1385,17 +1293,17 @@ function renderPickList() {
 
 async function completePickItem(index) {
   const pickItem = orderLogs[index];
-  if (!pickItem || pickItem.status !== "異쒓퀬?€湲?) return;
+  if (!pickItem || pickItem.status !== "출고대기") return;
   
-  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}媛쒕? 李쎄퀬?먯꽌 梨숆꼈?듬땲源?\\n(?뺤씤 ??利됱떆 異쒓퀬 湲곕줉???앹꽦?⑸땲??`)) return;
+  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
   
   try {
-    // 1. Update order status to 異쒓퀬?꾨즺
-    pickItem.status = "異쒓퀬?꾨즺";
+    // 1. Update order status to 출고완료
+    pickItem.status = "출고완료";
     if (supabaseClient && pickItem.id) {
       const { error: updateError } = await supabaseClient
         .from('order_requests')
-        .update({ status: '異쒓퀬?꾨즺' })
+        .update({ status: '출고완료' })
         .eq('id', pickItem.id);
         
       if (updateError) throw updateError;
@@ -1404,7 +1312,7 @@ async function completePickItem(index) {
     // 2. Insert into inventory_logs (actual checkout)
     const newLog = {
       date: new Date().toISOString().split('T')[0],
-      type: "異쒓퀬",
+      type: "출고",
       artNo: pickItem.artNo,
       artName: pickItem.artName,
       qty: pickItem.qty,
@@ -1415,7 +1323,7 @@ async function completePickItem(index) {
     historyLogs.unshift(newLog);
     invalidateStockCache();
     
-    showToast(`'${pickItem.artName}' 異쒓퀬媛€ ?꾨즺?섏뿀?듬땲??`, "success", insertedId);
+    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
     playSuccessFeedback();
     
     renderStockLookup();
@@ -1423,7 +1331,7 @@ async function completePickItem(index) {
     renderOrderLogs(); // This will also call renderPickList()
   } catch (err) {
     console.error("Pick complete error:", err);
-    showToast("異쒓퀬 ?꾨즺 泥섎━ ?ㅽ뙣: " + err.message, "danger");
+    showToast("출고 완료 처리 실패: " + err.message, "danger");
   }
 }
 
@@ -1433,7 +1341,7 @@ async function updateOrderStatus(index, newStatus) {
   if (!order) return;
 
   order.status = newStatus;
-  order.date = new Date().toISOString().split("T")[0]; // ?좎쭨 ?먮룞 ?낅뜲?댄듃
+  order.date = new Date().toISOString().split("T")[0]; // 날짜 자동 업데이트
 
   if (supabaseClient && order.id) {
     try {
@@ -1450,39 +1358,61 @@ async function updateOrderStatus(index, newStatus) {
     localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
   } catch (err) {}
 
-  showToast(`?ㅻ뜑 ?곹깭媛€ '${newStatus}'(??濡?蹂€寃쎈릺?덉뒿?덈떎.`, "success");
+  showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
   renderOrderLogs();
+}
+
+async function deleteOrderLog(index) {
+  if (typeof orderLogs === "undefined" || !orderLogs[index]) return;
+  const targetOrder = orderLogs[index];
+  const artName = targetOrder.artName || targetOrder.artNo;
+  
+  if (!confirm(`'${artName}' 오더 요청을 정말 삭제하시겠습니까?`)) return;
+  
+  const orderId = targetOrder.id;
+  orderLogs.splice(index, 1);
+  
+  if (typeof supabaseClient !== "undefined" && supabaseClient && orderId) {
+    try {
+      await supabaseClient.from('order_requests').delete().eq('id', orderId);
+    } catch (e) {
+      console.warn("Delete order error:", e);
+    }
+  }
+  
+  if (typeof showToast === "function") showToast(`'${artName}' 오더 요청이 삭제되었습니다.`, "success");
+  if (typeof renderOrderLogs === "function") renderOrderLogs();
 }
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
 function exportOrdersToExcel() {
   if (!isAdminUser) {
-    showToast("?ㅻ뜑 異붿텧 沅뚰븳???놁뒿?덈떎. (愿€由ъ옄 ?꾩슜)", "danger");
+    showToast("오더 추출 권한이 없습니다. (관리자 전용)", "danger");
     return;
   }
 
   if (orderLogs.length === 0) {
-    showToast("異붿텧???ㅻ뜑 ?붿껌 ?댁뿭???놁뒿?덈떎.", "danger");
+    showToast("추출할 오더 요청 내역이 없습니다.", "danger");
     return;
   }
 
   const exportData = orderLogs.map((item, index) => ({
-    "?곕쾲": index + 1,
-    "?붿껌 ?좎쭨": item.date,
-    "踰덊샇 (ARTNO)": item.artNo,
-    "?꾪떚???대쫫": item.artName,
-    "?붿껌 ?섎웾": item.qty,
-    "?붿껌??: item.user,
-    "?곹깭": item.status || "?붿껌??
+    "연번": index + 1,
+    "요청 날짜": item.date,
+    "번호 (ARTNO)": item.artNo,
+    "아티클 이름": item.artName,
+    "요청 수량": item.qty,
+    "요청자": item.user,
+    "상태": item.status || "요청됨"
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "?ㅻ뜑?붿껌");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "오더요청");
 
   const todayStr = new Date().toISOString().split("T")[0];
-  XLSX.writeFile(workbook, `?ㅻ뜑_?붿껌_?댁뿭_${todayStr}.xlsx`);
-  showToast("愿€由ъ옄 沅뚰븳?쇰줈 ?ㅻ뜑 ?붿껌 ?묒? ?뚯씪(.xlsx) 異붿텧???꾨즺?덉뒿?덈떎!", "success");
+  XLSX.writeFile(workbook, `오더_요청_내역_${todayStr}.xlsx`);
+  showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success");
 }
 
 // --- Stock Lookup View Logic & Enhanced Dashboard ---
@@ -1496,7 +1426,7 @@ function populateStockHFBDropdown() {
     if (item.hfb) hfbSet.add(item.hfb);
   });
 
-  let html = '<option value="ALL">紐⑤뱺 HFB 移댄뀒怨좊━</option>';
+  let html = '<option value="ALL">모든 HFB 카테고리</option>';
   Array.from(hfbSet).sort().forEach(hfb => {
     html += `<option value="${hfb}" ${hfb === currentVal ? 'selected' : ''}>${hfb}</option>`;
   });
@@ -1559,7 +1489,7 @@ function renderStockLookup() {
   stockMap.forEach(item => {
     if (!item.hfb) {
       const matchedMaster = masterCatalog.find(m => m.artNo === item.artNo);
-      item.hfb = matchedMaster ? matchedMaster.hfb || "湲고? HFB" : "湲고? HFB";
+      item.hfb = matchedMaster ? matchedMaster.hfb || "기타 HFB" : "기타 HFB";
     }
     stockList.push(item);
   });
@@ -1596,15 +1526,16 @@ function renderStockLookup() {
     return 0;
   });
 
-  document.getElementById("stock-count-text").textContent = `${filteredList.length}媛??덈ぉ`;
+  document.getElementById("stock-count-text").textContent = `${filteredList.length}개 품목`;
 
   if (filteredList.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px; color: #94a3b8; background:#fff; border-radius:14px; border:1px dashed #cbd5e1;">
         <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 12px; color:#cbd5e1;"></i>
-        <p style="font-weight:700; color:#64748b;">議곌굔??留욌뒗 ?ш퀬 ??ぉ???놁뒿?덈떎.</p>
+        <p style="font-weight:700; color:#64748b;">조건에 맞는 재고 항목이 없습니다.</p>
         <button type="button" class="btn-secondary sm" style="margin-top:12px;" onclick="resetStockFilters()">
-          <i class="fa-solid fa-rotate-left"></i> ?꾩껜 蹂닿린濡??꾪꽣 珥덇린??        </button>
+          <i class="fa-solid fa-rotate-left"></i> 전체 보기로 필터 초기화
+        </button>
       </div>
     `;
     return;
@@ -1618,7 +1549,7 @@ function renderStockLookup() {
     const isLow = item.currentStock > 0 && item.currentStock <= 5;
     
     const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-    const statusText = isOut ? "?덉젅" : isLow ? "遺€議? : "?덉쟾";
+    const statusText = isOut ? "품절" : isLow ? "부족" : "안전";
     const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
 
     return `
@@ -1627,9 +1558,9 @@ function renderStockLookup() {
           <div style="display:flex; flex-direction:column; gap:8px;">
             <span class="ssc-artno">${item.artNo}</span>
             <div class="ssc-quick-btns">
-              <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '?낃퀬')">?낃퀬</button>
-              <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '異쒓퀬')">異쒓퀬</button>
-              <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">?ㅻ뜑</button>
+              <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
+              <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
+              <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">오더</button>
             </div>
           </div>
           <span class="ssc-name">${item.artName}</span>
@@ -1639,7 +1570,7 @@ function renderStockLookup() {
           <span class="ssc-status ${statusClass}">${statusText}</span>
           <div class="ssc-qty">
             <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}">${item.currentStock}</span>
-            <span class="ssc-unit">媛?/span>
+            <span class="ssc-unit">개</span>
           </div>
         </div>
       </div>
@@ -1649,7 +1580,7 @@ function renderStockLookup() {
   if (filteredList.length > stockDisplayLimit) {
     html += `
       <button type="button" class="btn-secondary" style="width:100%; margin-top:10px; padding:12px; font-weight:700;" onclick="loadMoreStockItems()">
-        ?붾낫湲?(${stockDisplayLimit} / ${filteredList.length}媛?
+        더보기 (${stockDisplayLimit} / ${filteredList.length}개)
       </button>
     `;
   }
@@ -1679,11 +1610,11 @@ function switchDashboardTab(type) {
   } else if (type === "low") {
     if(btnLow) btnLow.classList.add("active");
     if(viewLow) viewLow.style.display = "block";
-    if(badgeView) badgeView.textContent = "寃쎄퀬 TOP 10";
+    if(badgeView) badgeView.textContent = "경고 TOP 10";
   } else if (type === "hfb") {
     if(btnHfb) btnHfb.classList.add("active");
     if(viewHfb) viewHfb.style.display = "block";
-    if(badgeView) badgeView.textContent = "HFB 遺꾪룷";
+    if(badgeView) badgeView.textContent = "HFB 분포";
   }
 }
 
@@ -1694,9 +1625,9 @@ function renderStockDashboard(stockList) {
   if (!containerHigh || !containerLow) return;
 
   if (stockList.length === 0) {
-    containerHigh.innerHTML = '<p class="dash-empty">?깅줉???ш퀬 ?곗씠?곌? ?놁뒿?덈떎.</p>';
-    containerLow.innerHTML = '<p class="dash-empty">?깅줉???ш퀬 ?곗씠?곌? ?놁뒿?덈떎.</p>';
-    if (containerHfb) containerHfb.innerHTML = '<p class="dash-empty">?깅줉???ш퀬 ?곗씠?곌? ?놁뒿?덈떎.</p>';
+    containerHigh.innerHTML = '<p class="dash-empty">등록된 재고 데이터가 없습니다.</p>';
+    containerLow.innerHTML = '<p class="dash-empty">등록된 재고 데이터가 없습니다.</p>';
+    if (containerHfb) containerHfb.innerHTML = '<p class="dash-empty">등록된 재고 데이터가 없습니다.</p>';
     return;
   }
 
@@ -1708,20 +1639,20 @@ function renderStockDashboard(stockList) {
   containerHigh.innerHTML = topHigh.map((item, idx) => {
     const rank = idx + 1;
     const rankBadgeClass = rank === 1 ? "rank-gold" : rank === 2 ? "rank-silver" : rank === 3 ? "rank-bronze" : "rank-normal";
-    const rankIcon = rank === 1 ? '?몣 ' : rank === 2 ? '?쪎 ' : rank === 3 ? '?쪏 ' : '';
+    const rankIcon = rank === 1 ? '👑 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : '';
     const pct = Math.max(Math.min((item.currentStock / maxHighVal) * 100, 100), 5);
 
     return `
-      <div class="dash-item" onclick="quickActionRegister('${item.artNo}', '異쒓퀬')" title="?대┃ ??異쒓퀬 ?깅줉">
+      <div class="dash-item" onclick="quickActionRegister('${item.artNo}', '출고')" title="클릭 시 출고 등록">
         <div class="dash-item-info">
           <div class="dash-item-left">
-            <span class="rank-badge ${rankBadgeClass}">${rankIcon}${rank}??/span>
+            <span class="rank-badge ${rankBadgeClass}">${rankIcon}${rank}위</span>
             <div class="dash-item-text">
-              <span class="dash-artno">${item.artNo} 쨌 ${item.hfb || 'HFB'}</span>
+              <span class="dash-artno">${item.artNo} · ${item.hfb || 'HFB'}</span>
               <span class="dash-artname">${item.artName}</span>
             </div>
           </div>
-          <span class="dash-stock-num high">${item.currentStock}媛?/span>
+          <span class="dash-stock-num high">${item.currentStock}개</span>
         </div>
         <div class="dash-progress-track">
           <div class="dash-progress-bar high" style="width: ${pct}%;"></div>
@@ -1741,17 +1672,17 @@ function renderStockDashboard(stockList) {
     const pct = isOut ? 100 : Math.max(Math.min((item.currentStock / maxLowRef) * 100, 100), 8);
 
     return `
-      <div class="dash-item" onclick="quickActionRegister('${item.artNo}', '?낃퀬')" title="?대┃ ???낃퀬 ?깅줉">
+      <div class="dash-item" onclick="quickActionRegister('${item.artNo}', '입고')" title="클릭 시 입고 등록">
         <div class="dash-item-info">
           <div class="dash-item-left">
-            <span class="rank-badge ${isOut ? 'rank-danger' : 'rank-warning'}">${rank}??/span>
+            <span class="rank-badge ${isOut ? 'rank-danger' : 'rank-warning'}">${rank}위</span>
             <div class="dash-item-text">
-              <span class="dash-artno">${item.artNo} 쨌 ${item.hfb || 'HFB'}</span>
+              <span class="dash-artno">${item.artNo} · ${item.hfb || 'HFB'}</span>
               <span class="dash-artname">${item.artName}</span>
             </div>
           </div>
           <span class="dash-stock-num ${isOut ? 'danger' : 'warning'}">
-            ${isOut ? '?좑툘 ?덉젅 (0媛?' : item.currentStock + '媛?}
+            ${isOut ? '⚠️ 품절 (0개)' : item.currentStock + '개'}
           </span>
         </div>
         <div class="dash-progress-track">
@@ -1765,7 +1696,7 @@ function renderStockDashboard(stockList) {
   if (containerHfb) {
     const hfbMap = new Map();
     stockList.forEach(item => {
-      const hfbName = item.hfb || "湲고? HFB";
+      const hfbName = item.hfb || "기타 HFB";
       let hEntry = hfbMap.get(hfbName);
       if (!hEntry) {
         hEntry = { hfb: hfbName, count: 0, totalStock: 0 };
@@ -1781,13 +1712,13 @@ function renderStockDashboard(stockList) {
     containerHfb.innerHTML = hfbList.map(hItem => {
       const pct = Math.max(Math.min((hItem.totalStock / maxHfbStock) * 100, 100), 8);
       return `
-        <div class="hfb-dash-card" onclick="filterByHFB('${hItem.hfb}')" style="cursor:pointer;" title="?대떦 HFB ?덈ぉ ?꾪꽣留?>
+        <div class="hfb-dash-card" onclick="filterByHFB('${hItem.hfb}')" style="cursor:pointer;" title="해당 HFB 품목 필터링">
           <div class="hfb-dash-header">
             <div class="hfb-dash-title">
               <span class="hfb-badge">${hItem.hfb}</span>
-              <span>(${hItem.count}媛??덈ぉ)</span>
+              <span>(${hItem.count}개 품목)</span>
             </div>
-            <span class="hfb-dash-val">?ш퀬 ${hItem.totalStock}媛?/span>
+            <span class="hfb-dash-val">재고 ${hItem.totalStock}개</span>
           </div>
           <div class="dash-progress-track">
             <div class="dash-progress-bar high" style="width: ${pct}%;"></div>
@@ -1818,7 +1749,7 @@ function clearStockSearch() {
 }
 
 function selectItemForRegister(artNo) {
-  quickActionRegister(artNo, '?낃퀬');
+  quickActionRegister(artNo, '입고');
 }
 
 function quickActionRegister(artNo, type) {
@@ -1835,7 +1766,7 @@ function quickActionRegister(artNo, type) {
 
   const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
   switchTab("register", regNavBtn);
-  showToast(`'${artNo}' ?덈ぉ [${type}] ?깅줉 ?붾㈃?쇰줈 ?대룞?덉뒿?덈떎.`, "success");
+  showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success");
 }
 
 function quickActionOrder(artNo) {
@@ -1846,7 +1777,7 @@ function quickActionOrder(artNo) {
 
   const orderNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[2];
   switchTab("order", orderNavBtn);
-  showToast(`'${artNo}' ?덈ぉ ?ㅻ뜑 ?붿껌 ?붾㈃?쇰줈 ?대룞?덉뒿?덈떎.`, "success");
+  showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success");
 }
 
 // --- History Logs Logic & Filters ---
@@ -1864,7 +1795,7 @@ function populateArticleFilterDropdown() {
     }
   }
 
-  let optionsHtml = '<option value="ALL">紐⑤뱺 ?덈ぉ</option>';
+  let optionsHtml = '<option value="ALL">모든 품목</option>';
   uniqueArticles.forEach((artName, artNo) => {
     optionsHtml += `<option value="${artNo}">${artNo} - ${artName}</option>`;
   });
@@ -1909,8 +1840,8 @@ function renderHistoryLogs() {
   for (let i = 0; i < filteredLogs.length; i++) {
     const log = filteredLogs[i];
     const qty = Number(log.qty) || 0;
-    if (log.type === "?낃퀬") totalIn += qty;
-    if (log.type === "異쒓퀬") totalOut += qty;
+    if (log.type === "입고") totalIn += qty;
+    if (log.type === "출고") totalOut += qty;
   }
 
   document.getElementById("hist-count").textContent = filteredLogs.length;
@@ -1921,7 +1852,7 @@ function renderHistoryLogs() {
     container.innerHTML = `
       <div style="text-align: center; padding: 30px; color: #94a3b8;">
         <i class="fa-regular fa-folder-open" style="font-size: 32px; margin-bottom: 8px;"></i>
-        <p>議곌굔??留욌뒗 湲곕줉???놁뒿?덈떎.</p>
+        <p>조건에 맞는 기록이 없습니다.</p>
       </div>
     `;
     return;
@@ -1943,14 +1874,15 @@ function renderHistoryLogs() {
     return `
     <div class="history-item type-${log.type}">
       <div class="hist-left">
-        <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '쨌 ' + log.user : ''}</span>
+        <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
         <div class="hist-name">${log.artName}</div>
-        <span class="hist-artno">踰덊샇: ${log.artNo}</span>
+        <span class="hist-artno">번호: ${log.artNo}</span>
       </div>
       <div class="hist-right">
         <span class="hist-badge type-${log.type}">${log.type}</span>
-        <div class="hist-qty ${log.type === '?낃퀬' ? 'text-in' : 'text-out'}">
-          ${log.type === '?낃퀬' ? '+' : '-'}${log.qty}媛?        </div>
+        <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
+          ${log.type === '입고' ? '+' : '-'}${log.qty}개
+        </div>
       </div>
     </div>
     `;
@@ -1960,7 +1892,7 @@ function renderHistoryLogs() {
   if (totalCount > visibleLogs.length) {
     html += `
       <button type="button" class="btn-secondary" style="width:100%; margin-top:10px; padding:12px;" onclick="loadMoreHistoryLogs()">
-        ?댁쟾 湲곕줉 ?붾낫湲?(${visibleLogs.length} / ${totalCount})
+        이전 기록 더보기 (${visibleLogs.length} / ${totalCount})
       </button>
     `;
   }
@@ -1985,38 +1917,38 @@ function resetHistoryFilters() {
 // --- Excel Export Functionality ---
 function exportHistoryToExcel() {
   if (!isAdminUser) {
-    showToast("?묒? 異붿텧 沅뚰븳???놁뒿?덈떎. (愿€由ъ옄 ?꾩슜)", "danger");
+    showToast("엑셀 추출 권한이 없습니다. (관리자 전용)", "danger");
     return;
   }
 
   if (historyLogs.length === 0) {
-    showToast("異붿텧???낆텧怨?湲곕줉???놁뒿?덈떎.", "danger");
+    showToast("추출할 입출고 기록이 없습니다.", "danger");
     return;
   }
 
   const exportData = historyLogs.map((log, index) => ({
-    "?곕쾲": index + 1,
-    "?좎쭨": log.date,
-    "援щ텇": log.type,
-    "?꾪떚???대쫫": log.artName,
-    "踰덊샇 (ARTNO)": log.artNo,
-    "?섎웾": log.qty,
-    "?묒꽦??: log.user || "-"
+    "연번": index + 1,
+    "날짜": log.date,
+    "구분": log.type,
+    "아티클 이름": log.artName,
+    "번호 (ARTNO)": log.artNo,
+    "수량": log.qty,
+    "작성자": log.user || "-"
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "湲곕줉");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "기록");
 
   const todayStr = new Date().toISOString().split("T")[0];
-  XLSX.writeFile(workbook, `?낆텧怨?湲곕줉_${todayStr}.xlsx`);
-  showToast("愿€由ъ옄 沅뚰븳?쇰줈 ?묒? ?뚯씪(.xlsx) 異붿텧???쒖옉?덉뒿?덈떎!", "success");
+  XLSX.writeFile(workbook, `입출고_기록_${todayStr}.xlsx`);
+  showToast("관리자 권한으로 엑셀 파일(.xlsx) 추출을 시작했습니다!", "success");
 }
 
 // --- Excel Import Functionality ---
 function handleExcelImport(e) {
   if (!isAdminUser) {
-    showToast("留덉뒪???곗씠???묒? ?낅줈?쒕뒗 愿€由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
+    showToast("마스터 데이터 엑셀 업로드는 관리자 전용 기능입니다.", "danger");
     return;
   }
 
@@ -2028,7 +1960,7 @@ function handleExcelImport(e) {
   statusMsg.className = "import-status-msg";
   statusMsg.style.backgroundColor = "#e0f2fe";
   statusMsg.style.color = "#0369a1";
-  statusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ?묒? ?뚯씪 遺꾩꽍 以?..';
+  statusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 엑셀 파일 분석 중...';
 
   setTimeout(() => {
     const reader = new FileReader();
@@ -2042,7 +1974,7 @@ function handleExcelImport(e) {
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (rows.length < 2) {
-          throw new Error("?묒? ?쒗듃???곗씠?곌? 遺€議깊빀?덈떎.");
+          throw new Error("엑셀 시트에 데이터가 부족합니다.");
         }
 
         let hfbIdx = -1;
@@ -2053,14 +1985,14 @@ function handleExcelImport(e) {
         for (let i = 0; i < header.length; i++) {
           const title = String(header[i] || "").toUpperCase();
           if (title.includes("HFB") || title.includes("BUSINESS") || title.includes("HOME FURNISHING")) hfbIdx = i;
-          if (title.includes("ARTNO") || title.includes("踰덊샇") || title.includes("ARTICLE NUMBER")) artNoIdx = i;
-          if (title.includes("ARTNAME") || title.includes("?꾪떚??) || title.includes("?대쫫") || title.includes("ARTICLE NAME")) artNameIdx = i;
+          if (title.includes("ARTNO") || title.includes("번호") || title.includes("ARTICLE NUMBER")) artNoIdx = i;
+          if (title.includes("ARTNAME") || title.includes("아티클") || title.includes("이름") || title.includes("ARTICLE NAME")) artNameIdx = i;
         }
 
         // Default Excel Master Specification: Sheet1 Columns:
-        // F??(Index 5): HFB (Home Furnishing Business)
-        // H??(Index 7): 踰덊샇 / Article Number
-        // I??(Index 8): ?꾪떚???대쫫 / Article Name
+        // F열 (Index 5): HFB (Home Furnishing Business)
+        // H열 (Index 7): 번호 / Article Number
+        // I열 (Index 8): 아티클 이름 / Article Name
         if (hfbIdx === -1) hfbIdx = 5;
         if (artNoIdx === -1) artNoIdx = 7;
         if (artNameIdx === -1) artNameIdx = 8;
@@ -2071,10 +2003,14 @@ function handleExcelImport(e) {
         for (let r = 1; r < rows.length; r++) {
           const row = rows[r];
           if (row && row[artNoIdx] !== undefined && row[artNoIdx] !== null) {
-            const artNo = String(row[artNoIdx]).trim();
+            let artNo = String(row[artNoIdx]).trim();
+            const cleanDigits = artNo.replace(/\D/g, '');
+            if (cleanDigits.length > 0 && cleanDigits.length <= 8) {
+              artNo = cleanDigits.padStart(8, '0');
+            }
             const artName = (row[artNameIdx] !== undefined && row[artNameIdx] !== null)
               ? String(row[artNameIdx]).trim() 
-              : "?덈ぉ紐??놁쓬";
+              : "품목명 없음";
             const hfb = (row[hfbIdx] !== undefined && row[hfbIdx] !== null)
               ? String(row[hfbIdx]).trim()
               : "";
@@ -2094,16 +2030,16 @@ function handleExcelImport(e) {
 
           statusMsg.style.backgroundColor = "#ecfdf5";
           statusMsg.style.color = "#047857";
-          statusMsg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${newCatalog.length}媛??꾪떚??留덉뒪???곗씠?곕줈 ?덈줈怨좎묠 ?섏뿀?듬땲??`;
-          showToast(`?묒??먯꽌 ${newCatalog.length}媛??덈ぉ???덈줈怨좎묠?덉뒿?덈떎.`, "success");
+          statusMsg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${newCatalog.length}개 아티클 마스터 데이터로 새로고침 되었습니다!`;
+          showToast(`엑셀에서 ${newCatalog.length}개 품목을 새로고침했습니다.`, "success");
         } else {
-          throw new Error("?좏슚???꾪떚??踰덊샇瑜?李얠쓣 ???놁뒿?덈떎.");
+          throw new Error("유효한 아티클 번호를 찾을 수 없습니다.");
         }
       } catch (err) {
         statusMsg.style.backgroundColor = "#fef2f2";
         statusMsg.style.color = "#b91c1c";
-        statusMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ?ㅻ쪟: ${err.message}`;
-        showToast(`?묒? ?쎄린 ?ㅻ쪟: ${err.message}`, "danger");
+        statusMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> 오류: ${err.message}`;
+        showToast(`엑셀 읽기 오류: ${err.message}`, "danger");
       } finally {
         e.target.value = "";
       }
@@ -2129,7 +2065,7 @@ function renderMasterCatalog() {
     : masterCatalog;
 
   if (filtered.length === 0) {
-    container.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 15px;">?깅줉???덈ぉ???놁뒿?덈떎.</p>';
+    container.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 15px;">등록된 품목이 없습니다.</p>';
     return;
   }
 
@@ -2145,7 +2081,7 @@ function renderMasterCatalog() {
         <div class="master-artname">${item.artName}</div>
       </div>
       <button type="button" class="btn-secondary sm" onclick="selectItemForRegister('${item.artNo}')">
-        <i class="fa-solid fa-plus"></i> ?낅젰
+        <i class="fa-solid fa-plus"></i> 입력
       </button>
     </div>
   `).join("");
@@ -2153,7 +2089,7 @@ function renderMasterCatalog() {
   if (filtered.length > masterDisplayLimit) {
     html += `
       <button type="button" class="btn-secondary" style="width:100%; margin-top:10px; padding:12px;" onclick="loadMoreMasterItems()">
-        ?붾낫湲?(${masterDisplayLimit} / ${filtered.length})
+        더보기 (${masterDisplayLimit} / ${filtered.length})
       </button>
     `;
   }
@@ -2211,7 +2147,7 @@ function renderModalMasterList() {
   if (filtered.length > maxModalItems) {
     html += `
       <div style="text-align:center; padding:10px; font-size:12px; color:#64748b;">
-        ?곸쐞 ${maxModalItems}媛쒕쭔 ?쒖떆?⑸땲?? ?곸꽭 寃€?됱뼱瑜??낅젰??二쇱꽭??
+        상위 ${maxModalItems}개만 표시됩니다. 상세 검색어를 입력해 주세요.
       </div>
     `;
   }
@@ -2257,7 +2193,7 @@ function onPtagArtNoInput(artNoValue) {
 
 function openAddMasterModal() {
   if (!isAdminUser) {
-    showToast("?좉퇋 ?꾪떚??媛쒕퀎 異붽???愿€由ъ옄 ?꾩슜 湲곕뒫?낅땲??", "danger");
+    showToast("신규 아티클 개별 추가는 관리자 전용 기능입니다.", "danger");
     return;
   }
   document.getElementById("add-master-modal").classList.add("active");
@@ -2270,7 +2206,7 @@ function closeAddMasterModal() {
 function handleAddMasterSubmit(e) {
   e.preventDefault();
   if (!isAdminUser) {
-    showToast("愿€由ъ옄 沅뚰븳???꾩슂?⑸땲??", "danger");
+    showToast("관리자 권한이 필요합니다.", "danger");
     return;
   }
 
@@ -2281,7 +2217,7 @@ function handleAddMasterSubmit(e) {
   if (!artNo || !artName) return;
 
   if (masterCatalogMap.has(artNo)) {
-    showToast(`?대? ?깅줉???꾪떚??踰덊샇?낅땲?? ${artNo}`, "danger");
+    showToast(`이미 등록된 아티클 번호입니다: ${artNo}`, "danger");
     return;
   }
 
@@ -2291,7 +2227,7 @@ function handleAddMasterSubmit(e) {
   populateArticleFilterDropdown();
   closeAddMasterModal();
 
-  showToast(`?좉퇋 ?덈ぉ '${artName}'??媛€) 異붽??섏뿀?듬땲??`, "success");
+  showToast(`신규 품목 '${artName}'이(가) 추가되었습니다.`, "success");
   document.getElementById("add-master-form").reset();
 }
 
@@ -2307,7 +2243,7 @@ function showToast(message, type = "success", undoId = null) {
     toast.classList.add("toast-long");
     toast.innerHTML = `
       <div style="flex:1; text-align:left;">${message}</div>
-      <button type="button" class="toast-action-btn" onclick="undoLastAction(${undoId}, this.parentElement)">?ㅽ뻾 痍⑥냼</button>
+      <button type="button" class="toast-action-btn" onclick="undoLastAction(${undoId}, this.parentElement)">실행 취소</button>
     `;
   } else {
     toast.innerHTML = message;
@@ -2328,7 +2264,7 @@ window.undoLastAction = async function(id, toastElem) {
   
   const tempToast = document.createElement("div");
   tempToast.className = "toast-msg success";
-  tempToast.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 痍⑥냼 泥섎━ 以?..';
+  tempToast.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 취소 처리 중...';
   const container = document.getElementById("toast-container");
   if (container) container.appendChild(tempToast);
 
@@ -2336,7 +2272,7 @@ window.undoLastAction = async function(id, toastElem) {
     const { error } = await supabaseClient.from("inventory_logs").delete().eq("id", id);
     if (error) {
       if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
-      showToast("痍⑥냼 ?ㅽ뙣: " + error.message, "danger");
+      showToast("취소 실패: " + error.message, "danger");
       return;
     }
   }
@@ -2354,7 +2290,7 @@ window.undoLastAction = async function(id, toastElem) {
   }
 
   if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
-  showToast("?대떦 湲곕줉??痍⑥냼?섏뿀?듬땲??", "success");
+  showToast("해당 기록이 취소되었습니다.", "success");
 }
 
 // --- Supabase Realtime Subscriptions ---
@@ -2429,7 +2365,7 @@ function handleRealtimeInventory(payload) {
       historyLogs.unshift({
         ...newRecord,
         artNo: mappedArtNo,
-        artName: newRecord.artname || newRecord.artName || masterCatalogMap.get(mappedArtNo) || "?????녿뒗 ?덈ぉ"
+        artName: newRecord.artname || newRecord.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
       });
       historyLogs.sort((a, b) => b.id - a.id);
     }
@@ -2457,18 +2393,19 @@ function handleRealtimeOrder(payload) {
       });
       orderLogs.sort((a, b) => b.id - a.id);
       
-      // === ?뵒 愿由ъ옄?먭쾶 ???ㅻ뜑 ?붿껌 ?뚮엺 ===
+      // === 🔔 관리자에게 새 오더 요청 알람 ===
       if (isAdminUser && newRecord.user !== currentUser) {
-        showAlarmNotification(`?뵒 [???ㅻ뜑 ?붿껌] ${newRecord.user}?섏씠 '${newRecord.artname || newRecord.artName}' ?덈ぉ???붿껌?덉뒿?덈떎.`, "success");
+        showAlarmNotification(`🔔 [새 오더 요청] ${newRecord.user}님이 '${newRecord.artname || newRecord.artName}' 품목을 요청했습니다.`, "success");
       }
     }
   } else if (eventType === 'UPDATE') {
     const idx = orderLogs.findIndex(log => log.id === newRecord.id);
     if (idx !== -1) {
-      // 湲곗〈 ?곹깭 ???      const oldStatus = orderLogs[idx].status || '?붿껌??;
+      // 기존 상태 저장
+      const oldStatus = orderLogs[idx].status || '요청됨';
       const newStatus = newRecord.status;
 
-      // ?곗씠???낅뜲?댄듃
+      // 데이터 업데이트
       orderLogs[idx] = {
         ...orderLogs[idx],
         ...newRecord,
@@ -2476,12 +2413,12 @@ function handleRealtimeOrder(payload) {
         artName: newRecord.artname || newRecord.artName || ""
       };
 
-      // === ?뵒 ?붿껌?먯뿉寃??곹깭 蹂寃??뚮엺 濡쒖쭅 ===
+      // === 🔔 요청자에게 상태 변경 알람 로직 ===
       if (oldStatus !== newStatus && orderLogs[idx].user === currentUser) {
-        if (newStatus === '?섎씫') {
-          showAlarmNotification(`??[?ㅻ뜑 ?섎씫] '${orderLogs[idx].artName}' ?붿껌???섎씫?섏뿀?듬땲??`, "success");
-        } else if (newStatus === '蹂대쪟') {
-          showAlarmNotification(`?슚 [?ㅻ뜑 蹂대쪟] '${orderLogs[idx].artName}' ?붿껌??蹂대쪟?섏뿀?듬땲?? ?대떦?먯뿉寃?臾몄쓽?섏꽭??`, "danger");
+        if (newStatus === '수락') {
+          showAlarmNotification(`✅ [오더 수락] '${orderLogs[idx].artName}' 요청이 수락되었습니다!`, "success");
+        } else if (newStatus === '보류') {
+          showAlarmNotification(`🚨 [오더 보류] '${orderLogs[idx].artName}' 요청이 보류되었습니다. 담당자에게 문의하세요.`, "danger");
         }
       }
     }
@@ -2497,28 +2434,30 @@ function handleRealtimeOrder(payload) {
   } catch (e) {}
 }
 
-// ?뵒 ?ㅻ뜑 泥섎━ 諛??붿껌 ?꾩슜 ?뚮엺 ?⑥닔
+// 🔔 오더 처리 및 요청 전용 알람 함수
 function showAlarmNotification(message, type) {
-  // 紐⑤컮???몄떆/吏꾨룞 諛??뚮━
+  // 모바일 푸시/진동 및 소리
   playSuccessFeedback();
   
-  // 釉뚮씪?곗? ?ㅼ씠?곕툕 ?뚮┝ (?덉슜??寃쎌슦)
+  // 브라우저 네이티브 알림 (허용된 경우)
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("?몄씪利?李쎄퀬 ?ㅻ뜑 ?뚮┝", { body: message });
+    new Notification("세일즈 창고 오더 알림", { body: message });
   }
 
-  // ?붾㈃ ?좎뒪???앹뾽 ?꾩슦湲?  const container = document.getElementById("toast-container");
+  // 화면 토스트 팝업 띄우기
+  const container = document.getElementById("toast-container");
   if (!container) return;
 
   const toast = document.createElement("div");
-  toast.className = `toast-msg ${type} toast-long`; // toast-long ?대옒?ㅻ줈 ?ㅻ옒 ?쒖떆
+  toast.className = `toast-msg ${type} toast-long`; // toast-long 클래스로 오래 표시
   toast.style.border = type === 'success' ? '2px solid #059669' : '2px solid #dc2626';
   toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
   toast.innerHTML = `<div style="flex:1; text-align:left; font-size: 14px; font-weight:800;">${message}</div>`;
   
   container.appendChild(toast);
 
-  // 5珥????щ씪吏?  setTimeout(() => {
+  // 5초 후 사라짐
+  setTimeout(() => {
     if (toast.parentNode) {
       toast.parentNode.removeChild(toast);
     }
@@ -2528,7 +2467,7 @@ function showAlarmNotification(message, type) {
 // --- Haptic & Audio Feedback ---
 function playSuccessFeedback() {
   if (navigator.vibrate) {
-    navigator.vibrate(50); // 50ms 吏㏃? 吏꾨룞 (紐⑤컮?쇱슜)
+    navigator.vibrate(50); // 50ms 짧은 진동 (모바일용)
   }
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -2539,7 +2478,7 @@ function playSuccessFeedback() {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note (寃쎌풄???뚮━)
+      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note (경쾌한 소리)
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.1);
       osc.start(ctx.currentTime);
@@ -2549,3 +2488,264 @@ function playSuccessFeedback() {
     console.warn("Audio playback failed:", e);
   }
 }
+
+// --- MFAQ Logic ---
+function saveMfaqLogs() {
+  localStorage.setItem("warehouse_mfaq_logs", JSON.stringify(mfaqLogs));
+}
+
+function renderMfaq() {
+  const container = document.getElementById("mfaq-list-container");
+  if (!container) return;
+
+  const filterCategory = document.getElementById("mfaq-filter-category")?.value || "all";
+  const searchQuery = (document.getElementById("mfaq-search")?.value || "").toLowerCase();
+
+  let filtered = mfaqLogs.filter(log => {
+    if (filterCategory !== "all" && log.category !== filterCategory) return false;
+    if (searchQuery && !log.question.toLowerCase().includes(searchQuery)) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">등록된 질문/요청이 없습니다.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map((log, index) => {
+    const timeAgo = Math.floor((new Date() - new Date(log.lastUpdated)) / 60000);
+    const timeStr = timeAgo < 60 ? `${timeAgo}분 전` : timeAgo < 1440 ? `${Math.floor(timeAgo/60)}시간 전` : `${Math.floor(timeAgo/1440)}일 전`;
+    
+    return `
+      <div style="display:flex; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:8px;">
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:50px; cursor:pointer;" onclick="incrementMfaqCount('${log.id}')">
+          <i class="fa-solid fa-plus" style="color:#64748b; margin-bottom:4px;"></i>
+          <span style="font-size:18px; font-weight:bold; color:#0f172a;">${log.count}</span>
+        </div>
+        <div style="flex:1; padding-left:12px; border-left:1px solid #e2e8f0;">
+          <div style="font-weight:bold; color:#1e293b; margin-bottom:4px;">${log.question}</div>
+          <div style="font-size:12px; color:#64748b;">
+            <span style="display:inline-block; padding:2px 6px; background:#f1f5f9; border-radius:4px; margin-right:6px;">${log.category}</span>
+            마지막 업데이트: ${timeStr}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openMfaqModal() {
+  document.getElementById("mfaq-new-question").value = "";
+  document.getElementById("mfaq-modal").classList.add("active");
+}
+
+function closeMfaqModal() {
+  document.getElementById("mfaq-modal").classList.remove("active");
+}
+
+async function handleAddMfaqSubmit(event) {
+  event.preventDefault();
+  const category = document.getElementById("mfaq-new-category").value;
+  const question = document.getElementById("mfaq-new-question").value.trim();
+  if (!question) return;
+
+  const existing = mfaqLogs.find(l => l.question === question && l.category === category);
+  if (existing) {
+    existing.count += 1;
+    existing.lastUpdated = new Date().toISOString();
+    showToast("이미 존재하는 항목입니다. 건수가 +1 증가했습니다.", "success");
+    
+    if (supabaseClient) {
+      await supabaseClient
+        .from("mfaq_logs")
+        .update({ count: existing.count, last_updated: existing.lastUpdated })
+        .eq("id", existing.id);
+    }
+  } else {
+    const newLog = {
+      id: "mfaq_" + Date.now() + "_" + Math.floor(Math.random()*1000),
+      category: category,
+      question: question,
+      count: 1,
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+    mfaqLogs.push(newLog);
+    showToast("새 질문/요청이 등록되었습니다.", "success");
+    
+    if (supabaseClient) {
+      await supabaseClient
+        .from("mfaq_logs")
+        .insert([{
+          id: newLog.id,
+          category: newLog.category,
+          question: newLog.question,
+          count: newLog.count,
+          created_at: newLog.createdAt,
+          last_updated: newLog.lastUpdated
+        }]);
+    }
+  }
+  saveMfaqLogs();
+  updateMfaqBadge();
+  closeMfaqModal();
+  renderMfaq();
+}
+
+async function incrementMfaqCount(id) {
+  const log = mfaqLogs.find(l => l.id === id);
+  if (log) {
+    log.count += 1;
+    log.lastUpdated = new Date().toISOString();
+    
+    if (supabaseClient) {
+      await supabaseClient
+        .from("mfaq_logs")
+        .update({ count: log.count, last_updated: log.lastUpdated })
+        .eq("id", id);
+    }
+    
+    saveMfaqLogs();
+    renderMfaq();
+    showToast("건수가 +1 증가했습니다.", "success");
+  }
+}
+
+function exportMfaqToExcel() {
+  if (typeof XLSX === "undefined") {
+    showToast("엑셀 라이브러리를 불러오지 못했습니다.", "danger");
+    return;
+  }
+  if (mfaqLogs.length === 0) {
+    showToast("추출할 MFAQ 데이터가 없습니다.", "danger");
+    return;
+  }
+  const exportData = mfaqLogs.map(log => ({
+    "카테고리": log.category,
+    "질문/요청 내용": log.question,
+    "건수": log.count,
+    "등록 일시": log.createdAt,
+    "마지막 업데이트": log.lastUpdated
+  }));
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "MFAQ Data");
+  XLSX.writeFile(wb, `MFAQ_Export_${new Date().toISOString().split("T")[0]}.xlsx`);
+  showToast("MFAQ 데이터 엑셀 추출이 완료되었습니다.", "success");
+}
+
+function updateMfaqBadge() {
+  const badge = document.getElementById("badge-mfaq");
+  if (!badge) return;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const newCount = mfaqLogs.filter(log => {
+    if (!log.createdAt) return false;
+    return log.createdAt.startsWith(todayStr);
+  }).length;
+
+  if (newCount > 0) {
+    badge.textContent = newCount;
+    badge.style.display = "inline-flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+async function refreshMfaqData() {
+  if (supabaseClient) {
+    const btn = document.querySelector("#tab-mfaq .fa-rotate-right");
+    if (btn) btn.classList.add("fa-spin");
+    
+    try {
+      const { data: mfaq, error: mfaqErr } = await supabaseClient
+        .from("mfaq_logs")
+        .select("*")
+        .order("last_updated", { ascending: false });
+
+      if (!mfaqErr && mfaq) {
+        mfaqLogs = mfaq.map(row => ({
+          id: row.id,
+          category: row.category,
+          question: row.question,
+          count: row.count,
+          createdAt: row.created_at,
+          lastUpdated: row.last_updated
+        }));
+        saveMfaqLogs();
+        updateMfaqBadge();
+        renderMfaq();
+        showToast("MFAQ 데이터가 최신 상태로 새로고침 되었습니다.", "success");
+      } else if (mfaqErr) {
+        throw mfaqErr;
+      }
+    } catch (err) {
+      console.warn("Supabase MFAQ refresh error:", err);
+      showToast("새로고침 중 오류가 발생했습니다.", "danger");
+    } finally {
+      if (btn) btn.classList.remove("fa-spin");
+    }
+  } else {
+    showToast("데이터베이스에 연결되어 있지 않습니다.", "danger");
+  }
+}
+
+window.toggleRegLocation = function(loc) {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    if (input.value === loc) {
+      input.value = "";
+    } else {
+      input.value = loc;
+    }
+    saveActiveRegLocation();
+  }
+};
+
+function saveActiveRegLocation() {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    localStorage.setItem("active_reg_location", input.value.trim());
+    updateRegLocationButtons();
+  }
+}
+
+function initRegLocation() {
+  const input = document.getElementById("reg-location");
+  if (input) {
+    const saved = localStorage.getItem("active_reg_location");
+    if (saved) {
+      input.value = saved;
+    }
+    input.addEventListener("input", saveActiveRegLocation);
+    updateRegLocationButtons();
+  }
+}
+
+function updateRegLocationButtons() {
+  const input = document.getElementById("reg-location");
+  if (!input) return;
+  const val = input.value.trim();
+  
+  const container = input.nextElementSibling;
+  if (container && container.tagName === "DIV") {
+    const buttons = container.querySelectorAll("button");
+    buttons.forEach(btn => {
+      if (btn.innerText.trim() === val) {
+        btn.style.background = "#2563eb";
+        btn.style.color = "white";
+        btn.style.borderColor = "#2563eb";
+      } else {
+        btn.style.background = "#f1f5f9";
+        btn.style.color = "#334155";
+        btn.style.borderColor = "#cbd5e1";
+      }
+    });
+  }
+}
+
+

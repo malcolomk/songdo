@@ -1,4 +1,324 @@
-﻿// custom.js - Patches for inventory app features without modifying original app.js encoding
+// custom.js - Patches for inventory app features without modifying original app.js encoding
+
+// --- IKEA Product Image Engine & Caching ---
+window.productImageCache = {};
+try {
+  const savedImgs = localStorage.getItem("ikea_product_images_cache");
+  if (savedImgs) window.productImageCache = JSON.parse(savedImgs);
+} catch (e) {
+  window.productImageCache = {};
+}
+
+window.saveProductImageCache = function() {
+  try {
+    localStorage.setItem("ikea_product_images_cache", JSON.stringify(window.productImageCache));
+  } catch(e) {}
+};
+
+window.pendingImageFetches = new Set();
+
+window.fetchIkeaProductImage = async function(rawArtNo, optArtName) {
+  if (!rawArtNo) return null;
+  const cleanArtNo = String(rawArtNo).replace(/[^0-9]/g, '');
+  if (!cleanArtNo) return null;
+
+  if (window.productImageCache.hasOwnProperty(cleanArtNo) && window.productImageCache[cleanArtNo] !== null) {
+    return window.productImageCache[cleanArtNo];
+  }
+
+  if (window.pendingImageFetches.has(cleanArtNo)) return null;
+  window.pendingImageFetches.add(cleanArtNo);
+
+  try {
+    const url = `https://sik.search.blue.cdtapps.com/kr/ko/search-result-page?q=${cleanArtNo}&size=3`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      let mainImageUrl = data?.searchResultPage?.products?.main?.items?.[0]?.product?.mainImageUrl;
+      
+      // Fallback 1: Discontinued / Retired products (단종/판매종료 품목)
+      if (!mainImageUrl && data?.searchResultPage?.retiredProducts?.length > 0) {
+        const retiredName = data.searchResultPage.retiredProducts[0].name; // e.g. "102.240.47 (SKUBB 스쿠브)"
+        const match = retiredName.match(/\((.*?)\)/);
+        const seriesName = match ? match[1].split(' ')[0] : '';
+        
+        // Auto-fill artName if currently empty
+        const regArtNameEl = document.getElementById("reg-artname");
+        if (regArtNameEl && !regArtNameEl.value.trim()) {
+          regArtNameEl.value = match ? match[1] : retiredName;
+        }
+
+        if (seriesName) {
+          try {
+            const fallbackRes = await fetch(`https://sik.search.blue.cdtapps.com/kr/ko/search-result-page?q=${encodeURIComponent(seriesName)}&size=1`);
+            if (fallbackRes.ok) {
+              const fallbackData = await fallbackRes.json();
+              mainImageUrl = fallbackData?.searchResultPage?.products?.main?.items?.[0]?.product?.mainImageUrl;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // Fallback 2: Try searching by product series name
+      if (!mainImageUrl && optArtName) {
+        const seriesName = String(optArtName).trim().split(' ')[0];
+        if (seriesName && seriesName.length >= 2) {
+          try {
+            const fallbackRes = await fetch(`https://sik.search.blue.cdtapps.com/kr/ko/search-result-page?q=${encodeURIComponent(seriesName)}&size=1`);
+            if (fallbackRes.ok) {
+              const fallbackData = await fallbackRes.json();
+              mainImageUrl = fallbackData?.searchResultPage?.products?.main?.items?.[0]?.product?.mainImageUrl;
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (mainImageUrl) {
+        window.productImageCache[cleanArtNo] = mainImageUrl;
+        window.saveProductImageCache();
+        window.pendingImageFetches.delete(cleanArtNo);
+        return mainImageUrl;
+      }
+    }
+  } catch (err) {
+    // Network or parse issue
+  }
+
+  window.pendingImageFetches.delete(cleanArtNo);
+  return null;
+};
+
+window.getProductThumbHtml = function(artNo, artName, size = 48) {
+  if (!artNo) return '';
+  const cleanArtNo = String(artNo).replace(/[^0-9]/g, '');
+  const cachedUrl = window.productImageCache ? window.productImageCache[cleanArtNo] : null;
+  const hasImage = !!cachedUrl;
+  const srcAttr = cachedUrl ? `src="${cachedUrl.includes('?') ? cachedUrl : (cachedUrl + '?f=xs')}" class="product-thumb-img loaded"` : `src="" class="product-thumb-img"`;
+  const safeName = artName ? String(artName).replace(/"/g, '&quot;').replace(/'/g, "\\'") : '';
+  
+  return `
+    <div class="product-thumb-container ${hasImage ? 'has-image' : ''}" data-artno="${artNo}" style="width:${size}px; height:${size}px; min-width:${size}px; min-height:${size}px;" onclick="openProductImageModal('${artNo}', '${safeName}', event)" title="사진 크게 보기">
+      <div class="product-thumb-placeholder"><i class="fa-solid fa-couch"></i></div>
+      <img ${srcAttr} alt="${artNo}" loading="lazy" onerror="this.classList.remove('loaded'); if(this.parentElement) this.parentElement.classList.remove('has-image');">
+    </div>
+  `;
+};
+
+window.loadProductThumbnails = function() {
+  const containers = document.querySelectorAll('.product-thumb-container[data-artno]');
+  containers.forEach(async (el) => {
+    const artNo = el.getAttribute('data-artno');
+    if (!artNo) return;
+    const cleanArtNo = String(artNo).replace(/[^0-9]/g, '');
+    const imgEl = el.querySelector('.product-thumb-img');
+    if (!imgEl) return;
+
+    if (window.productImageCache.hasOwnProperty(cleanArtNo)) {
+      const imgUrl = window.productImageCache[cleanArtNo];
+      if (imgUrl) {
+        if (!imgEl.src || !imgEl.src.includes(imgUrl.replace(/\?f=[a-z]+/, ''))) {
+          imgEl.src = imgUrl.includes('?') ? imgUrl : (imgUrl + '?f=xs');
+        }
+        imgEl.classList.add('loaded');
+        el.classList.add('has-image');
+      }
+      return;
+    }
+
+    const imgUrl = await window.fetchIkeaProductImage(cleanArtNo);
+    if (imgUrl && imgEl) {
+      imgEl.src = imgUrl.includes('?') ? imgUrl : (imgUrl + '?f=xs');
+      imgEl.onload = () => {
+        imgEl.classList.add('loaded');
+        el.classList.add('has-image');
+      };
+    }
+  });
+};
+
+window.openProductImageModal = function(artNo, artName, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const cleanArtNo = artNo ? String(artNo).replace(/[^0-9]/g, '') : '';
+  const imgUrl = window.productImageCache[cleanArtNo];
+  if (!imgUrl) {
+    window.fetchIkeaProductImage(cleanArtNo).then(url => {
+      if (url) window.openProductImageModal(artNo, artName);
+      else if (typeof showToast === 'function') showToast("등록된 제품 이미지가 없습니다.", "warning");
+    });
+    return;
+  }
+
+  const modal = document.getElementById("product-image-modal");
+  const modalImg = document.getElementById("zoom-modal-img");
+  const modalArtNo = document.getElementById("zoom-modal-artno");
+  const modalArtName = document.getElementById("zoom-modal-artname");
+
+  if (modal && modalImg) {
+    modalImg.src = imgUrl.replace(/\?f=[a-z]+/, '') + '?f=s';
+    if (modalArtNo) modalArtNo.textContent = artNo;
+    if (modalArtName) modalArtName.textContent = artName || '';
+    modal.classList.add("active");
+  }
+};
+
+window.closeProductImageModal = function() {
+  const modal = document.getElementById("product-image-modal");
+  if (modal) modal.classList.remove("active");
+};
+
+// --- Register Form Product Image Preview Integration ---
+window.updateRegProductThumb = function(artNo, artName) {
+  const container = document.getElementById("reg-thumb-container");
+  if (!container) return;
+  const cleanNo = artNo ? String(artNo).replace(/[^0-9]/g, "") : "";
+  if (cleanNo.length >= 6) {
+    const finalName = artName || (typeof masterCatalogMap !== 'undefined' && masterCatalogMap ? masterCatalogMap.get(cleanNo) : "") || "";
+    container.style.display = "block";
+    container.innerHTML = window.getProductThumbHtml(cleanNo, finalName, 52);
+    window.loadProductThumbnails();
+
+    if (!window.productImageCache.hasOwnProperty(cleanNo) || !window.productImageCache[cleanNo]) {
+      window.fetchIkeaProductImage(cleanNo, finalName).then(url => {
+        if (url) {
+          const imgEl = container.querySelector('.product-thumb-img');
+          if (imgEl) {
+            imgEl.src = url.includes('?') ? url : (url + '?f=xs');
+            imgEl.classList.add('loaded');
+            container.querySelector('.product-thumb-container')?.classList.add('has-image');
+          }
+        }
+      });
+    }
+  } else {
+    container.style.display = "none";
+    container.innerHTML = "";
+  }
+};
+
+// Hook into onArtNoInput to trigger thumbnail preview
+const _origOnArtNoInput = window.onArtNoInput;
+window.onArtNoInput = function(artNoValue) {
+  if (typeof _origOnArtNoInput === 'function') _origOnArtNoInput(artNoValue);
+  const artName = document.getElementById("reg-artname") ? document.getElementById("reg-artname").value : "";
+  window.updateRegProductThumb(artNoValue, artName);
+};
+
+// Hook into selectAutocompleteItem
+const _origSelectAutocompleteItem = window.selectAutocompleteItem;
+window.selectAutocompleteItem = function(artNo, target) {
+  if (typeof _origSelectAutocompleteItem === 'function') _origSelectAutocompleteItem(artNo, target);
+  if (target === "register") {
+    const artName = document.getElementById("reg-artname") ? document.getElementById("reg-artname").value : "";
+    window.updateRegProductThumb(artNo, artName);
+  }
+};
+
+// Hook into selectMasterItem
+const _origSelectMasterItem = window.selectMasterItem;
+window.selectMasterItem = function(artNo, target) {
+  if (typeof _origSelectMasterItem === 'function') _origSelectMasterItem(artNo, target);
+  if (target === "register") {
+    const artName = document.getElementById("reg-artname") ? document.getElementById("reg-artname").value : "";
+    window.updateRegProductThumb(artNo, artName);
+  }
+};
+
+// Enhanced Autocomplete with Thumbnails
+window.handleAutocompleteInput = function(query, target = "register") {
+  const cleanQuery = query.trim().toLowerCase();
+  const dropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+  const nameDropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  
+  const dropdown = document.getElementById(dropdownId);
+  const nameDropdown = document.getElementById(nameDropdownId);
+  if (nameDropdown) nameDropdown.classList.remove("active");
+
+  if (target === "order" && typeof onOrderArtNoInput === 'function') onOrderArtNoInput(query);
+  else if (target === "ptag" && typeof onPtagArtNoInput === 'function') onPtagArtNoInput(query);
+  else if (typeof onArtNoInput === 'function') onArtNoInput(query);
+
+  if (!cleanQuery) {
+    if (dropdown) dropdown.classList.remove("active");
+    if (target === "register") window.updateRegProductThumb("", "");
+    return;
+  }
+
+  const catalog = typeof masterCatalog !== 'undefined' ? masterCatalog : [];
+  const matches = catalog.filter(item => 
+    item.artNo.toLowerCase().includes(cleanQuery) ||
+    item.artName.toLowerCase().includes(cleanQuery) ||
+    (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
+  ).slice(0, 10);
+
+  if (matches.length === 0 || !dropdown) {
+    if (dropdown) dropdown.classList.remove("active");
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(item => `
+    <div class="autocomplete-item" onclick="selectAutocompleteItem('${item.artNo}', '${target}')" style="display:flex; align-items:center; gap:10px; padding:6px 10px;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 36) : ''}
+      <div class="art-info" style="flex:1; min-width:0;">
+        <div class="art-no-row">
+          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px;">${item.hfb}</span>` : ''}
+          <span class="art-no">${item.artNo}</span>
+        </div>
+        <div class="art-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+      </div>
+      <i class="fa-solid fa-check" style="color:#2563eb; font-size:12px;"></i>
+    </div>
+  `).join("");
+
+  dropdown.classList.add("active");
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
+};
+
+window.handleAutocompleteNameInput = function(query, target = "register") {
+  const cleanQuery = query.trim().toLowerCase();
+  const dropdownId = target === "order" ? "order-name-autocomplete-dropdown" : target === "ptag" ? "ptag-name-autocomplete-dropdown" : "reg-name-autocomplete-dropdown";
+  const artnoDropdownId = target === "order" ? "order-autocomplete-dropdown" : target === "ptag" ? "ptag-autocomplete-dropdown" : "reg-autocomplete-dropdown";
+
+  const dropdown = document.getElementById(dropdownId);
+  const artnoDropdown = document.getElementById(artnoDropdownId);
+  if (artnoDropdown) artnoDropdown.classList.remove("active");
+
+  if (!cleanQuery) {
+    if (dropdown) dropdown.classList.remove("active");
+    return;
+  }
+
+  const catalog = typeof masterCatalog !== 'undefined' ? masterCatalog : [];
+  const matches = catalog.filter(item => 
+    item.artName.toLowerCase().includes(cleanQuery) ||
+    item.artNo.toLowerCase().includes(cleanQuery) ||
+    (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
+  ).slice(0, 10);
+
+  if (matches.length === 0 || !dropdown) {
+    if (dropdown) dropdown.classList.remove("active");
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(item => `
+    <div class="autocomplete-item" onclick="selectAutocompleteItem('${item.artNo}', '${target}')" style="display:flex; align-items:center; gap:10px; padding:6px 10px;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 36) : ''}
+      <div class="art-info" style="flex:1; min-width:0;">
+        <div class="art-no-row">
+          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px;">${item.hfb}</span>` : ''}
+          <span class="art-no">${item.artNo}</span>
+        </div>
+        <div class="art-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+      </div>
+      <i class="fa-solid fa-check" style="color:#2563eb; font-size:12px;"></i>
+    </div>
+  `).join("");
+
+  dropdown.classList.add("active");
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
+};
 
 // Override: Allow any user to delete history logs (remove isAdminUser check)
 window.confirmDeleteHistoryLog = async function(id, artName) {
@@ -464,35 +784,51 @@ window.renderStockLookup = function() {
     const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
 
     return `
-      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="position:relative;">
-        <div style="position: absolute; top: 12px; left: 12px; z-index: 2;">
+      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="position:relative; display:flex; align-items:stretch; padding:12px; gap:12px; border-radius:12px; background:#fff; border:1px solid #e2e8f0; margin-bottom:10px;">
+        <!-- Checkbox -->
+        <div style="position:absolute; top:8px; left:8px; z-index:2;">
           <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="updateBulkSelection()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
         </div>
-        <div class="ssc-left" style="padding-left: 30px;">
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-              ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
-              <span class="ssc-artno" style="margin-left:2px;">${item.artNo}</span>
-            </div>
-            <div class="ssc-quick-btns">
-              <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
-              <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
-              <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">고양 오더</button>
-            </div>
+
+        <!-- Left: Product Image -->
+        <div style="display:flex; align-items:center; justify-content:center; padding-left:18px; flex-shrink:0;">
+          ${getProductThumbHtml(item.artNo, item.artName, 68)}
+        </div>
+
+        <!-- Center: Info & Bottom Action Buttons -->
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+          <!-- Line 1: HFB & ArtNo -->
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
+            <span class="ssc-artno" style="font-size:13px; font-weight:800; color:#334155;">${item.artNo}</span>
           </div>
-          <span class="ssc-name" style="display:flex; align-items:center; gap:6px;">${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}</span>
-          <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
-            <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1; letter-spacing:-0.2px;">
+
+          <!-- Line 2: Product Name -->
+          <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:break-all;">
+            ${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0; margin-left:4px;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}
+          </div>
+
+          <!-- Line 3: Location / Zone -->
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1;">
               <i class="fa-solid fa-map-pin"></i> 구역: ${item.location}
             </span>
-            <button type="button" style="background:#e0f2fe; color:#0284c7; border:none; font-size:10px; font-weight:800; padding:4px 8px; border-radius:4px; cursor:pointer; box-shadow:0 1px 2px rgba(2,132,199,0.1);" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
+            <button type="button" style="background:#e0f2fe; color:#0284c7; border:none; font-size:10px; font-weight:800; padding:3px 6px; border-radius:4px; cursor:pointer;" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
+          </div>
+
+          <!-- Line 4: Quick Action Buttons at the bottom -->
+          <div class="ssc-quick-btns" style="display:flex; gap:8px; margin-top:4px;">
+            <button type="button" class="btn-sm btn-quick-in" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
+            <button type="button" class="btn-sm btn-quick-out" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
           </div>
         </div>
-        <div class="ssc-right">
-          <span class="ssc-status ${statusClass}">${statusText}</span>
-          <div class="ssc-qty">
-            <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}">${item.currentStock}</span>
-            <span class="ssc-unit">개</span>
+
+        <!-- Right: Status Badge & Stock Qty -->
+        <div class="ssc-right" style="display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:8px; min-width:50px; flex-shrink:0;">
+          <span class="ssc-status ${statusClass}" style="font-size:11px; padding:2px 6px; border-radius:4px; font-weight:700;">${statusText}</span>
+          <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; margin-top:4px;">
+            <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}" style="font-size:20px; font-weight:900;">${item.currentStock}</span>
+            <span class="ssc-unit" style="font-size:12px; color:#64748b; font-weight:700;">개</span>
           </div>
         </div>
       </div>
@@ -508,6 +844,7 @@ window.renderStockLookup = function() {
   }
 
   container.innerHTML = html;
+  loadProductThumbnails();
   
   // Re-check selected if they were checked before rendering
   const checkedNos = Array.from(document.querySelectorAll('#bulk-action-bar')[0].style.display !== 'none' ? document.querySelectorAll('.stock-checkbox:checked') : []).map(cb => cb.value);
@@ -598,6 +935,28 @@ window.bulkDeleteOrders = async function() {
   renderOrderLogs();
 };
 
+window.deleteOrderLog = async function(index) {
+  if (typeof orderLogs === "undefined" || !orderLogs[index]) return;
+  const targetOrder = orderLogs[index];
+  const artName = targetOrder.artName || targetOrder.artNo;
+  
+  if (!confirm(`'${artName}' 오더 요청을 정말 삭제하시겠습니까?`)) return;
+  
+  const orderId = targetOrder.id;
+  orderLogs.splice(index, 1);
+  
+  if (typeof supabaseClient !== "undefined" && supabaseClient && orderId) {
+    try {
+      await supabaseClient.from('order_requests').delete().eq('id', orderId);
+    } catch (e) {
+      console.warn("Delete order error:", e);
+    }
+  }
+  
+  if (typeof showToast === "function") showToast(`'${artName}' 오더 요청이 삭제되었습니다.`, "success");
+  if (typeof renderOrderLogs === "function") renderOrderLogs();
+};
+
 window.renderOrderLogs = function() {
   const container = document.getElementById("order-logs-container");
   if (!container) return;
@@ -615,20 +974,30 @@ window.renderOrderLogs = function() {
     const statusText = item.status || '요청됨';
     let bgColor = '#e0e7ff';
     let textColor = '#4338ca';
-    if (statusText === '승인') { bgColor = '#dcfce7'; textColor = '#166534'; }
-    if (statusText === '반려') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
-    if (statusText === '보류') { bgColor = '#fef3c7'; textColor = '#b45309'; }
+    if (statusText === '승인' || statusText === '수락') { bgColor = '#dcfce7'; textColor = '#166534'; }
+    if (statusText === '반려' || statusText === '보류') { bgColor = '#fee2e2'; textColor = '#991b1b'; }
+    if (statusText === '출고대기') { bgColor = '#fef3c7'; textColor = '#b45309'; }
     if (statusText === '완료') { bgColor = '#f3f4f6'; textColor = '#4b5563'; }
 
     let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
     
-    if (isAdminUser) {
+    if (typeof isAdminUser !== "undefined" && isAdminUser) {
       statusHtml = `
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
           ${statusHtml}
           <div style="display:flex; gap:4px; margin-top:2px;">
-            <button type="button" onclick="updateOrderStatus(${index}, '승인')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">승인</button>
-            <button type="button" onclick="updateOrderStatus(${index}, '반려')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">반려</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 7px; border:none; background:#16a34a; color:white; border-radius:4px; font-weight:700; cursor:pointer;">수락</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 7px; border:none; background:#d97706; color:white; border-radius:4px; font-weight:700; cursor:pointer;">보류</button>
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
+          </div>
+        </div>
+      `;
+    } else {
+      statusHtml = `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          ${statusHtml}
+          <div style="display:flex; gap:4px; margin-top:2px;">
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
           </div>
         </div>
       `;
@@ -650,10 +1019,11 @@ window.renderOrderLogs = function() {
 
     return `
     <div class="history-item" style="border-left-color: #6366f1;">
-      <div class="hist-left" style="flex:0 0 auto; margin-right:10px;">
+      <div class="hist-left" style="flex:0 0 auto; margin-right:8px;">
         <input type="checkbox" class="order-checkbox" data-index="${index}" onchange="updateOrderBulkSelection()" style="width:20px; height:20px; accent-color:#6366f1; cursor:pointer;">
       </div>
-      <div class="hist-left">
+      ${getProductThumbHtml(item.artNo, item.artName, 44)}
+      <div class="hist-left" style="margin-left:8px;">
         <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} · ${item.user}</span>
         <div class="hist-name">${item.artName}</div>
         <span class="hist-artno">번호: ${item.artNo}</span>
@@ -742,6 +1112,8 @@ window.renderPicklistInventory = function() {
       <div class="stock-card" style="display:flex; align-items:center; padding:10px; border-bottom:1px solid #f1f5f9; gap:10px;">
         <input type="checkbox" class="picklist-add-cb" data-artno="${item.artNo}" data-artname="${item.artName}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#059669; cursor:pointer;">
         
+        ${getProductThumbHtml(item.artNo, item.artName, 48)}
+
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
@@ -894,6 +1266,8 @@ window.renderPremiumInventory = function() {
   inventory.forEach((item) => {
     html += `
       <div style="display:flex; align-items:center; padding:12px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02); gap:12px;">
+        ${getProductThumbHtml(item.artNo, item.artName, 48)}
+
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; color:#2563eb; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px;"><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
@@ -1107,11 +1481,13 @@ window.renderStandardInventory = function() {
   let html = "";
   inventory.forEach((item) => {
     html += `
-      <label class="stock-card" style="display:flex; align-items:center; padding:15px; margin-bottom:12px; border-radius:12px; background:#ffffff; box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border:1px solid #e2e8f0; gap:15px; cursor:pointer; transition:all 0.2s ease;">
-        <div style="display:flex; align-items:center; justify-content:center; width:24px; height:24px;">
+      <label class="stock-card" style="display:flex; align-items:center; padding:15px; margin-bottom:12px; border-radius:12px; background:#ffffff; box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border:1px solid #e2e8f0; gap:12px; cursor:pointer; transition:all 0.2s ease;">
+        <div style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; flex-shrink:0;">
           <input type="checkbox" class="std-picklist-cb" data-artno="${item.artNo}" data-artname="${item.artName.replace(/"/g, "&quot;")}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#0ea5e9; cursor:pointer; transform:scale(1.2);">
         </div>
         
+        ${getProductThumbHtml(item.artNo, item.artName, 52)}
+
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f0f9ff; color:#0369a1; font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>

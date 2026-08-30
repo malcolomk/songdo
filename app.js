@@ -143,7 +143,13 @@ function rebuildMasterCatalogMap() {
   masterCatalogMap.clear();
   for (let i = 0; i < masterCatalog.length; i++) {
     const item = masterCatalog[i];
-    masterCatalogMap.set(item.artNo, item.artName);
+    if (item && item.artNo) {
+      masterCatalogMap.set(item.artNo, item.artName);
+      const rawNo = item.artNo.replace(/^0+/, '');
+      if (rawNo && rawNo !== item.artNo) {
+        masterCatalogMap.set(rawNo, item.artName);
+      }
+    }
   }
 }
 
@@ -194,6 +200,7 @@ function checkLoginSession() {
 
   const btnExcelExport = document.getElementById("btn-excel-export");
   const btnOrderExcelExport = document.getElementById("btn-order-excel-export");
+  const btnStockExcelExport = document.getElementById("btn-stock-excel-export");
   const excelExportLocked = document.getElementById("excel-export-locked");
 
   const navHistoryBtn = document.getElementById("nav-history-btn");
@@ -216,12 +223,14 @@ function checkLoginSession() {
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "flex";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "flex";
       if (excelExportLocked) excelExportLocked.style.display = "none";
       if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     } else {
       if (adminRoleBadge) adminRoleBadge.style.display = "none";
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "none";
       if (excelExportLocked) excelExportLocked.style.display = "inline-block";
       if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     }
@@ -348,19 +357,52 @@ function handleResetPasswordSubmit(e) {
 async function loadDataFromSupabase() {
   if (supabaseClient) {
     try {
-      const { data: catalog, error: catErr } =
-        await supabaseClient
+      // Chunked master catalog fetch to retrieve all 13,800+ records (bypassing PostgREST 1,000 row limit)
+      let catalog = [];
+      try {
+        const { count, error: countErr } = await supabaseClient
           .from("master_catalog")
-          .select("*");
+          .select("*", { count: 'exact', head: true });
+        
+        const totalRows = (!countErr && typeof count === 'number' && count > 0) ? count : 15000;
+        const CHUNK_SIZE = 1000;
+        const totalChunks = Math.ceil(totalRows / CHUNK_SIZE);
+        const chunkPromises = [];
 
-      if (!catErr && catalog && catalog.length > 0) {
-        masterCatalog = catalog.map(row => ({
-          hfb: row.hfb || "",
-          artNo: row.artno || row.artNo || "",
-          artName: row.artname || row.artName || "",
-          location: row.location || "미지정",
-          id: row.id
-        }));
+        for (let i = 0; i < totalChunks; i++) {
+          const from = i * CHUNK_SIZE;
+          const to = from + CHUNK_SIZE - 1;
+          chunkPromises.push(
+            supabaseClient
+              .from("master_catalog")
+              .select("*")
+              .range(from, to)
+              .order("id", { ascending: true })
+              .then(res => res.data || [])
+          );
+        }
+
+        const chunkResults = await Promise.all(chunkPromises);
+        catalog = chunkResults.flat();
+      } catch (err) {
+        console.warn("Chunked master catalog fetch error:", err);
+      }
+
+      if (catalog && catalog.length > 0) {
+        masterCatalog = catalog.map(row => {
+          let cleanArtNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = cleanArtNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            cleanArtNo = digitsOnly.padStart(8, '0');
+          }
+          return {
+            hfb: row.hfb ? String(row.hfb).trim() : "",
+            artNo: cleanArtNo,
+            artName: row.artname || row.artName || "",
+            location: row.location || "미지정",
+            id: row.id
+          };
+        });
       } else {
         const savedCatalog = localStorage.getItem("warehouse_master_catalog");
         masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
@@ -731,11 +773,13 @@ function onArtNoInput(artNoValue) {
     const currentStock = getItemStock(cleanNo);
     stockPreview.textContent = `${currentStock} 개`;
     stockPreview.style.color = currentStock > 0 ? "#059669" : "#dc2626";
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, artNameMatch);
   } else {
     icon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #d97706;"></i>';
     const currentStock = getItemStock(cleanNo);
     stockPreview.textContent = `${currentStock} 개`;
     stockPreview.style.color = currentStock > 0 ? "#059669" : "#64748b";
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, "");
   }
 }
 
@@ -874,6 +918,7 @@ function handleAddRegCart() {
   document.getElementById("reg-artname").value = "";
   document.getElementById("reg-qty").value = "";
   document.getElementById("reg-current-stock").textContent = "- 개";
+  if (typeof updateRegProductThumb === 'function') updateRegProductThumb("", "");
   document.getElementById("reg-artno").focus();
 }
 
@@ -907,12 +952,13 @@ function renderRegCart() {
   let html = "";
   regCartList.forEach((item, idx) => {
     html += `
-      <div class="cart-item">
-        <div class="cart-item-info">
-          <span class="cart-item-title">${item.artNo} - ${item.artName}</span>
+      <div class="cart-item" style="display:flex; align-items:center; gap:10px;">
+        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 40) : ''}
+        <div class="cart-item-info" style="flex:1; min-width:0;">
+          <span class="cart-item-title" style="word-break:break-all;">${item.artNo} - ${item.artName}</span>
           <span class="cart-item-sub">${item.date} | ${item.type}</span>
         </div>
-        <div class="cart-item-action">
+        <div class="cart-item-action" style="flex-shrink:0;">
           <span class="cart-item-qty">${item.qty}개</span>
           <button type="button" class="btn-remove-cart" onclick="removeRegCart(${idx})"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -921,6 +967,7 @@ function renderRegCart() {
   });
   html += `<div class="cart-summary"><span>총 담긴 항목</span><span style="color:#2563eb">${regCartList.length}건</span></div>`;
   container.innerHTML = html;
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 }
 
 function removeRegCart(idx) {
@@ -1147,8 +1194,18 @@ function renderOrderLogs() {
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
           ${statusHtml}
           <div style="display:flex; gap:4px; margin-top:2px;">
-            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 8px; border:none; background:#22c55e; color:white; border-radius:4px; cursor:pointer;">수락</button>
-            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 8px; border:none; background:#ef4444; color:white; border-radius:4px; cursor:pointer;">보류</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '수락')" style="font-size:10px; padding:2px 7px; border:none; background:#16a34a; color:white; border-radius:4px; font-weight:700; cursor:pointer;">수락</button>
+            <button type="button" onclick="updateOrderStatus(${index}, '보류')" style="font-size:10px; padding:2px 7px; border:none; background:#d97706; color:white; border-radius:4px; font-weight:700; cursor:pointer;">보류</button>
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
+          </div>
+        </div>
+      `;
+    } else {
+      statusHtml = `
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          ${statusHtml}
+          <div style="display:flex; gap:4px; margin-top:2px;">
+            <button type="button" onclick="deleteOrderLog(${index})" style="font-size:10px; padding:2px 7px; border:1px solid #fca5a5; background:#fee2e2; color:#dc2626; border-radius:4px; font-weight:700; cursor:pointer;">삭제</button>
           </div>
         </div>
       `;
@@ -1303,6 +1360,28 @@ async function updateOrderStatus(index, newStatus) {
 
   showToast(`오더 상태가 '${newStatus}'(으)로 변경되었습니다.`, "success");
   renderOrderLogs();
+}
+
+async function deleteOrderLog(index) {
+  if (typeof orderLogs === "undefined" || !orderLogs[index]) return;
+  const targetOrder = orderLogs[index];
+  const artName = targetOrder.artName || targetOrder.artNo;
+  
+  if (!confirm(`'${artName}' 오더 요청을 정말 삭제하시겠습니까?`)) return;
+  
+  const orderId = targetOrder.id;
+  orderLogs.splice(index, 1);
+  
+  if (typeof supabaseClient !== "undefined" && supabaseClient && orderId) {
+    try {
+      await supabaseClient.from('order_requests').delete().eq('id', orderId);
+    } catch (e) {
+      console.warn("Delete order error:", e);
+    }
+  }
+  
+  if (typeof showToast === "function") showToast(`'${artName}' 오더 요청이 삭제되었습니다.`, "success");
+  if (typeof renderOrderLogs === "function") renderOrderLogs();
 }
 
 // --- Excel Export Order Requests (ADMIN ONLY) ---
@@ -1924,7 +2003,11 @@ function handleExcelImport(e) {
         for (let r = 1; r < rows.length; r++) {
           const row = rows[r];
           if (row && row[artNoIdx] !== undefined && row[artNoIdx] !== null) {
-            const artNo = String(row[artNoIdx]).trim();
+            let artNo = String(row[artNoIdx]).trim();
+            const cleanDigits = artNo.replace(/\D/g, '');
+            if (cleanDigits.length > 0 && cleanDigits.length <= 8) {
+              artNo = cleanDigits.padStart(8, '0');
+            }
             const artName = (row[artNameIdx] !== undefined && row[artNameIdx] !== null)
               ? String(row[artNameIdx]).trim() 
               : "품목명 없음";
@@ -2664,3 +2747,5 @@ function updateRegLocationButtons() {
     });
   }
 }
+
+
