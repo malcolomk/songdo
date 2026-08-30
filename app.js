@@ -418,11 +418,22 @@ async function loadDataFromSupabase() {
 
       if (!histErr && history) {
         historyLogs = history.map(row => {
-          const mappedArtNo = row.artno || row.artNo || "";
+          let mappedArtNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = mappedArtNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            mappedArtNo = digitsOnly.padStart(8, '0');
+          }
+          let resolvedName = "";
+          if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+            resolvedName = masterCatalogMap.get(mappedArtNo) || masterCatalogMap.get(digitsOnly) || "";
+          }
+          if (!resolvedName || resolvedName === "null") {
+            resolvedName = (row.artname && row.artname !== "null") ? row.artname : ((row.artName && row.artName !== "null") ? row.artName : "기타 품목");
+          }
           return {
             ...row,
             artNo: mappedArtNo,
-            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
+            artName: resolvedName
           };
         });
       } else {
@@ -438,11 +449,22 @@ async function loadDataFromSupabase() {
 
       if (!ordErr && orders) {
         orderLogs = orders.map(row => {
-          const mappedArtNo = row.artno || row.artNo || "";
+          let mappedArtNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = mappedArtNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            mappedArtNo = digitsOnly.padStart(8, '0');
+          }
+          let resolvedName = "";
+          if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+            resolvedName = masterCatalogMap.get(mappedArtNo) || masterCatalogMap.get(digitsOnly) || "";
+          }
+          if (!resolvedName || resolvedName === "null") {
+            resolvedName = (row.artname && row.artname !== "null") ? row.artname : ((row.artName && row.artName !== "null") ? row.artName : "기타 품목");
+          }
           return {
             ...row,
             artNo: mappedArtNo,
-            artName: row.artname || row.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
+            artName: resolvedName
           };
         });
       } else {
@@ -998,14 +1020,31 @@ async function processRegCart() {
     
     if (data) {
       data.forEach(inserted => {
+        let cleanNo = String(inserted.artno || inserted.artNo || "").trim();
+        const digitsOnly = cleanNo.replace(/\D/g, '');
+        if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+          cleanNo = digitsOnly.padStart(8, '0');
+        }
+        const matchingCartItem = regCartList.find(c => c.artNo === cleanNo || c.artNo === digitsOnly);
+        let resolvedName = (matchingCartItem && matchingCartItem.artName && matchingCartItem.artName !== "null")
+          ? matchingCartItem.artName
+          : "";
+        if (!resolvedName && typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+          resolvedName = masterCatalogMap.get(cleanNo) || masterCatalogMap.get(digitsOnly) || "";
+        }
+        if (!resolvedName || resolvedName === "null") {
+          resolvedName = "기타 품목";
+        }
+
         const localLog = {
           ...inserted,
-          artNo: inserted.artno || inserted.artNo,
-          artName: inserted.artname || inserted.artName
+          artNo: cleanNo,
+          artName: resolvedName,
+          created_at: inserted.created_at || new Date().toISOString()
         };
         historyLogs.unshift(localLog);
-        if (!masterCatalogMap.has(localLog.artNo)) {
-          masterCatalog.push({ artNo: localLog.artNo, artName: localLog.artName || "신규 품목" });
+        if (!masterCatalogMap.has(cleanNo) && !masterCatalogMap.has(digitsOnly)) {
+          masterCatalog.push({ artNo: cleanNo, artName: resolvedName });
           saveMasterCatalog();
         }
       });

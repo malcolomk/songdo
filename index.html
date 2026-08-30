@@ -710,7 +710,7 @@
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #ef4444; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
               <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v2.0 스마트 피킹 & 운영 고도화</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">피킹리스트 · 바코드 스캔 · 벌크 위치 이동 · P-Tag / MFAQ</div>
+              <div style="font-size:12px; color:#64748b; margin-top:3px;">피킹리스트 · 벌크 위치 이동 · P-Tag / MFAQ</div>
             </div>
             <span style="font-size:11px; font-weight:700; background:#fee2e2; color:#b91c1c; padding:3px 8px; border-radius:12px;">2026.08.17</span>
           </div>
@@ -719,9 +719,17 @@
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #10b981; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
               <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v1.0 클라우드 DB 연동 & 보안 구축</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">수퍼베이스 동기화 · 사번 인증 및 권한 관리 · 엑셀 입출력</div>
+              <div style="font-size:12px; color:#64748b; margin-top:3px;">수퍼베이스 동기화 · 권한 관리 · 엑셀 입출력</div>
             </div>
             <span style="font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px;">2026.08.16</span>
+          </div>
+
+          <!-- Initial Launch Card -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #8b5cf6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">세일즈 창고 관리 모바일 웹사이트 개설</span>
+            </div>
+            <span style="font-size:11px; font-weight:700; background:#f3e8ff; color:#7e22ce; padding:3px 8px; border-radius:12px;">2026.08.04</span>
           </div>
 
         </div>
@@ -1375,8 +1383,8 @@
           const hh = String(d.getHours()).padStart(2, '0');
           const min = String(d.getMinutes()).padStart(2, '0');
           displayTime = `${yyyy}.${mm}.${dd} ${hh}:${min}`;
-        } else {
-          displayTime = `${item.date.replace(/-/g, '.').substring(2)} --:--`;
+        } else if (item.date) {
+          displayTime = item.date.replace(/-/g, '.').substring(2);
         }
 
         let displayName = item.artName;
@@ -1746,36 +1754,45 @@
         if (log.created_at) {
           const dateStr = log.created_at.endsWith('Z') || log.created_at.includes('+') ? log.created_at : log.created_at + 'Z';
           const d = new Date(dateStr);
-          const yyyy = d.getFullYear();
+          const yy = d.getFullYear().toString().slice(2);
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const dd = String(d.getDate()).padStart(2, '0');
           const hh = String(d.getHours()).padStart(2, '0');
           const min = String(d.getMinutes()).padStart(2, '0');
-          displayTime = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+          displayTime = `${yy}.${mm}.${dd} ${hh}:${min}`;
+        } else if (log.date) {
+          displayTime = log.date.replace(/-/g, '.').substring(2);
         }
         
-        // Dynamically fetch updated name from masterCatalog
-        let displayName = log.artName;
-        if (typeof masterCatalogMap !== "undefined") {
-          const mappedName = masterCatalogMap.get(log.artNo);
-          if (mappedName) displayName = mappedName;
+        let cleanNo = String(log.artNo || log.artno || "").trim();
+        const digitsOnly = cleanNo.replace(/\D/g, '');
+        if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+          cleanNo = digitsOnly.padStart(8, '0');
+        }
+        let displayName = "";
+        if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+          displayName = masterCatalogMap.get(cleanNo) || masterCatalogMap.get(digitsOnly) || "";
+        }
+        if (!displayName || displayName === "null") {
+          displayName = (log.artName && log.artName !== "null") ? log.artName : ((log.artname && log.artname !== "null") ? log.artname : "기타 품목");
         }
 
         return `
-        <div class="history-item type-${log.type}">
-          <div class="hist-left">
+        <div class="history-item type-${log.type}" style="display:flex; align-items:center; gap:10px;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 44) : ''}
+          <div class="hist-left" style="flex:1; min-width:0;">
             <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
-            <div class="hist-name">${displayName}</div>
-            <span class="hist-artno">번호: ${log.artNo}</span>
+            <div class="hist-name" style="word-break:break-all;">${displayName}</div>
+            <span class="hist-artno">번호: ${cleanNo}</span>
           </div>
-          <div class="hist-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-            <div style="display:flex; align-items:center; gap:8px;">
+          <div class="hist-right" style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
               <span class="hist-badge type-${log.type}">${log.type}</span>
               <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
                 ${log.type === '입고' ? '+' : '-'}${log.qty}개
               </div>
             </div>
-            <button type="button" style="background:#fee2e2; color:#ef4444; border:none; font-weight:bold; font-size:11px; border-radius:4px; padding:4px 8px; cursor:pointer; transition:all 0.2s;" onclick="deleteHistoryLog_custom('${log.id}', '${displayName}')">
+            <button type="button" style="background:#fee2e2; color:#ef4444; border:none; font-weight:bold; font-size:11px; border-radius:4px; padding:3px 7px; cursor:pointer; transition:all 0.2s;" onclick="if(typeof confirmDeleteHistoryLog === 'function') confirmDeleteHistoryLog('${log.id}'); else deleteHistoryLog_custom('${log.id}')">
               <i class="fa-solid fa-trash"></i> 삭제
             </button>
           </div>
@@ -1784,36 +1801,12 @@
       }).join("");
 
       container.innerHTML = html;
+      if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
     };
 
-    window.deleteHistoryLog_custom = async function(id, artName) {
-      if (!confirm(`'${artName}'의 입출고 기록을 정말 삭제하시겠습니까?\n(삭제 시 현재 재고 수량에 즉시 반영됩니다.)`)) return;
-      try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null") {
-          try {
-            const { error } = await supabaseClient.from("inventory_logs").delete().eq("id", id);
-            if (error) console.warn("DB delete error:", error);
-          } catch(e) {
-            console.warn("DB SDK error:", e);
-          }
-        }
-        
-        if (typeof historyLogs !== "undefined") {
-          const idx = historyLogs.findIndex(log => String(log.id) === String(id));
-          if (idx !== -1) {
-            historyLogs.splice(idx, 1);
-            try { localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs)); } catch(e){}
-          }
-        }
-        
-        if (typeof invalidateStockCache === "function") invalidateStockCache();
-        showToast("입출고 기록이 삭제되었습니다.", "info");
-        
-        if (typeof window.renderStockLookup === "function") window.renderStockLookup();
-        if (typeof window.renderHistoryLogs === "function") window.renderHistoryLogs();
-      } catch (err) {
-        console.error("Delete history log error:", err);
-        showToast("기록 삭제 중 오류가 발생했습니다.", "danger");
+    window.deleteHistoryLog_custom = async function(id) {
+      if (typeof confirmDeleteHistoryLog === 'function') {
+        return confirmDeleteHistoryLog(id);
       }
     };
 

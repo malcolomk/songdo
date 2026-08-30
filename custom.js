@@ -321,38 +321,48 @@ window.handleAutocompleteNameInput = function(query, target = "register") {
 };
 
 // Override: Allow any user to delete history logs (remove isAdminUser check)
-window.confirmDeleteHistoryLog = async function(id, artName) {
-  if (confirm(`'${artName}' 입출고 기록을 정말 삭제하시겠습니까?\n(삭제 시 재고가 복구되어 변경됩니다.)`)) {
-    
-    const logToDelete = historyLogs.find(log => String(log.id) === String(id));
-    if (!logToDelete) return;
-
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('inventory_logs').delete().eq('id', id);
-      } catch (err) {
-        console.warn("Delete log error:", err);
-      }
+window.confirmDeleteHistoryLog = async function(id, optArtName) {
+  const logToDelete = (typeof historyLogs !== 'undefined') ? historyLogs.find(log => String(log.id) === String(id)) : null;
+  let artName = optArtName || "해당 품목";
+  if (logToDelete) {
+    let cleanNo = String(logToDelete.artNo || logToDelete.artno || "").trim();
+    if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+      artName = masterCatalogMap.get(cleanNo) || masterCatalogMap.get(cleanNo.replace(/\D/g, '')) || logToDelete.artName || "해당 품목";
+    } else {
+      artName = logToDelete.artName || "해당 품목";
     }
+  }
 
+  if (!confirm(`'${artName}' 입출고 기록을 정말 삭제하시겠습니까?\n(삭제 시 재고가 복구되어 변경됩니다.)`)) {
+    return;
+  }
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null") {
+    try {
+      const { error } = await supabaseClient.from('inventory_logs').delete().eq('id', id);
+      if (error) console.warn("Supabase delete log error:", error);
+    } catch (err) {
+      console.warn("Delete log error:", err);
+    }
+  }
+
+  if (typeof historyLogs !== "undefined") {
     historyLogs = historyLogs.filter(log => String(log.id) !== String(id));
     try {
       localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
     } catch (err) {}
-    
-    invalidateStockCache();
-    renderStockLookup();
-    
-    if (currentTab === "history") {
-      renderHistoryLogs();
-    }
+  }
+  
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
 
-    if (typeof tempToast !== 'undefined' && tempToast && tempToast.parentNode) {
-      tempToast.parentNode.removeChild(tempToast);
-    }
-    showToast("해당 기록이 취소되었습니다.", "success");
+  if (typeof showToast === "function") {
+    showToast("입출고 기록이 삭제되었습니다.", "success");
   }
 };
+
+window.deleteHistoryLog_custom = window.confirmDeleteHistoryLog;
 
 // Also we need to make sure the delete button is visible for non-admins in renderHistoryLogs
 // We can override renderHistoryLogs to generate the HTML without the isAdminUser check for the delete button
@@ -415,9 +425,8 @@ window.renderHistoryLogs = function() {
   }
 
   let html = visibleLogs.map(log => {
-    let displayTime = log.date; // e.g. "2026-08-09"
+    let displayTime = log.date;
     if (log.created_at) {
-      // Supabase timestamp strings might lack the 'Z' suffix, causing them to be parsed as local time incorrectly.
       const dateStr = log.created_at.endsWith('Z') || log.created_at.includes('+') ? log.created_at : log.created_at + 'Z';
       const d = new Date(dateStr);
       
@@ -428,24 +437,36 @@ window.renderHistoryLogs = function() {
       const min = String(d.getMinutes()).padStart(2, '0');
       
       displayTime = `${yy}.${mm}.${dd} ${hh}:${min}`;
-    } else {
-      // If no created_at, just show date with --:--
-      displayTime = `${log.date.replace(/-/g, '.').substring(2)} --:--`;
+    } else if (log.date) {
+      displayTime = log.date.replace(/-/g, '.').substring(2);
+    }
+    let cleanNo = String(log.artNo || log.artno || "").trim();
+    const digitsOnly = cleanNo.replace(/\D/g, '');
+    if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+      cleanNo = digitsOnly.padStart(8, '0');
+    }
+    let displayName = "";
+    if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+      displayName = masterCatalogMap.get(cleanNo) || masterCatalogMap.get(digitsOnly) || "";
+    }
+    if (!displayName || displayName === "null") {
+      displayName = (log.artName && log.artName !== "null") ? log.artName : ((log.artname && log.artname !== "null") ? log.artname : "기타 품목");
     }
 
     return `
-    <div class="history-item type-${log.type}">
-      <div class="hist-left">
+    <div class="history-item type-${log.type}" style="display:flex; align-items:center; gap:10px;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 44) : ''}
+      <div class="hist-left" style="flex:1; min-width:0;">
         <span class="hist-date"><i class="fa-regular fa-clock"></i> ${displayTime} ${log.user ? '· ' + log.user : ''}</span>
-        <div class="hist-name">${log.artName}</div>
-        <span class="hist-artno">번호: ${log.artNo}</span>
+        <div class="hist-name" style="word-break:break-all;">${displayName}</div>
+        <span class="hist-artno">번호: ${cleanNo}</span>
       </div>
-      <div class="hist-right">
+      <div class="hist-right" style="flex-shrink:0;">
         <span class="hist-badge type-${log.type}">${log.type}</span>
         <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
           ${log.type === '입고' ? '+' : '-'}${log.qty}개
         </div>
-        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-top:4px;" onclick="confirmDeleteHistoryLog('${log.id}', '${log.artName}')"><i class="fa-solid fa-trash"></i> 삭제</button>
+        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-top:4px; cursor:pointer;" onclick="confirmDeleteHistoryLog('${log.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>
       </div>
     </div>
     `;
@@ -460,6 +481,7 @@ window.renderHistoryLogs = function() {
   }
 
   container.innerHTML = html;
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 };
 
 
@@ -496,8 +518,8 @@ window.renderPickList = function() {
       const hh = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
       displayTime = `${yy}.${mm}.${dd} ${hh}:${min}`;
-    } else {
-      displayTime = `${item.date.replace(/-/g, '.').substring(2)} --:--`;
+    } else if (item.date) {
+      displayTime = item.date.replace(/-/g, '.').substring(2);
     }
     html += `
       <div class="history-item" style="border-left-color: #f59e0b; background-color: #fffbeb;">
@@ -1013,8 +1035,8 @@ window.renderOrderLogs = function() {
       const hh = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
       displayTime = `${yyyy}.${mm}.${dd} ${hh}:${min}`;
-    } else {
-      displayTime = `${item.date.replace(/-/g, '.').substring(2)} --:--`;
+    } else if (item.date) {
+      displayTime = item.date.replace(/-/g, '.').substring(2);
     }
 
     return `
