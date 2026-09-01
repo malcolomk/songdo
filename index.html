@@ -171,12 +171,12 @@
       <form id="login-form" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
           <label for="login-id"><i class="fa-solid fa-user"></i> 아이디</label>
-          <input type="text" id="login-id" placeholder="아이디 입력 (예: junkoo, guest1)" required class="input-control">
+          <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required class="input-control">
         </div>
 
         <div class="form-group">
           <label for="login-pw"><i class="fa-solid fa-lock"></i> 비밀번호</label>
-          <input type="password" id="login-pw" placeholder="비밀번호 입력 (기본: 522)" class="input-control">
+          <input type="password" id="login-pw" placeholder="비밀번호 입력" class="input-control">
         </div>
 
         <button type="submit" class="btn-submit btn-login">
@@ -190,24 +190,21 @@
         </button>
       </div>
 
-      <div class="allowed-users-info">
-        <span>접근 가능 아이디 목록 (👑 표시: 관리자):</span>
-        <div class="user-tags">
-          <span class="u-tag admin-tag">👑 junkoo</span>
-          <span class="u-tag admin-tag">👑 minjong</span>
-          <span class="u-tag admin-tag">👑 jipar5</span>
-          <span class="u-tag admin-tag">👑 hycho30</span>
-          <span class="u-tag">guest1</span>
-          <span class="u-tag">guest2</span>
-          <span class="u-tag">amelie</span>
-          <span class="u-tag">sulee21</span>
-          <span class="u-tag">jocho16</span>
-          <span class="u-tag">julee33</span>
-          <span class="u-tag">tabae3</span>
-          <span class="u-tag">goyoo</span>
-          <span class="u-tag">suahn2</span>
-          <span class="u-tag">yehan1</span>
-          <span class="u-tag">secho12</span>
+      <div class="allowed-users-info" style="text-align:left; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:11.5px; color:#475569; font-weight:700;">
+            <i class="fa-solid fa-id-badge" style="color:#0058a3; margin-right:4px;"></i> 네트워크 아이디
+          </span>
+          <code style="background:#e2e8f0; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#0f172a;">예시: jipar5</code>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; border-top:1px dashed #e2e8f0; padding-top:6px;">
+          <span style="font-size:11.5px; color:#475569; font-weight:700;">
+            <i class="fa-solid fa-users" style="color:#10b981; margin-right:4px;"></i> 게스트 아이디
+          </span>
+          <div style="display:flex; gap:4px;">
+            <code style="background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#15803d;">guest1</code>
+            <code style="background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#15803d;">guest2</code>
+          </div>
         </div>
       </div>
     </div>
@@ -224,18 +221,27 @@
         </div>
       </div>
       <div class="header-actions">
-        <div id="user-profile-badge" class="user-badge" style="display:none; align-items:center; gap:6px; padding:3px 8px; border-radius:16px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);">
-          <div id="online-presence-pill" style="display:none; background:#f1f5f9; padding:2px 6px; border-radius:10px; font-size:10px; font-weight:600; color:#334155; align-items:center; gap:4px; max-width:100px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
-            <div style="width:5px; height:5px; border-radius:50%; background-color:#10b981; flex-shrink:0;"></div>
+        <button type="button" id="btn-global-refresh" onclick="if(typeof refreshAppRealtime === 'function') refreshAppRealtime();" style="background:#fff7ed; border:1px solid #fed7aa; color:#ea580c; font-size:10.5px; font-weight:900; cursor:pointer; padding:3px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;" title="실시간 데이터 새로고침">
+          <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:10.5px; color:#ea580c;"></i>
+          <span style="font-size:10.5px; color:#ea580c; font-weight:900; white-space:nowrap;">새로고침</span>
+        </button>
+        <button type="button" id="btn-notification-bell" onclick="if(typeof openNotificationModal === 'function') openNotificationModal();" style="position:relative; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="오더 알림함">
+          <i class="fa-solid fa-bell" style="font-size:11px; color:#475569;"></i>
+          <span id="notif-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:8px; font-weight:900; border-radius:10px; padding:1px 3px; min-width:13px; text-align:center; box-shadow:0 1px 3px rgba(239,68,68,0.4); line-height:1.1;">0</span>
+        </button>
+        <div id="user-profile-badge" class="user-badge" style="display:none; align-items:center; gap:3px; padding:2px 6px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; white-space:nowrap; flex-shrink:0;">
+          <div id="online-presence-pill" style="display:none; background:#e2e8f0; padding:1px 4px; border-radius:8px; font-size:9px; font-weight:600; color:#334155; align-items:center; gap:2px; max-width:60px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+            <div style="width:4px; height:4px; border-radius:50%; background-color:#10b981; flex-shrink:0;"></div>
             <span id="online-users-list" style="text-overflow:ellipsis; overflow:hidden;">접속중</span>
           </div>
-          <i class="fa-solid fa-circle-user" style="font-size:13px; color:#38bdf8;"></i>
-          <span id="current-user-name" style="font-size:11.5px; font-weight:700; color:#f8fafc; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">guest1</span>
-          <span id="admin-role-badge" class="role-badge" style="display:none; font-size:9px; padding:1px 5px; background:#f59e0b; color:#78350f; border-radius:4px; font-weight:800;">관리자</span>
-          <button type="button" id="btn-sig-history" onclick="if(typeof openSigHistoryModal === 'function') openSigHistoryModal()" style="display:none; background:none; border:none; color:#38bdf8; font-size:13px; cursor:pointer; padding:2px;" title="서명 히스토리">
+          <i class="fa-solid fa-circle-user" style="font-size:11px; color:#0058a3;"></i>
+          <span id="current-user-name" style="font-size:10.5px; font-weight:700; color:#0f172a; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">guest1</span>
+          <span id="admin-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#fef3c7; color:#b45309; border-radius:4px; font-weight:800; white-space:nowrap; border:1px solid #fde68a;">관리자</span>
+          <span id="viewer-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#f1f5f9; color:#475569; border-radius:4px; font-weight:800; white-space:nowrap; border:1px solid #cbd5e1;">읽기전용</span>
+          <button type="button" id="btn-sig-history" onclick="if(typeof openSigHistoryModal === 'function') openSigHistoryModal()" style="display:none; background:none; border:none; color:#0058a3; font-size:11px; cursor:pointer; padding:1px;" title="서명 히스토리">
             <i class="fa-solid fa-clock-rotate-left"></i>
           </button>
-          <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃" style="background:none; border:none; color:#f87171; font-size:13px; cursor:pointer; padding:2px; display:flex; align-items:center; margin-left:2px;">
+          <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃" style="background:none; border:none; color:#ef4444; font-size:12px; cursor:pointer; padding:1px; display:flex; align-items:center; margin-left:1px; flex-shrink:0;">
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
           </button>
         </div>
@@ -246,52 +252,53 @@
   <!-- Main Content Container -->
   <main class="app-body">
 
-    <!-- TAB 1: 입출고 등록 (REGISTER) -->
+    <!-- TAB 1: 입출고 등록 (REGISTER - No-Scroll Compact View) -->
     <section id="tab-register" class="tab-page active">
-      <div class="card-box primary-border">
-        <div class="card-header">
-          <h2><i class="fa-solid fa-pen-to-square"></i> 입출고 등록</h2>
-          <span class="badge badge-info">빠른 등록</span>
+      <div style="padding: 2px 0 10px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin:0;"><i class="fa-solid fa-pen-to-square" style="color:#0058a3; margin-right:4px;"></i> 입출고 등록</h2>
+          <span style="font-size:10.5px; font-weight:800; color:#0058a3; background:#eff6ff; padding:2px 8px; border-radius:10px; border:1px solid #bfdbfe;">빠른 등록</span>
         </div>
         
-        <form id="register-form" onsubmit="event.preventDefault(); handleAddRegCart();">
-          <!-- 날짜 -->
-          <div class="form-group">
-            <label for="reg-date"><i class="fa-regular fa-calendar"></i> 날짜</label>
-            <input type="date" id="reg-date" required class="input-control">
-          </div>
+        <form id="register-form" class="reg-compact-form" onsubmit="event.preventDefault(); handleAddRegCart();">
+          <!-- Row 1: 날짜 (50%) + 구분 (50%) -->
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div class="form-group">
+              <label for="reg-date"><i class="fa-regular fa-calendar" style="color:#0058a3;"></i> 날짜</label>
+              <input type="date" id="reg-date" required class="input-control">
+            </div>
 
-          <!-- 구분 (입고/출고 라디오) -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-arrows-left-right"></i> 구분</label>
-            <div class="toggle-segmented">
-              <label class="toggle-option active-in" id="label-type-in">
-                <input type="radio" name="reg-type" value="입고" checked onchange="updateTypeToggle()">
-                <span><i class="fa-solid fa-arrow-down-to-bracket"></i> 입고</span>
-              </label>
-              <label class="toggle-option" id="label-type-out">
-                <input type="radio" name="reg-type" value="출고" onchange="updateTypeToggle()">
-                <span><i class="fa-solid fa-arrow-up-from-bracket"></i> 출고</span>
-              </label>
+            <div class="form-group">
+              <label><i class="fa-solid fa-arrows-left-right" style="color:#0058a3;"></i> 구분</label>
+              <div class="toggle-segmented">
+                <label class="toggle-option active-in" id="label-type-in">
+                  <input type="radio" name="reg-type" value="입고" checked onchange="updateTypeToggle()">
+                  <span><i class="fa-solid fa-arrow-down-to-bracket"></i> 입고</span>
+                </label>
+                <label class="toggle-option" id="label-type-out">
+                  <input type="radio" name="reg-type" value="출고" onchange="updateTypeToggle()">
+                  <span><i class="fa-solid fa-arrow-up-from-bracket"></i> 출고</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          <!-- 아티클 번호 -->
+          <!-- Row 2: 아티클 번호 -->
           <div class="form-group">
-            <label for="reg-artno"><i class="fa-solid fa-barcode"></i> 아티클 번호</label>
+            <label for="reg-artno"><i class="fa-solid fa-barcode" style="color:#0058a3;"></i> 아티클 번호</label>
             <div class="autocomplete-wrapper">
               <div class="input-with-action">
                 <input type="text" id="reg-artno" placeholder="번호 또는 품목명 일부 입력 (예: 7058, 쿠기스)" required class="input-control" autocomplete="off" oninput="handleAutocompleteInput(this.value, 'register')" onfocus="handleAutocompleteInput(this.value, 'register')">
-                <button type="button" class="btn-secondary" onclick="openMasterSelectModal('register')"><i class="fa-solid fa-list"></i> 전체</button>
+                <button type="button" class="btn-secondary" onclick="openMasterSelectModal('register')" style="padding:0 12px; font-size:12px; font-weight:700; border-radius:8px; height:38px; white-space:nowrap; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;"><i class="fa-solid fa-list"></i> 전체</button>
               </div>
               <div id="reg-autocomplete-dropdown" class="autocomplete-dropdown"></div>
             </div>
           </div>
 
-          <!-- 아티클 이름 및 사진 미리보기 -->
+          <!-- Row 3: 아티클 이름 및 사진 미리보기 -->
           <div class="form-group">
-            <label for="reg-artname"><i class="fa-solid fa-tag"></i> 아티클 이름</label>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <label for="reg-artname"><i class="fa-solid fa-tag" style="color:#0058a3;"></i> 아티클 이름</label>
+            <div style="display:flex; gap:8px; align-items:center;">
               <div id="reg-thumb-container" style="display:none; flex-shrink:0;"></div>
               <div class="autocomplete-wrapper" style="flex:1; min-width:0;">
                 <div class="input-readonly-wrapper">
@@ -303,44 +310,44 @@
             </div>
           </div>
 
-          <!-- 수량 및 현재재고 표시 -->
-          <div class="form-row">
-            <div class="form-group col-half">
-              <label for="reg-qty"><i class="fa-solid fa-layer-group"></i> 수량</label>
-              <input type="number" id="reg-qty" min="1" placeholder="수량 입력" required class="input-control qty-input">
+          <!-- Row 4: 수량 (50%) + 현재 남은 재고 (50%) -->
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div class="form-group">
+              <label for="reg-qty"><i class="fa-solid fa-layer-group" style="color:#0058a3;"></i> 수량</label>
+              <input type="number" id="reg-qty" min="1" placeholder="수량 입력" required class="input-control qty-input" style="font-size:15px; font-weight:800;">
             </div>
-            <div class="form-group col-half">
-              <label><i class="fa-solid fa-warehouse"></i> 현재 남은 재고</label>
-              <div id="reg-current-stock" class="stock-preview-box">- 개</div>
+            <div class="form-group">
+              <label><i class="fa-solid fa-warehouse" style="color:#0058a3;"></i> 현재 남은 재고</label>
+              <div id="reg-current-stock" class="stock-preview-box" style="font-weight:800; font-size:14px;">- 개</div>
             </div>
           </div>
 
-          <!-- 창고(구역) 지정 -->
+          <!-- Row 5: 창고 구역 지정 (단독 행) -->
           <div class="form-group">
-            <label for="reg-location"><i class="fa-solid fa-map-location-dot"></i> 창고 지정 (선택)</label>
-            <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 아래 버튼 선택" class="input-control">
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B1')">B1</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B2')">B2</button>
-              <button type="button" class="btn-secondary" style="flex:1; padding:8px; font-weight:bold; font-size:14px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px;" onclick="toggleRegLocation('B3')">B3</button>
+            <label for="reg-location"><i class="fa-solid fa-location-dot" style="color:#0058a3;"></i> 창고 구역 지정 (선택)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 버튼 선택" class="input-control" style="font-size:13px; flex:1; height:40px;">
+              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B1')">B1</button>
+              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B2')">B2</button>
+              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B3')">B3</button>
             </div>
           </div>
 
-          <!-- Add to Cart Button -->
-          <button type="button" class="btn-add-cart" onclick="handleAddRegCart()">
-            <i class="fa-solid fa-plus"></i> 항목 담기
-          </button>
-
-          <!-- Single Save Button -->
-          <button type="button" class="btn-submit" style="margin-top:8px; background-color: #2563eb;" onclick="handleSingleRegSave()">
-            <i class="fa-solid fa-bolt"></i> 바로 입출고 저장
-          </button>
+          <!-- Row 6: Action Buttons (하단 배치) -->
+          <div style="display:flex; gap:8px; margin-top:2px;">
+            <button type="button" class="btn-add-cart" onclick="handleAddRegCart()">
+              <i class="fa-solid fa-plus"></i> 항목 담기
+            </button>
+            <button type="button" class="btn-direct-save" onclick="handleSingleRegSave()" style="background-color:#ea580c; color:#ffffff; font-size:13px; font-weight:900; box-shadow:0 3px 8px rgba(234,88,12,0.35);">
+              <i class="fa-solid fa-bolt"></i> 바로 입출고 저장
+            </button>
+          </div>
           
           <!-- Cart List -->
-          <div id="reg-cart-list" class="cart-list-container" style="display:none;"></div>
+          <div id="reg-cart-list" class="cart-list-container" style="display:none; margin-top:8px;"></div>
           
-          <!-- Submit Button -->
-          <button type="button" class="btn-submit" id="btn-save" style="display:none; margin-top:16px;" onclick="processRegCart()">
+          <!-- Submit Button (위 바로 입출고 저장 버튼과 동일한 주황색) -->
+          <button type="button" class="btn-submit-compact" id="btn-save" style="display:none; margin-top:8px; background-color:#ea580c; color:#ffffff; font-weight:900; box-shadow:0 2px 8px rgba(234,88,12,0.35);" onclick="processRegCart()">
             <i class="fa-solid fa-floppy-disk"></i> 담긴 항목 일괄 저장
           </button>
         </form>
@@ -391,18 +398,17 @@
         </div>
       </div>
 
-      <!-- Stock List Container -->
-        <div class="section-title-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <h3 style="margin:0;"><i class="fa-solid fa-list-check"></i> 전체 품목 재고 현황</h3>
-            <span class="count-badge" id="stock-count-text">0개 품목</span>
+        <div class="section-title-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin: 10px 0 10px 0;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h3 style="font-size:14.5px; font-weight:900; color:#0f172a; margin:0;">전체 재고 현황</h3>
+            <span id="stock-count-text" style="font-size:11.5px; font-weight:800; color:#0058a3; background:#eff6ff; padding:2px 8px; border-radius:12px;">0개 품목</span>
           </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <button type="button" id="btn-stock-excel-export" class="btn-excel-export" onclick="if(typeof exportStockToExcel === 'function') exportStockToExcel()" style="display:none; font-size:12px; padding:6px 10px; border-radius:6px; height:auto; margin:0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="btn-stock-excel-export" class="btn-excel-export" onclick="if(typeof exportStockToExcel === 'function') exportStockToExcel()" style="display:none; font-size:11.5px; padding:4px 8px; border-radius:6px; height:auto; margin:0;">
               <i class="fa-solid fa-file-excel"></i> 엑셀 추출
             </button>
-            <label style="font-size:13px; font-weight:bold; cursor:pointer; color:#4f46e5; display:flex; align-items:center; gap:6px;">
-              <input type="checkbox" id="stock-select-all" onclick="toggleStockSelectAll(this.checked)" style="transform: scale(1.2);">
+            <label style="font-size:12px; font-weight:800; cursor:pointer; color:#0058a3; display:flex; align-items:center; gap:4px; user-select:none;">
+              <input type="checkbox" id="stock-select-all" onclick="toggleStockSelectAll(this.checked)" style="width:16px; height:16px; accent-color:#0058a3; cursor:pointer;">
               전체 선택
             </label>
           </div>
@@ -547,15 +553,20 @@
 
     <!-- TAB 5: 입출고 기록 & 엑셀 추출 (HISTORY LOGS - ADMIN ONLY) -->
     <section id="tab-history" class="tab-page">
-      <div class="card-box">
-        <div class="card-header space-between">
-          <h2><i class="fa-solid fa-clock-rotate-left"></i> 입출고 상세 기록 <span class="badge badge-danger">관리자 전용</span></h2>
+      <div style="padding: 2px 0 10px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h2 style="font-size:14.5px; font-weight:900; color:#0f172a; margin:0; display:flex; align-items:center; gap:4px;">
+              <i class="fa-solid fa-clock-rotate-left" style="color:#0058a3;"></i> 입출고 상세 기록
+            </h2>
+            <span style="font-size:9.5px; font-weight:800; background:#fef2f2; color:#ef4444; border:1px solid #fecdd3; padding:1px 5px; border-radius:10px;">관리자 전용</span>
+          </div>
           <div id="excel-export-wrapper">
-            <button type="button" id="btn-excel-export" class="btn-excel-export" onclick="exportHistoryToExcel()">
+            <button type="button" id="btn-excel-export" class="btn-excel-export" onclick="exportHistoryToExcel()" style="padding:5px 9px; font-size:11px; font-weight:800; border-radius:8px; height:32px; background:#107c41; color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(16,124,65,0.2);">
               <i class="fa-solid fa-file-excel"></i> 엑셀 추출 (.xlsx)
             </button>
-            <div id="excel-export-locked" class="locked-badge" style="display:none;">
-              <i class="fa-solid fa-lock"></i> 엑셀 추출 (관리자 전용)
+            <div id="excel-export-locked" class="locked-badge" style="display:none; font-size:10px; padding:3px 6px;">
+              <i class="fa-solid fa-lock"></i> 엑셀 추출 (관리자)
             </div>
           </div>
         </div>
@@ -591,9 +602,9 @@
           </div>
 
           <div class="filter-actions">
-            <button type="button" class="btn-secondary sm" onclick="resetHistoryFilters()">
-            <i class="fa-solid fa-rotate-right"></i> 전체 보기
-          </button>
+            <button type="button" class="btn-secondary sm" onclick="resetHistoryFilters()" style="padding:4px 8px; font-size:11px; height:28px; min-height:28px; border-radius:6px;">
+              <i class="fa-solid fa-rotate-right"></i> 전체 보기
+            </button>
           </div>
         </div>
 
@@ -607,81 +618,96 @@
       </div>
     </section>
     <section id="tab-menu" class="tab-page">
-      <div class="card-box">
-        <div class="card-header">
-          <h2><i class="fa-solid fa-bars"></i> 전체 메뉴</h2>
-        </div>
-        <div class="menu-grid">
+      <div style="padding: 2px 0 20px 0;">
+        <div class="menu-grid" style="padding: 0;">
           <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
-            <i class="fa-solid fa-warehouse menu-icon"></i>
+            <div class="menu-icon-box" style="background:#eff6ff; color:#2563eb;">
+              <i class="fa-solid fa-warehouse"></i>
+            </div>
             <span class="menu-text">재고 조회</span>
+            <span class="menu-subtext">위치 · 수량 검색</span>
           </a>
           <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <i class="fa-solid fa-box-open menu-icon" style="color:#ef4444;"></i>
+            <div class="menu-icon-box" style="background:#fff1f2; color:#e11d48;">
+              <i class="fa-solid fa-box-open"></i>
+            </div>
             <span class="menu-text">창고 챙기기</span>
+            <span class="menu-subtext">대기열 · 출고 처리</span>
             <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <i class="fa-solid fa-cart-flatbed menu-icon"></i>
+            <div class="menu-icon-box" style="background:#eef2ff; color:#4f46e5;">
+              <i class="fa-solid fa-cart-flatbed"></i>
+            </div>
             <span class="menu-text">오더 요청</span>
+            <span class="menu-subtext">기존 및 신규 요청 접수</span>
             <span id="badge-order" class="nav-badge" style="display:none;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('ptag', document.querySelector('.bottom-nav .nav-item:first-child'))">
-            <i class="fa-solid fa-tag menu-icon" style="color:#8b5cf6;"></i>
+            <div class="menu-icon-box" style="background:#f5f3ff; color:#7c3aed;">
+              <i class="fa-solid fa-tag"></i>
+            </div>
             <span class="menu-text">P-tag</span>
+            <span class="menu-subtext">렉라벨, 피텍 발급</span>
           </a>
           <a class="menu-item" onclick="switchTab('mfaq', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <i class="fa-solid fa-clipboard-question menu-icon" style="color:#10b981;"></i>
+            <div class="menu-icon-box" style="background:#ecfdf5; color:#059669;">
+              <i class="fa-solid fa-clipboard-question"></i>
+            </div>
             <span class="menu-text">송도 MFAQ</span>
+            <span class="menu-subtext">자주 묻는 질문</span>
             <span id="badge-mfaq" class="nav-badge" style="display:none;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <i class="fa-solid fa-clock-rotate-left menu-icon" style="color:#0284c7;"></i>
+            <div class="menu-icon-box" style="background:#f0f9ff; color:#0284c7;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
             <span class="menu-text">업데이트 내역</span>
+            <span class="menu-subtext">시스템 히스토리</span>
           </a>
         </div>
 
-          <div class="info-card" style="margin-top: 24px; background-color: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-            <h3 style="font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-              <i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i> 시스템 주요 메뉴 및 기능 안내
-            </h3>
-            
-            <div style="font-size: 13.5px; color: #475569; line-height: 1.6; display: flex; flex-direction: column; gap: 16px;">
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                <strong style="color: #0f172a; font-size: 14px; display: block; margin-bottom: 4px;">입/출고 등록 (Register)</strong>
-                <span style="font-weight: 700; color:#3b82f6;">용도:</span> 창고에 물건이 새로 들어오거나 나갈 때 수량을 기록하는 곳입니다.<br>
-                <span style="font-weight: 700; color:#3b82f6;">특징:</span> 여러 개의 품목을 '카트'에 담아두었다가 [일괄 저장] 버튼 한 번으로 빠르게 작업할 수 있습니다.
-              </div>
-              
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                <strong style="color: #0f172a; font-size: 14px; display: block; margin-bottom: 4px;">재고 조회 (Stock)</strong>
-                <span style="font-weight: 700; color:#10b981;">용도:</span> 현재 창고에 있는 물건의 전체 수량과 창고 보관 위치를 실시간으로 검색할 수 있습니다.<br>
-                <span style="font-weight: 700; color:#10b981;">특징:</span> 품목명이나 번호로 즉시 검색이 가능하며, HFB(부서별) 필터 기능을 지원합니다.
-              </div>
-
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                <strong style="color: #0f172a; font-size: 14px; display: block; margin-bottom: 4px;">오더 요청 (Order)</strong>
-                <span style="font-weight: 700; color:#f59e0b;">용도:</span> 매장에 볼륨이 낮은 제품들을 입고 오더 요청 하는 기능입니다.<br>
-                <span style="font-weight: 700; color:#f59e0b;">특징:</span> 해당 오더들을 바탕으로 프리노트 작성이 들어갑니다.
-              </div>
-
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                <strong style="color: #0f172a; font-size: 14px; display: block; margin-bottom: 4px;">창고 챙기기 (Pick List)</strong>
-                <span style="font-weight: 700; color:#ef4444;">용도:</span> 매장에서 요청(오더)한 물품 중, 현재 창고에 실제 재고가 있는 품목만 자동으로 모아서 보여주는 대기열입니다.<br>
-                <span style="font-weight: 700; color:#ef4444;">특징:</span> 챙겨야 할 항목 숫자가 앱 하단 뱃지 알림으로 표시됩니다. 물건을 꺼낸 뒤 [챙김 완료]만 누르면 즉시 출고(재고 차감) 처리가 완료됩니다.
-              </div>
-
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                <strong style="color: #0f172a; font-size: 14px; display: block; margin-bottom: 4px;">피택 (P-Tag) 요청</strong>
-                <span style="font-weight: 700; color:#8b5cf6;">용도:</span> 매장에 누락된 P-TAG, 렉라벨이 필요한 아티클을 등록해 엑셀로 한번에 추출할 수 있습니다.
-              </div>
+        <details class="info-card" style="margin-top: 14px; background-color: #ffffff; border-radius: 14px; padding: 14px 16px; border: 1px solid #e2e8f0; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+          <summary style="font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; justify-content: space-between; outline: none; user-select: none;">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-circle-info" style="color:#0058a3;"></i> 시스템 주요 기능 안내
+            </span>
+            <i class="fa-solid fa-chevron-down" style="font-size: 11px; color:#94a3b8;"></i>
+          </summary>
+          
+          <div style="font-size: 12px; color: #475569; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; margin-top: 12px; cursor: default;">
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">📦 입/출고 등록</strong>
+              창고에 물품이 입고되거나 나갈 때 카트에 담아 일괄 저장합니다.
             </div>
             
-            <div style="margin-top: 16px; text-align: center; font-size: 11px; color: #94a3b8;">
-              <i class="fa-solid fa-bug"></i> 버그 발견시 지인에게 알려주세요!
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🏢 재고 조회</strong>
+              13,836개 전 품목의 창고 보관 위치와 실시간 재고 수량을 검색합니다.
+            </div>
+
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🛒 오더 요청</strong>
+              매장에 필요한 물품의 입고 오더를 요청하고 승인 상태를 실시간 확인합니다.
+            </div>
+
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">📋 창고 챙기기 (Pick List)</strong>
+              창고에 재고가 있는 오더 목록을 모아서 즉시 [챙김 완료] 출고 처리합니다.
+            </div>
+
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🏷️ P-Tag / 송도 MFAQ</strong>
+              누락된 라벨/태그 발급 요청 및 FAQ 가이드를 열람합니다.
             </div>
           </div>
-      </section>
+          
+          <div style="margin-top: 10px; text-align: center; font-size: 11.5px; color: #94a3b8; font-weight: 600;">
+            <i class="fa-solid fa-bug" style="color:#ef4444; margin-right:4px;"></i> 버그 발견 시 지인에게로 문의
+          </div>
+        </details>
+      </div>
+    </section>
 
     <!-- TAB: 시스템 업데이트 히스토리 (UPDATE HISTORY) -->
     <section id="tab-update-history" class="tab-page">
@@ -697,6 +723,15 @@
 
         <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
           
+          <!-- Version 2.3 Card (2026.09.01) -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v2.3 실시간 오더 스마트 알림 & UI 고도화</span>
+              <div style="font-size:12px; color:#64748b; margin-top:3px;">새로고침 버튼 활성화 · 실시간 알림 버튼 활성화 · 읽기 전용 뷰어 계정 · UX/UI 개편</div>
+            </div>
+            <span style="font-size:11px; font-weight:700; background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px;">2026.09.01</span>
+          </div>
+
           <!-- Version 2.2 Card -->
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #3b82f6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
@@ -1238,29 +1273,34 @@
       let html = "";
       pendingPicks.forEach(item => {
         const stockMap = buildStockMap();
-        const stockItem = stockMap.get(item.artNo);
+        let cleanNo = String(item.artNo || "").trim();
+        if (cleanNo.length > 0 && cleanNo.length <= 8) {
+          cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+        }
+        const stockItem = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
         let location = "미지정";
         if (stockItem && stockItem.location) location = stockItem.location;
+        const displayName = item.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
         
         html += `
-          <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 2px 4px -1px rgba(0,0,0,0.05); border:1px solid #f87171; gap:10px; transition:all 0.2s ease; position:relative; overflow:hidden;">
+          <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #f87171; gap:10px; transition:all 0.2s ease; position:relative; overflow:hidden;">
             <!-- Left color bar -->
             <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background-color:#ef4444;"></div>
             
-            ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 48) : ''}
+            ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
 
             <div style="flex:1; min-width:0; padding-left:2px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${location}</span>
-                <span style="font-size:12px; font-weight:bold; color:#64748b;">${item.artNo}</span>
+                <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
               </div>
-              <div style="font-size:14px; font-weight:900; margin-top:4px; color:#1e293b; line-height:1.3; word-break:break-all;">${item.artName}</div>
-              <div style="font-size:10px; color:#94a3b8; margin-top:4px;"><i class="fa-regular fa-clock"></i> ${item.date} | 요청: ${item.user}</div>
+              <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
+              <div style="font-size:10.5px; color:#94a3b8; margin-top:3px;"><i class="fa-regular fa-clock"></i> ${item.date} | 요청: ${item.user}</div>
             </div>
             
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
               <div style="display:flex; align-items:center;">
-                <div style="font-size:16px; font-weight:900; color:#ef4444;">${item.qty}<span style="font-size:12px; color:#94a3b8; font-weight:bold; margin-left:2px;">개</span></div>
+                <div style="font-size:16px; font-weight:900; color:#ef4444;">${item.qty}<span style="font-size:11px; color:#94a3b8; font-weight:bold; margin-left:2px;">개</span></div>
               </div>
               <div style="display:flex; gap:4px; margin-top:2px;">
                 <button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="modifyPickItem_custom('${item.id}')">
@@ -1279,8 +1319,14 @@
       });
       container.innerHTML = html;
       if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
+    };
+
     // Delete Individual Order Log
     window.deleteOrderLog = async function(index) {
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 오더를 삭제할 수 없습니다.", "warning");
+        return;
+      }
       if (typeof orderLogs === "undefined" || !orderLogs[index]) return;
       const targetOrder = orderLogs[index];
       const artName = targetOrder.artName || targetOrder.artNo;
@@ -1321,7 +1367,9 @@
         if (activeOrders.length > 0) {
           badgeOrder.textContent = activeOrders.length;
           badgeOrder.style.display = "inline-flex";
-          badgeOrder.style.backgroundColor = "#3b82f6";
+          badgeOrder.style.backgroundColor = "#ef4444";
+          badgeOrder.style.color = "#ffffff";
+          badgeOrder.style.fontWeight = "900";
           badgeOrder.style.position = "absolute";
           badgeOrder.style.top = "10px";
           badgeOrder.style.right = "10px";
@@ -1332,9 +1380,9 @@
 
       if (filteredOrderLogs.length === 0) {
         container.innerHTML = `
-          <div style="text-align: center; padding: 30px; color: #94a3b8;">
-            <i class="fa-solid fa-cart-shopping" style="font-size: 32px; margin-bottom: 8px;"></i>
-            <p>등록된 오더 요청 내역이 없습니다.</p>
+          <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+            <i class="fa-solid fa-cart-shopping" style="font-size: 32px; color: #cbd5e1; margin-bottom: 12px; display: block;"></i>
+            현재 등록된 오더 요청이 없습니다.
           </div>
         `;
         return;
@@ -1351,7 +1399,13 @@
 
         let statusHtml = `<span class="hist-badge" style="background-color: ${bgColor}; color: ${textColor};">${statusText}</span>`;
         
-        if (typeof isAdminUser !== "undefined" && isAdminUser) {
+        if (typeof isViewerUser !== "undefined" && isViewerUser) {
+          statusHtml = `
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+              ${statusHtml}
+            </div>
+          `;
+        } else if (typeof isAdminUser !== "undefined" && isAdminUser) {
           statusHtml = `
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
               ${statusHtml}
@@ -1393,6 +1447,19 @@
           if (mappedName) displayName = mappedName;
         }
 
+        const likesMap = (typeof getOrderLikesMap === 'function') ? getOrderLikesMap() : {};
+        const orderKey = String(item.id || `${item.artNo}_${item.date}_${item.user}`);
+        const userLikes = likesMap[orderKey] || (Array.isArray(item.likes) ? item.likes : []);
+        const likeCount = userLikes.length;
+        const myLiked = (typeof currentUser !== 'undefined' && currentUser) ? userLikes.includes(currentUser) : false;
+
+        const heartBtnHtml = `
+          <button type="button" class="btn-like-heart ${myLiked ? 'liked' : ''}" onclick="event.stopPropagation(); toggleOrderLike(${originalIndex})" title="${userLikes.length > 0 ? '공감한 동료: ' + userLikes.join(', ') : '오더 공감하기'}" style="background:${myLiked ? '#fee2e2' : '#ffffff'}; color:${myLiked ? '#e11d48' : '#64748b'}; border:1px solid ${myLiked ? '#fca5a5' : '#cbd5e1'}; padding:3px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+            <i class="${myLiked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'}" style="font-size:11.5px; color:${myLiked ? '#e11d48' : '#94a3b8'};"></i>
+            <span style="font-size:11px;">${likeCount > 0 ? likeCount : '0'}</span>
+          </button>
+        `;
+
         return `
         <div class="history-item" style="border-left-color: #6366f1; display:flex; align-items:center; gap:10px;">
           ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, displayName, 44) : ''}
@@ -1401,10 +1468,13 @@
             <div class="hist-name" style="word-break:break-all;">${displayName}</div>
             <span class="hist-artno">번호: ${item.artNo}</span>
           </div>
-          <div class="hist-right" style="flex-shrink:0;">
+          <div class="hist-right" style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end;">
             ${statusHtml}
-            <div class="hist-qty" style="color: #4338ca; margin-top:4px;">
+            <div class="hist-qty" style="color: #4338ca; margin-top:2px; font-size:15px; font-weight:900;">
               ${item.qty}개
+            </div>
+            <div style="margin-top:4px;">
+              ${heartBtnHtml}
             </div>
           </div>
         </div>
@@ -1414,7 +1484,8 @@
     };
 
     // 5. Override switchTab to allow everyone to access History
-    window.switchTab = function(tabId, btnElement) {
+    window.switchTab = function(rawTabId, btnElement) {
+      let tabId = rawTabId ? String(rawTabId).replace(/^tab-/, '') : 'register';
       if (tabId === "master" && (typeof isAdminUser !== "undefined" && !isAdminUser)) {
         showToast("해당 메뉴는 관리자만 접근할 수 있습니다.", "danger");
         return;
@@ -1425,6 +1496,11 @@
 
       const targetTab = document.getElementById(`tab-${tabId}`);
       if (targetTab) targetTab.classList.add("active");
+      
+      if (!btnElement) {
+        btnElement = document.querySelector(`.bottom-nav .nav-item[onclick*="'${tabId}'"]`) ||
+                     document.querySelector(`.bottom-nav .nav-item:first-child`);
+      }
       if (btnElement) btnElement.classList.add("active");
 
       if (tabId === "stock") {
@@ -1814,7 +1890,12 @@
     let pendingOrderData = null;
 
     window.handleOrderSubmit = function(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
+
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+        return;
+      }
 
       const date = document.getElementById("order-date").value;
       const artNo = document.getElementById("order-artno").value.trim();
@@ -1853,6 +1934,10 @@
 
     window.processOrderAsPicklist = async function() {
       closeOrderStockModal();
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+        return;
+      }
       if (!pendingOrderData) return;
       
       const { date, artNo, artName, qty } = pendingOrderData;
@@ -1870,6 +1955,10 @@
 
     window.processOrderNormal = async function() {
       closeOrderStockModal();
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+        return;
+      }
       if (!pendingOrderData) return;
       
       const { date, artNo, artName, qty } = pendingOrderData;
@@ -1886,6 +1975,10 @@
     };
 
     window.saveOrderLogs_custom = async function(order) {
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+        return null;
+      }
       let insertedId = null;
       if (typeof supabaseClient !== "undefined" && supabaseClient) {
         try {
@@ -1989,6 +2082,35 @@
       <div class="img-zoom-body">
         <div id="zoom-modal-artno" style="font-size:13px; font-weight:800; color:#2563eb; letter-spacing:0.5px;"></div>
         <div id="zoom-modal-artname" style="font-size:16px; font-weight:900; color:#0f172a; margin-top:4px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Center Modal -->
+  <div id="notification-modal" class="modal-backdrop" onclick="if(typeof closeNotificationModal==='function') closeNotificationModal()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(2px);">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:420px; width:92%; max-height:80vh; display:flex; flex-direction:column; padding:0; border-radius:14px; overflow:hidden; background:#ffffff; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3);">
+      <!-- Header -->
+      <div style="background:#0f172a; color:white; padding:14px 18px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-bell" style="color:#f59e0b; font-size:15px;"></i>
+          <h3 style="font-size:15px; font-weight:800; margin:0; color:white;">알림함</h3>
+          <span id="notif-unread-count-badge" style="background:#ef4444; color:white; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; display:none;">0건 미확인</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" onclick="if(typeof markAllNotificationsAsRead==='function') markAllNotificationsAsRead()" style="background:rgba(255,255,255,0.15); border:none; color:#e2e8f0; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:pointer;">모두 읽음</button>
+          <button type="button" onclick="if(typeof closeNotificationModal==='function') closeNotificationModal()" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:2px; line-height:1;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+
+      <!-- Notification List -->
+      <div id="notification-list-container" style="flex:1; overflow-y:auto; padding:12px; max-height:420px; background:#f8fafc;">
+        <!-- JS Rendered -->
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:10px 16px; background:#f1f5f9; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" onclick="if(typeof clearAllNotifications==='function') clearAllNotifications()" style="background:none; border:none; color:#94a3b8; font-size:11.5px; cursor:pointer; font-weight:600;"><i class="fa-regular fa-trash-can"></i> 전체 비우기</button>
+        <button type="button" onclick="if(typeof closeNotificationModal==='function') closeNotificationModal()" class="btn-secondary" style="padding:5px 14px; font-size:12px; border-radius:6px; font-weight:bold;">닫기</button>
       </div>
     </div>
   </div>

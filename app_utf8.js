@@ -21,7 +21,7 @@ const ALLOWED_USER_IDS = [
   "guest1", "guest2", "amelie",
   "sulee21", "jocho16", "jipar5", "hycho30", "julee33", 
   "tabae3", "goyoo", "suahn2", "yehan1", "secho12",
-  "junkoo", "minjong"
+  "junkoo", "minjong", "Viewer"
 ];
 
 // --- Designated Admin Users List ---
@@ -55,6 +55,7 @@ let mfaqLogs = [];
 let userPasswords = {};
 let currentUser = null;
 let isAdminUser = false;
+let isViewerUser = false;
 let currentDashboardTab = "high"; // "high", "low", "hfb"
 let modalSelectTarget = "register"; // "register" or "order"
 
@@ -202,12 +203,13 @@ function checkLoginSession() {
   const btnOrderExcelExport = document.getElementById("btn-order-excel-export");
   const btnStockExcelExport = document.getElementById("btn-stock-excel-export");
   const excelExportLocked = document.getElementById("excel-export-locked");
-
   const navHistoryBtn = document.getElementById("nav-history-btn");
+  const viewerRoleBadge = document.getElementById("viewer-role-badge");
 
-  if (sessionUser && ALLOWED_USER_IDS.includes(sessionUser)) {
+  if (sessionUser && ALLOWED_USER_IDS.some(id => id.toLowerCase() === sessionUser.toLowerCase())) {
     currentUser = sessionUser;
     isAdminUser = ADMIN_USERS.includes(sessionUser);
+    isViewerUser = (sessionUser.toLowerCase() === "viewer");
 
     if (loginOverlay) {
       loginOverlay.classList.remove("active");
@@ -219,7 +221,18 @@ function checkLoginSession() {
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
-    if (isAdminUser) {
+    if (isViewerUser) {
+      document.body.classList.add("is-viewer-mode");
+      if (viewerRoleBadge) viewerRoleBadge.style.display = "inline-block";
+      if (adminRoleBadge) adminRoleBadge.style.display = "none";
+      if (btnExcelExport) btnExcelExport.style.display = "none";
+      if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
+      if (btnStockExcelExport) btnStockExcelExport.style.display = "none";
+      if (excelExportLocked) excelExportLocked.style.display = "none";
+      if (navHistoryBtn) navHistoryBtn.style.display = "flex";
+    } else if (isAdminUser) {
+      document.body.classList.remove("is-viewer-mode");
+      if (viewerRoleBadge) viewerRoleBadge.style.display = "none";
       if (adminRoleBadge) adminRoleBadge.style.display = "inline-block";
       if (btnExcelExport) btnExcelExport.style.display = "flex";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "flex";
@@ -227,6 +240,8 @@ function checkLoginSession() {
       if (excelExportLocked) excelExportLocked.style.display = "none";
       if (navHistoryBtn) navHistoryBtn.style.display = "flex";
     } else {
+      document.body.classList.remove("is-viewer-mode");
+      if (viewerRoleBadge) viewerRoleBadge.style.display = "none";
       if (adminRoleBadge) adminRoleBadge.style.display = "none";
       if (btnExcelExport) btnExcelExport.style.display = "none";
       if (btnOrderExcelExport) btnOrderExcelExport.style.display = "none";
@@ -239,9 +254,21 @@ function checkLoginSession() {
     try { renderHistoryLogs(); } catch (e) { console.error(e); }
     try { renderOrderLogs(); } catch (e) { console.error(e); }
     try { populateArticleFilterDropdown(); } catch (e) { console.error(e); }
+    try {
+      if (typeof checkUserNotificationsOnLogin === 'function') {
+        checkUserNotificationsOnLogin();
+      } else if (typeof updateNotificationBadge === 'function') {
+        updateNotificationBadge();
+      }
+    } catch (e) { console.error(e); }
   } else {
     currentUser = null;
     isAdminUser = false;
+    isViewerUser = false;
+    document.body.classList.remove("is-viewer-mode");
+    if (viewerRoleBadge) viewerRoleBadge.style.display = "none";
+    const notifBadge = document.getElementById("notif-badge");
+    if (notifBadge) notifBadge.style.display = "none";
     if (loginOverlay) {
       loginOverlay.classList.add("active");
       loginOverlay.style.display = "flex";
@@ -272,11 +299,11 @@ function handleLoginSubmit(e) {
   const matchedId = ALLOWED_USER_IDS.find(id => id.toLowerCase() === rawInputId);
 
   if (!matchedId) {
-    showToast(`'${rawInputId}'은(는) 허용되지 않은 아이디입니다. (허용: junkoo, guest1 등)`, "danger");
+    showToast(`'${rawInputId}'은(는) 허용되지 않은 아이디입니다. (예: jipar5 또는 Viewer)`, "danger");
     return;
   }
 
-  const storedPw = userPasswords[matchedId] || INITIAL_PASSWORD;
+  const storedPw = userPasswords[matchedId] || userPasswords[rawInputId] || INITIAL_PASSWORD;
 
   if (inputPw !== storedPw) {
     showToast(`비밀번호가 올바르지 않습니다. (기본 비밀번호: ${INITIAL_PASSWORD})`, "danger");
@@ -285,9 +312,16 @@ function handleLoginSubmit(e) {
 
   currentUser = matchedId;
   isAdminUser = ADMIN_USERS.includes(matchedId);
+  isViewerUser = (matchedId.toLowerCase() === "viewer");
 
-  const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
-  showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
+  if (isViewerUser) {
+    document.body.classList.add("is-viewer-mode");
+    showToast("Viewer(읽기 전용) 모드로 로그인되었습니다.", "info");
+  } else {
+    document.body.classList.remove("is-viewer-mode");
+    const roleTitle = isAdminUser ? "👑 관리자" : "일반 사용자";
+    showToast(`송도 CMP! 맹리!<br>재고 정확도는 우리 모두 함께!`, "success");
+  }
 
   const loginOverlay = document.getElementById("login-overlay");
   if (loginOverlay) {
@@ -309,6 +343,8 @@ function handleLoginSubmit(e) {
 function handleLogout() {
   currentUser = null;
   isAdminUser = false;
+  isViewerUser = false;
+  document.body.classList.remove("is-viewer-mode");
   showToast("로그아웃 되었습니다.", "success");
   checkLoginSession();
 }
@@ -562,6 +598,10 @@ async function saveHistoryLogs(log) {
 }
 
 async function saveOrderLogs(order) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+    return null;
+  }
   let insertedId = null;
   if (supabaseClient) {
     try {
@@ -921,6 +961,10 @@ let regCartList = [];
 
 // --- REG CART LOGIC ---
 function handleAddRegCart() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
+    return;
+  }
   const date = document.getElementById("reg-date").value;
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
   const type = typeOption ? typeOption.value : "입고";
@@ -945,6 +989,10 @@ function handleAddRegCart() {
 }
 
 function handleSingleRegSave() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
+    return;
+  }
   const artNo = document.getElementById("reg-artno").value.trim();
   const qty = Number(document.getElementById("reg-qty").value);
   
@@ -998,6 +1046,10 @@ function removeRegCart(idx) {
 }
 
 async function processRegCart() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 입출고를 저장할 수 없습니다.", "warning");
+    return;
+  }
   if (regCartList.length === 0) return;
   
   const originalBtnText = document.getElementById("btn-save").innerHTML;
@@ -1162,7 +1214,11 @@ async function handleAddToPickList() {
 }
 
 async function handleOrderSubmit(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 오더를 요청할 수 없습니다.", "warning");
+    return;
+  }
 
   const date = document.getElementById("order-date").value;
   const artNo = document.getElementById("order-artno").value.trim();
@@ -2434,7 +2490,21 @@ function handleRealtimeOrder(payload) {
       
       // === 🔔 관리자에게 새 오더 요청 알람 ===
       if (isAdminUser && newRecord.user !== currentUser) {
-        showAlarmNotification(`🔔 [새 오더 요청] ${newRecord.user}님이 '${newRecord.artname || newRecord.artName}' 품목을 요청했습니다.`, "success");
+        const artName = newRecord.artname || newRecord.artName || "품목";
+        const requester = newRecord.user || "동료";
+        const qty = newRecord.qty || 1;
+
+        if (typeof addUserNotification === 'function') {
+          addUserNotification({
+            id: `notif_order_${newRecord.id}`,
+            type: "order_request",
+            title: "새 오더 요청 도착",
+            message: `${requester}님이 '${artName}' ${qty}개를 오더 요청했습니다.`,
+            time: newRecord.created_at || new Date().toISOString(),
+            orderId: String(newRecord.id)
+          });
+        }
+        showAlarmNotification(`🔔 [새 오더 요청] ${requester}님이 '${artName}' ${qty}개를 요청했습니다.`, "success");
       }
     }
   } else if (eventType === 'UPDATE') {
@@ -2453,12 +2523,33 @@ function handleRealtimeOrder(payload) {
       };
 
       // === 🔔 요청자에게 상태 변경 알람 로직 ===
-      if (oldStatus !== newStatus && orderLogs[idx].user === currentUser) {
-        if (newStatus === '수락') {
-          showAlarmNotification(`✅ [오더 수락] '${orderLogs[idx].artName}' 요청이 수락되었습니다!`, "success");
-        } else if (newStatus === '보류') {
-          showAlarmNotification(`🚨 [오더 보류] '${orderLogs[idx].artName}' 요청이 보류되었습니다. 담당자에게 문의하세요.`, "danger");
+      if (oldStatus !== newStatus && (orderLogs[idx].user === currentUser || newRecord.user === currentUser)) {
+        let notifType = "order_accept";
+        let notifTitle = "오더 승인 완료";
+        let notifMsg = `요청하신 '${orderLogs[idx].artName}' ${orderLogs[idx].qty}개 오더가 수락되었습니다!`;
+
+        if (newStatus === '보류') {
+          notifType = "order_hold";
+          notifTitle = "오더 보류 안내";
+          notifMsg = `요청하신 '${orderLogs[idx].artName}' ${orderLogs[idx].qty}개 오더가 보류되었습니다.`;
+        } else if (newStatus === '출고완료' || newStatus === '완료') {
+          notifType = "order_complete";
+          notifTitle = "출고 완료 안내";
+          notifMsg = `요청하신 '${orderLogs[idx].artName}' ${orderLogs[idx].qty}개가 출고 완료되었습니다.`;
         }
+
+        if (typeof addUserNotification === 'function') {
+          addUserNotification({
+            id: `notif_realtime_${newRecord.id}_${newStatus}`,
+            type: notifType,
+            title: notifTitle,
+            message: notifMsg,
+            time: new Date().toISOString(),
+            orderId: String(newRecord.id)
+          });
+        }
+
+        showAlarmNotification(`🔔 [${notifTitle}] ${notifMsg}`, newStatus === '보류' ? 'danger' : 'success');
       }
     }
   } else if (eventType === 'DELETE') {
@@ -2775,9 +2866,9 @@ function updateRegLocationButtons() {
     const buttons = container.querySelectorAll("button");
     buttons.forEach(btn => {
       if (btn.innerText.trim() === val) {
-        btn.style.background = "#2563eb";
-        btn.style.color = "white";
-        btn.style.borderColor = "#2563eb";
+        btn.style.background = "#0058a3";
+        btn.style.color = "#ffffff";
+        btn.style.borderColor = "#0058a3";
       } else {
         btn.style.background = "#f1f5f9";
         btn.style.color = "#334155";

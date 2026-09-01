@@ -169,6 +169,409 @@ window.closeProductImageModal = function() {
   if (modal) modal.classList.remove("active");
 };
 
+// --- Realtime Global Data Refresh ---
+window.refreshAppRealtime = async function() {
+  const icon = document.getElementById("global-refresh-icon");
+  const btn = document.getElementById("btn-global-refresh");
+  if (icon) icon.classList.add("fa-spin");
+  if (btn) btn.style.opacity = "0.7";
+
+  try {
+    if (typeof loadDataFromSupabase === "function") {
+      await loadDataFromSupabase();
+    }
+    if (typeof rebuildMasterCatalogMap === "function") rebuildMasterCatalogMap();
+    if (typeof invalidateStockCache === "function") invalidateStockCache();
+
+    // Re-render all views
+    if (typeof renderStockLookup === "function") renderStockLookup();
+    if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+    if (typeof renderOrderLogs === "function") renderOrderLogs();
+    if (typeof renderStandardPickList === "function") renderStandardPickList();
+    if (typeof renderStandardInventory === "function") renderStandardInventory();
+    if (typeof renderPicklistInventory === "function") renderPicklistInventory();
+    if (typeof updateMfaqBadge === "function") updateMfaqBadge();
+    if (typeof populateArticleFilterDropdown === "function") populateArticleFilterDropdown();
+    if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+
+    showToast("최신 데이터로 실시간 동기화되었습니다! 🔄", "success");
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+  } catch (err) {
+    console.error("Refresh error:", err);
+    showToast("데이터 동기화 중 오류가 발생했습니다.", "danger");
+  } finally {
+    setTimeout(() => {
+      if (icon) icon.classList.remove("fa-spin");
+      if (btn) btn.style.opacity = "1";
+    }, 600);
+  }
+};
+
+// ==========================================
+// --- Smart Notification Center Engine ---
+// ==========================================
+
+window.getUserNotifications = function() {
+  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+  try {
+    const saved = localStorage.getItem(`warehouse_notifications_${user}`);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+window.saveUserNotifications = function(notifications) {
+  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+  try {
+    localStorage.setItem(`warehouse_notifications_${user}`, JSON.stringify(notifications));
+  } catch (e) {}
+  if (typeof window.updateNotificationBadge === 'function') window.updateNotificationBadge();
+};
+
+window.addUserNotification = function(notif) {
+  const list = window.getUserNotifications();
+  const isDuplicate = list.some(item => item.id === notif.id || (item.message === notif.message && Math.abs(Date.now() - (item.timestamp || 0)) < 5000));
+  if (isDuplicate) return;
+
+  const newEntry = {
+    id: notif.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    type: notif.type || 'info',
+    title: notif.title || '오더 알림',
+    message: notif.message,
+    time: notif.time || new Date().toISOString(),
+    read: false,
+    timestamp: Date.now(),
+    orderId: notif.orderId || null
+  };
+
+  list.unshift(newEntry);
+  if (list.length > 50) list.pop();
+  window.saveUserNotifications(list);
+  
+  if (typeof playSuccessFeedback === 'function') playSuccessFeedback();
+};
+
+window.updateNotificationBadge = function() {
+  const list = window.getUserNotifications();
+  const unreadCount = list.filter(item => !item.read).length;
+
+  const badge = document.getElementById("notif-badge");
+  const modalBadge = document.getElementById("notif-unread-count-badge");
+
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+      badge.style.display = "inline-block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  if (modalBadge) {
+    if (unreadCount > 0) {
+      modalBadge.textContent = `${unreadCount}건 미확인`;
+      modalBadge.style.display = "inline-block";
+    } else {
+      modalBadge.style.display = "none";
+    }
+  }
+};
+
+window.openNotificationModal = function() {
+  const modal = document.getElementById("notification-modal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  window.renderNotificationList();
+};
+
+window.closeNotificationModal = function() {
+  const modal = document.getElementById("notification-modal");
+  if (modal) modal.style.display = "none";
+};
+
+window.renderNotificationList = function() {
+  const container = document.getElementById("notification-list-container");
+  if (!container) return;
+
+  const list = window.getUserNotifications();
+  window.updateNotificationBadge();
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; color:#94a3b8;">
+        <i class="fa-regular fa-bell-slash" style="font-size:32px; color:#cbd5e1; margin-bottom:10px; display:block;"></i>
+        <p style="font-size:13.5px; font-weight:600; color:#64748b;">새로운 알림이 없습니다.</p>
+        <span style="font-size:11.5px; color:#94a3b8;">오더 요청 및 승인/보류 내역이 여기에 표시됩니다.</span>
+      </div>
+    `;
+    return;
+  }
+
+  let html = "";
+  list.forEach(item => {
+    let iconClass = "fa-solid fa-bell";
+    let iconBg = "#e0f2fe";
+    let iconColor = "#0284c7";
+    let borderAccent = "#e2e8f0";
+
+    if (item.type === "order_request") {
+      iconClass = "fa-solid fa-cart-arrow-down";
+      iconBg = "#dbeafe";
+      iconColor = "#1d4ed8";
+      borderAccent = "#3b82f6";
+    } else if (item.type === "order_accept") {
+      iconClass = "fa-solid fa-circle-check";
+      iconBg = "#dcfce7";
+      iconColor = "#15803d";
+      borderAccent = "#10b981";
+    } else if (item.type === "order_hold") {
+      iconClass = "fa-solid fa-circle-exclamation";
+      iconBg = "#fee2e2";
+      iconColor = "#b91c1c";
+      borderAccent = "#ef4444";
+    } else if (item.type === "order_complete") {
+      iconClass = "fa-solid fa-boxes-packing";
+      iconBg = "#f3e8ff";
+      iconColor = "#7e22ce";
+      borderAccent = "#8b5cf6";
+    }
+
+    let timeStr = item.time;
+    if (item.time && String(item.time).includes('T')) {
+      try {
+        const d = new Date(item.time);
+        const yy = d.getFullYear().toString().slice(2);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        timeStr = `${yy}.${mm}.${dd} ${hh}:${min}`;
+      } catch(e) {}
+    } else if (item.time) {
+      timeStr = String(item.time).replace(/-/g, '.').substring(2);
+    }
+
+    html += `
+      <div class="notification-item" onclick="onNotificationClick('${item.id}')" style="display:flex; align-items:flex-start; gap:10px; padding:12px; margin-bottom:8px; border-radius:10px; background:${item.read ? '#ffffff' : '#f0fdf4'}; border:1px solid ${item.read ? '#e2e8f0' : borderAccent}; cursor:pointer; transition:all 0.15s ease; position:relative; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+        ${!item.read ? `<div style="position:absolute; top:10px; right:10px; width:7px; height:7px; border-radius:50%; background:#ef4444;"></div>` : ''}
+        <div style="width:34px; height:34px; border-radius:50%; background:${iconBg}; color:${iconColor}; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; margin-top:2px;">
+          <i class="${iconClass}"></i>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+            <strong style="font-size:13px; color:#0f172a;">${item.title}</strong>
+            <span style="font-size:10.5px; color:#94a3b8;">${timeStr}</span>
+          </div>
+          <div style="font-size:12.5px; color:#334155; line-height:1.4; word-break:keep-all;">${item.message}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+};
+
+window.navigateToTab = function(rawTabId) {
+  let cleanId = rawTabId ? String(rawTabId).replace(/^tab-/, '') : 'order';
+  
+  if (typeof closeNotificationModal === 'function') closeNotificationModal();
+  
+  if (typeof switchTab === 'function') {
+    const navBtn = document.querySelector(`.bottom-nav .nav-item[onclick*="${cleanId}"]`) ||
+                   document.querySelector(`.bottom-nav .nav-item:first-child`);
+    switchTab(cleanId, navBtn);
+  } else {
+    document.querySelectorAll(".tab-page").forEach(page => page.classList.remove("active"));
+    const target = document.getElementById(`tab-${cleanId}`);
+    if (target) target.classList.add("active");
+  }
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.onNotificationClick = function(id) {
+  const list = window.getUserNotifications();
+  const target = list.find(item => item.id === id);
+  if (target) {
+    target.read = true;
+    window.saveUserNotifications(list);
+    window.renderNotificationList();
+  }
+  window.closeNotificationModal();
+  window.navigateToTab('order');
+};
+
+window.markAllNotificationsAsRead = function() {
+  const list = window.getUserNotifications();
+  list.forEach(item => item.read = true);
+  window.saveUserNotifications(list);
+  window.renderNotificationList();
+  if (typeof showToast === 'function') showToast("모든 알림을 읽음 처리했습니다.", "info");
+};
+
+window.clearAllNotifications = function() {
+  if (!confirm("알림 내역을 모두 삭제하시겠습니까?")) return;
+  window.saveUserNotifications([]);
+  window.renderNotificationList();
+  if (typeof showToast === 'function') showToast("알림 내역을 비웠습니다.", "info");
+};
+
+// ==========================================
+// --- Order Likes Engine ---
+// ==========================================
+
+window.getOrderLikesMap = function() {
+  try {
+    const saved = localStorage.getItem("warehouse_order_likes");
+    return saved ? JSON.parse(saved) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+window.saveOrderLikesMap = function(map) {
+  try {
+    localStorage.setItem("warehouse_order_likes", JSON.stringify(map));
+  } catch (e) {}
+};
+
+window.toggleOrderLike = async function(originalIndex) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 좋아요를 누를 수 없습니다.", "warning");
+    return;
+  }
+
+  if (typeof orderLogs === 'undefined' || !orderLogs[originalIndex]) return;
+  const order = orderLogs[originalIndex];
+  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+  const orderKey = String(order.id || `${order.artNo}_${order.date}_${order.user}`);
+
+  const likesMap = window.getOrderLikesMap();
+  let userList = likesMap[orderKey] || (Array.isArray(order.likes) ? order.likes : []);
+
+  const hasLiked = userList.includes(user);
+  if (hasLiked) {
+    userList = userList.filter(u => u !== user);
+    if (typeof showToast === 'function') showToast(`🤍 좋아요를 취소했습니다.`, "info");
+  } else {
+    userList.push(user);
+    if (typeof showToast === 'function') showToast(`❤️ '${order.artName || order.artNo}' 오더에 공감했습니다!`, "success");
+    if (typeof playSuccessFeedback === 'function') playSuccessFeedback();
+  }
+
+  likesMap[orderKey] = userList;
+  order.likes = userList;
+  window.saveOrderLikesMap(likesMap);
+
+  // Sync to Supabase if connected
+  if (typeof supabaseClient !== 'undefined' && supabaseClient && order.id) {
+    try {
+      await supabaseClient.from('order_requests').update({ likes: userList }).eq('id', order.id);
+    } catch (e) {
+      console.warn("Supabase likes update error (ignorable if column absent):", e);
+    }
+  }
+
+  if (typeof renderOrderLogs === 'function') renderOrderLogs();
+};
+
+// Check user notifications on login / session start
+window.checkUserNotificationsOnLogin = function() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const user = currentUser;
+  const isAdmin = typeof isAdminUser !== 'undefined' && isAdminUser;
+  const isViewer = typeof isViewerUser !== 'undefined' && isViewerUser;
+
+  if (isViewer) {
+    const badge = document.getElementById("notif-badge");
+    if (badge) badge.style.display = "none";
+    return;
+  }
+
+  const currentNotifs = window.getUserNotifications();
+  let newlyAddedCount = 0;
+
+  if (isAdmin) {
+    // 👑 Admin user: Check for all pending orders from general users
+    const pendingOrders = (typeof orderLogs !== 'undefined') ? orderLogs.filter(o => o.status === "요청됨" || o.status === "요청" || o.status === "대기") : [];
+    pendingOrders.forEach(order => {
+      const orderIdStr = String(order.id || `${order.artNo}_${order.date}`);
+      const alreadyHas = currentNotifs.some(n => n.orderId === orderIdStr);
+      if (!alreadyHas) {
+        const requester = order.user || "동료";
+        const artName = order.artName || order.artNo;
+        currentNotifs.push({
+          id: `notif_order_${orderIdStr}`,
+          type: "order_request",
+          title: "오더 요청 도착",
+          message: `${requester}님이 '${artName}' ${order.qty}개를 오더 요청했습니다.`,
+          time: order.created_at || order.date,
+          read: false,
+          timestamp: Date.now(),
+          orderId: orderIdStr
+        });
+        newlyAddedCount++;
+      }
+    });
+
+    if (newlyAddedCount > 0) {
+      window.saveUserNotifications(currentNotifs);
+      if (typeof showAlarmNotification === 'function') {
+        showAlarmNotification(`🔔 미확인 오더 요청 ${newlyAddedCount}건이 있습니다. 알림함을 확인하세요!`, "success");
+      }
+    } else {
+      window.updateNotificationBadge();
+    }
+  } else {
+    // 👤 General User: Check for updates on their own submitted orders
+    const myOrders = (typeof orderLogs !== 'undefined') ? orderLogs.filter(o => o.user === user) : [];
+    myOrders.forEach(order => {
+      if (!order.status || order.status === "요청" || order.status === "요청됨") return;
+      const orderIdStr = String(order.id || `${order.artNo}_${order.date}`);
+      const notifKey = `notif_status_${orderIdStr}_${order.status}`;
+      const alreadyHas = currentNotifs.some(n => n.id === notifKey);
+      
+      if (!alreadyHas) {
+        let notifType = "order_accept";
+        let notifTitle = "오더 승인 완료";
+        let notifMsg = `요청하신 '${order.artName}' ${order.qty}개 오더가 수락되었습니다!`;
+
+        if (order.status === "보류") {
+          notifType = "order_hold";
+          notifTitle = "오더 보류 안내";
+          notifMsg = `요청하신 '${order.artName}' ${order.qty}개 오더가 보류되었습니다.`;
+        } else if (order.status === "출고완료" || order.status === "완료") {
+          notifType = "order_complete";
+          notifTitle = "출고 완료 안내";
+          notifMsg = `요청하신 '${order.artName}' ${order.qty}개가 창고에서 출고 완료되었습니다.`;
+        }
+
+        currentNotifs.push({
+          id: notifKey,
+          type: notifType,
+          title: notifTitle,
+          message: notifMsg,
+          time: order.created_at || order.date,
+          read: false,
+          timestamp: Date.now(),
+          orderId: orderIdStr
+        });
+        newlyAddedCount++;
+      }
+    });
+
+    if (newlyAddedCount > 0) {
+      window.saveUserNotifications(currentNotifs);
+      if (typeof showAlarmNotification === 'function') {
+        showAlarmNotification(`🔔 요청하신 오더 상태가 변경되었습니다. 알림함을 확인하세요!`, "success");
+      }
+    } else {
+      window.updateNotificationBadge();
+    }
+  }
+};
+
 // --- Register Form Product Image Preview Integration ---
 window.updateRegProductThumb = function(artNo, artName) {
   const container = document.getElementById("reg-thumb-container");
@@ -322,6 +725,10 @@ window.handleAutocompleteNameInput = function(query, target = "register") {
 
 // Override: Allow any user to delete history logs (remove isAdminUser check)
 window.confirmDeleteHistoryLog = async function(id, optArtName) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 기록을 삭제할 수 없습니다.", "warning");
+    return;
+  }
   const logToDelete = (typeof historyLogs !== 'undefined') ? historyLogs.find(log => String(log.id) === String(id)) : null;
   let artName = optArtName || "해당 품목";
   if (logToDelete) {
@@ -380,15 +787,24 @@ window.renderHistoryLogs = function() {
 
   const isDefaultFilter = !startDate && !endDate && typeFilter === "ALL" && articleFilter === "ALL";
 
-  if (!isDefaultFilter) {
-    filteredLogs = historyLogs.filter(log => {
-      if (startDate && log.date < startDate) return false;
-      if (endDate && log.date > endDate) return false;
-      if (typeFilter !== "ALL" && log.type !== typeFilter) return false;
-      if (articleFilter !== "ALL" && log.artNo !== articleFilter) return false;
-      return true;
+  if (startDate) {
+    filteredLogs = filteredLogs.filter(log => log.date >= startDate);
+  }
+  if (endDate) {
+    filteredLogs = filteredLogs.filter(log => log.date <= endDate);
+  }
+  if (typeFilter && typeFilter !== "ALL") {
+    filteredLogs = filteredLogs.filter(log => log.type === typeFilter);
+  }
+  if (articleFilter && articleFilter !== "ALL") {
+    filteredLogs = filteredLogs.filter(log => {
+      let cleanLogArt = String(log.artNo || "").trim().replace(/\D/g, '');
+      let cleanFilterArt = String(articleFilter).trim().replace(/\D/g, '');
+      return cleanLogArt === cleanFilterArt;
     });
-  } else if (typeof historyDisplayLimit !== 'undefined' && typeof RENDER_LIMIT !== 'undefined' && historyDisplayLimit === RENDER_LIMIT) {
+  }
+
+  if (isDefaultFilter) {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -453,6 +869,10 @@ window.renderHistoryLogs = function() {
       displayName = (log.artName && log.artName !== "null") ? log.artName : ((log.artname && log.artname !== "null") ? log.artname : "기타 품목");
     }
 
+    const deleteBtnHtml = (typeof isViewerUser === 'undefined' || !isViewerUser)
+      ? `<button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-top:4px; cursor:pointer;" onclick="confirmDeleteHistoryLog('${log.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>`
+      : '';
+
     return `
     <div class="history-item type-${log.type}" style="display:flex; align-items:center; gap:10px;">
       ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 44) : ''}
@@ -466,7 +886,7 @@ window.renderHistoryLogs = function() {
         <div class="hist-qty ${log.type === '입고' ? 'text-in' : 'text-out'}">
           ${log.type === '입고' ? '+' : '-'}${log.qty}개
         </div>
-        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-top:4px; cursor:pointer;" onclick="confirmDeleteHistoryLog('${log.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>
+        ${deleteBtnHtml}
       </div>
     </div>
     `;
@@ -806,51 +1226,47 @@ window.renderStockLookup = function() {
     const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
 
     return `
-      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="position:relative; display:flex; align-items:stretch; padding:12px; gap:12px; border-radius:12px; background:#fff; border:1px solid #e2e8f0; margin-bottom:10px;">
-        <!-- Checkbox -->
-        <div style="position:absolute; top:8px; left:8px; z-index:2;">
-          <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="updateBulkSelection()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
+      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="display:flex; align-items:flex-start; padding:12px 14px; gap:12px; border-radius:14px; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;">
+        <!-- Left: Checkbox & Product Image -->
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0;">
+          <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="updateBulkSelection()" style="width:17px; height:17px; accent-color:#0058a3; cursor:pointer;">
+          ${getProductThumbHtml(item.artNo, item.artName, 54)}
         </div>
 
-        <!-- Left: Product Image -->
-        <div style="display:flex; align-items:center; justify-content:center; padding-left:18px; flex-shrink:0;">
-          ${getProductThumbHtml(item.artNo, item.artName, 68)}
-        </div>
-
-        <!-- Center: Info & Bottom Action Buttons -->
-        <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-          <!-- Line 1: HFB & ArtNo -->
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
-            <span class="ssc-artno" style="font-size:13px; font-weight:800; color:#334155;">${item.artNo}</span>
+        <!-- Center & Main Details -->
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;">
+          <!-- Top Line: HFB + ArtNo + Status Badge -->
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              ${item.hfb ? `<span style="background:#eff6ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${item.hfb}</span>` : ''}
+              <span class="ssc-artno" style="font-size:12.5px; font-weight:800; color:#334155; font-family:monospace;">${item.artNo}</span>
+            </div>
+            <span class="ssc-status ${statusClass}" style="font-size:10.5px; padding:2px 7px; border-radius:12px; font-weight:800; background:${isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'}; color:${isOut ? '#b91c1c' : isLow ? '#b45309' : '#15803d'}; border:1px solid ${isOut ? '#fca5a5' : isLow ? '#fde68a' : '#bbf7d0'}; flex-shrink:0;">${statusText}</span>
           </div>
 
-          <!-- Line 2: Product Name -->
-          <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:break-all;">
-            ${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0; margin-left:4px;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}
+          <!-- Product Name & Stock Quantity -->
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+            <div style="font-size:13.5px; font-weight:800; color:#0f172a; line-height:1.35; word-break:break-all;">
+              ${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0; margin-left:4px;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}
+            </div>
+            <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; flex-shrink:0; text-align:right;">
+              <span class="ssc-num" style="font-size:18px; font-weight:900; color:${isOut ? '#ef4444' : isLow ? '#d97706' : '#0f172a'};">${item.currentStock}</span>
+              <span class="ssc-unit" style="font-size:11.5px; color:#64748b; font-weight:700;">개</span>
+            </div>
           </div>
 
-          <!-- Line 3: Location / Zone -->
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1;">
-              <i class="fa-solid fa-map-pin"></i> 구역: ${item.location}
-            </span>
-            <button type="button" style="background:#e0f2fe; color:#0284c7; border:none; font-size:10px; font-weight:800; padding:3px 6px; border-radius:4px; cursor:pointer;" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
-          </div>
-
-          <!-- Line 4: Quick Action Buttons at the bottom -->
-          <div class="ssc-quick-btns" style="display:flex; gap:8px; margin-top:4px;">
-            <button type="button" class="btn-sm btn-quick-in" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
-            <button type="button" class="btn-sm btn-quick-out" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
-          </div>
-        </div>
-
-        <!-- Right: Status Badge & Stock Qty -->
-        <div class="ssc-right" style="display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:8px; min-width:50px; flex-shrink:0;">
-          <span class="ssc-status ${statusClass}" style="font-size:11px; padding:2px 6px; border-radius:4px; font-weight:700;">${statusText}</span>
-          <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; margin-top:4px;">
-            <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}" style="font-size:20px; font-weight:900;">${item.currentStock}</span>
-            <span class="ssc-unit" style="font-size:12px; color:#64748b; font-weight:700;">개</span>
+          <!-- Bottom Line: Location & Quick In/Out Action Buttons -->
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; margin-top:2px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              <span style="background:#f8fafc; color:#475569; font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; border:1px solid #e2e8f0;">
+                <i class="fa-solid fa-location-dot" style="color:#0058a3; font-size:10px;"></i> 구역: ${item.location}
+              </span>
+              <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:2px 6px; border-radius:6px; cursor:pointer;" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
+            </div>
+            <div class="ssc-quick-btns" style="display:flex; gap:5px;">
+              <button type="button" class="btn-sm btn-quick-in" style="padding:4px 9px; font-size:11px; font-weight:800; border-radius:6px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer;" onclick="quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+              <button type="button" class="btn-sm btn-quick-out" style="padding:4px 9px; font-size:11px; font-weight:800; border-radius:6px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer;" onclick="quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1434,9 +1850,8 @@ window.completePickItem_custom = async function(id) {
     
     const activeTab = document.querySelector('.tab-page.active');
     if (activeTab && activeTab.id === "tab-picklist") {
-      renderPremiumLocationChips();
-      renderPremiumInventory();
-      renderPremiumPickCart();
+      renderStandardLocationButtons();
+      renderStandardPickList();
     }
   }
 };
@@ -1490,7 +1905,7 @@ window.renderStandardInventory = function() {
   }
   
   if (inventory.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:13px;">선택한 구역에 재고가 없습니다.</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:30px 20px; font-size:13px;"><i class="fa-solid fa-box-open" style="font-size:28px; color:#cbd5e1; margin-bottom:8px; display:block;"></i>선택한 구역에 재고가 없습니다.</div>`;
     return;
   }
   
@@ -1502,35 +1917,54 @@ window.renderStandardInventory = function() {
   
   let html = "";
   inventory.forEach((item) => {
-    html += `
-      <label class="stock-card" style="display:flex; align-items:center; padding:15px; margin-bottom:12px; border-radius:12px; background:#ffffff; box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border:1px solid #e2e8f0; gap:12px; cursor:pointer; transition:all 0.2s ease;">
-        <div style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; flex-shrink:0;">
-          <input type="checkbox" class="std-picklist-cb" data-artno="${item.artNo}" data-artname="${item.artName.replace(/"/g, "&quot;")}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#0ea5e9; cursor:pointer; transform:scale(1.2);">
-        </div>
-        
-        ${getProductThumbHtml(item.artNo, item.artName, 52)}
+    let cleanNo = String(item.artNo || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const displayName = item.artName || "기타 품목";
 
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px; background:#f0f9ff; color:#0369a1; font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
-            <span style="font-size:13px; font-weight:bold; color:#64748b; letter-spacing:0.5px;">${item.artNo}</span>
+    html += `
+      <label class="picklist-stock-card" style="display:flex; flex-direction:column; padding:12px 14px; margin-bottom:10px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.04); border:1px solid #e2e8f0; cursor:pointer; transition:all 0.15s ease; gap:8px;">
+        <!-- Top Row: Checkbox, Thumbnail, Location & Title -->
+        <div style="display:flex; align-items:center; gap:10px; width:100%;">
+          <div style="display:flex; align-items:center; justify-content:center; width:22px; flex-shrink:0;">
+            <input type="checkbox" class="std-picklist-cb" data-artno="${cleanNo}" data-artname="${displayName.replace(/"/g, "&quot;")}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#059669; cursor:pointer;">
           </div>
-          <div style="font-size:15px; font-weight:900; margin-top:6px; color:#1e293b; word-break:break-all; overflow-wrap:anywhere;">${item.artName}</div>
-          <div style="font-size:12px; color:#64748b; margin-top:4px; font-weight:600;"><i class="fa-solid fa-box"></i> 잔여 재고: <span style="color:#0ea5e9;">${item.currentStock}개</span></div>
+          
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
+
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="display:inline-flex; align-items:center; gap:3px; background:#f0f9ff; color:#0369a1; font-size:11px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
+              <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
+            </div>
+            <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.35; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
+          </div>
         </div>
-        
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-left:10px; border-left:1px dashed #e2e8f0; flex-shrink:0;">
-          <span style="font-size:12px; font-weight:bold; color:#475569;">챙길 수량</span>
-          <input type="number" id="std-qty-${item.artNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:70px; padding:8px; text-align:center; border:2px solid #e2e8f0; border-radius:8px; font-size:15px; font-weight:bold; color:#0f172a; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='#e2e8f0'">
+
+        <!-- Bottom Row: Stock & Quantity Picker -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px dashed #f1f5f9; width:100%; margin-top:2px;">
+          <div style="font-size:12px; color:#64748b; font-weight:600;">
+            <i class="fa-solid fa-box" style="color:#059669;"></i> 현재 재고: <strong style="color:#0f172a; font-size:13px;">${item.currentStock}</strong>개
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation();">
+            <span style="font-size:12px; font-weight:700; color:#475569;">챙길 수량:</span>
+            <input type="number" id="std-qty-${cleanNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:65px; padding:4px 6px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:bold; color:#0f172a; outline:none;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#cbd5e1'">
+          </div>
         </div>
       </label>
     `;
   });
   
   container.innerHTML = html;
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 };
 
 window.addStandardToPickList = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 챙기기 목록을 이동할 수 없습니다.", "warning");
+    return;
+  }
   const checkboxes = document.querySelectorAll('.std-picklist-cb:checked');
   if (checkboxes.length === 0) {
     showToast("이동할 품목을 선택해주세요.", "warning");
@@ -1544,7 +1978,7 @@ window.addStandardToPickList = async function() {
     const artName = cb.dataset.artname;
     const maxQty = parseInt(cb.dataset.maxqty, 10);
     const qtyInput = document.getElementById(`std-qty-${artNo}`);
-    let qty = parseInt(qtyInput.value, 10);
+    let qty = parseInt(qtyInput ? qtyInput.value : maxQty, 10);
     
     if (isNaN(qty) || qty <= 0) qty = 1;
     if (qty > maxQty) qty = maxQty;
@@ -1570,11 +2004,12 @@ window.addStandardToPickList = async function() {
   }
   
   if (addedCount > 0) {
-    showToast(`${addedCount}개 품목이 공용 챙기기 목록으로 이동되었습니다.`, "success");
+    showToast(`${addedCount}개 품목이 챙기기 대기 목록으로 이동되었습니다.`, "success");
     playSuccessFeedback();
     
     checkboxes.forEach(cb => cb.checked = false);
     renderStandardPickList();
+    renderStandardInventory();
   }
 };
 
@@ -1582,47 +2017,73 @@ window.renderStandardPickList = function() {
   const container = document.getElementById("picklist-standard-cart");
   if (!container) return;
   
-  const pendingPicks = orderLogs.filter(item => item.status === "출고대기");
+  const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기");
+  
+  const badgePicklist = document.getElementById("badge-picklist");
+  if (badgePicklist) {
+    if (pendingPicks.length > 0) {
+      badgePicklist.textContent = pendingPicks.length;
+      badgePicklist.style.display = "inline-flex";
+    } else {
+      badgePicklist.style.display = "none";
+    }
+  }
   
   if (pendingPicks.length === 0) {
-    container.innerHTML = `<div class="empty-state">대기 중인 공용 챙기기 목록이 없습니다.</div>`;
+    container.innerHTML = `<div style="text-align:center; padding:30px 20px; color:#94a3b8; font-size:13.5px;"><i class="fa-solid fa-box-open" style="font-size:30px; color:#cbd5e1; margin-bottom:10px; display:block;"></i>현재 대기 중인 항목이 없습니다.</div>`;
     return;
   }
   
   let html = "";
   pendingPicks.forEach(item => {
     const stockMap = buildStockMap();
-    const stockItem = stockMap.get(item.artNo);
+    let cleanNo = String(item.artNo || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const stockItem = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
     let location = "미지정";
     if (stockItem && stockItem.location) location = stockItem.location;
+    const displayName = item.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
     
-    html += `
-      <div class="history-card" style="align-items:center;">
-        <div class="history-icon" style="background-color: #f59e0b; color: white;">
-          <i class="fa-solid fa-box-open"></i>
-        </div>
-        <div class="history-content">
-          <div style="font-size: 10px; color: #64748b; font-weight: 700;">
-            ${item.date} | 요청: ${item.user}
-          </div>
-          <div class="history-artno">${item.artNo}</div>
-          <div class="history-artname">${item.artName}</div>
-          <div style="margin-top:4px;">
-            <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:4px;">
-              <i class="fa-solid fa-map-pin"></i> 구역: ${location}
-            </span>
-          </div>
-        </div>
-        <div class="history-qty" style="color: #d97706; font-size: 16px; min-width:40px; text-align:right;">
-          ${item.qty}개
-        </div>
-        <button type="button" style="background:#059669; color:white; border:none; margin-left:15px; font-weight:bold; border-radius:6px; padding:12px 16px; cursor:pointer; box-shadow:0 2px 4px rgba(5,150,105,0.2);" onclick="completePickItem_custom('${item.id}')">
-          <i class="fa-solid fa-check"></i> 완료
+    const pickActionsHtml = (typeof isViewerUser === 'undefined' || !isViewerUser) ? `
+      <div style="display:flex; gap:4px; margin-top:2px;">
+        <button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="modifyPickItem_custom('${item.id}')">
+          수정
         </button>
+        <button type="button" style="background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="deletePickItem_custom('${item.id}')">
+          삭제
+        </button>
+        <button type="button" style="background:#ef4444; color:white; border:none; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 8px; cursor:pointer; box-shadow:0 1px 2px rgba(239,68,68,0.2);" onclick="completePickItem_custom('${item.id}')">
+          완료
+        </button>
+      </div>
+    ` : '';
+
+    html += `
+      <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #f87171; gap:10px; position:relative; overflow:hidden;">
+        <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background-color:#ef4444;"></div>
+        
+        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
+
+        <div style="flex:1; min-width:0; padding-left:2px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${location}</span>
+            <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
+          </div>
+          <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
+          <div style="font-size:10.5px; color:#94a3b8; margin-top:3px;"><i class="fa-regular fa-clock"></i> ${item.date} | 요청: ${item.user}</div>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+          <div style="font-size:16px; font-weight:900; color:#ef4444;">${item.qty}<span style="font-size:11px; color:#94a3b8; font-weight:bold; margin-left:2px;">개</span></div>
+          ${pickActionsHtml}
+        </div>
       </div>
     `;
   });
   container.innerHTML = html;
+  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 };
 
 const origSwitchTabStandard = window.switchTab;
@@ -1876,7 +2337,9 @@ window.updateAllBadges = function() {
     if (activeOrders.length > 0) {
       badgeOrder.textContent = activeOrders.length;
       badgeOrder.style.display = "inline-flex";
-      badgeOrder.style.backgroundColor = "#3b82f6";
+      badgeOrder.style.backgroundColor = "#ef4444";
+      badgeOrder.style.color = "#ffffff";
+      badgeOrder.style.fontWeight = "900";
       badgeOrder.style.position = "absolute";
       badgeOrder.style.top = "10px";
       badgeOrder.style.right = "10px";
@@ -2166,6 +2629,10 @@ window.closeEditItemNameModal = function() {
 };
 
 window.saveEditItemName = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 품목명을 수정할 수 없습니다.", "warning");
+    return;
+  }
   if (!currentEditItemNameArtNo) return;
   const artNo = currentEditItemNameArtNo;
   const newName = document.getElementById("edit-item-name-input").value.trim();
