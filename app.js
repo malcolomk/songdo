@@ -52,6 +52,7 @@ let masterCatalog = [];
 let historyLogs = [];
 let orderLogs = [];
 let mfaqLogs = [];
+let storeInboundLogs = [];
 let userPasswords = {};
 let currentUser = null;
 let isAdminUser = false;
@@ -507,6 +508,36 @@ async function loadDataFromSupabase() {
         const savedOrders = localStorage.getItem("warehouse_order_logs");
         orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
       }
+      const { data: storeInbounds, error: storeInboundErr } =
+        await supabaseClient
+          .from("store_inbound_logs")
+          .select("*")
+          .order("id", { ascending: false });
+
+      if (!storeInboundErr && storeInbounds) {
+        storeInboundLogs = storeInbounds.map(row => {
+          let mappedArtNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = mappedArtNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            mappedArtNo = digitsOnly.padStart(8, '0');
+          }
+          let resolvedName = "";
+          if (typeof masterCatalogMap !== 'undefined' && masterCatalogMap) {
+            resolvedName = masterCatalogMap.get(mappedArtNo) || masterCatalogMap.get(digitsOnly) || "";
+          }
+          if (!resolvedName || resolvedName === "null") {
+            resolvedName = (row.artname && row.artname !== "null") ? row.artname : ((row.artName && row.artName !== "null") ? row.artName : "매장 입고 품목");
+          }
+          return {
+            ...row,
+            artNo: mappedArtNo,
+            artName: resolvedName
+          };
+        });
+      } else {
+        const savedStore = localStorage.getItem("warehouse_store_inbound_logs");
+        storeInboundLogs = savedStore ? JSON.parse(savedStore) : [];
+      }
     } catch (err) {
       console.warn("Supabase data load error, fallback to local storage:", err);
       const savedCatalog = localStorage.getItem("warehouse_master_catalog");
@@ -515,6 +546,8 @@ async function loadDataFromSupabase() {
       historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
       const savedOrders = localStorage.getItem("warehouse_order_logs");
       orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
+      const savedStore = localStorage.getItem("warehouse_store_inbound_logs");
+      storeInboundLogs = savedStore ? JSON.parse(savedStore) : [];
     }
   } else {
     const savedCatalog = localStorage.getItem("warehouse_master_catalog");
@@ -523,6 +556,8 @@ async function loadDataFromSupabase() {
     historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
     const savedOrders = localStorage.getItem("warehouse_order_logs");
     orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
+    const savedStore = localStorage.getItem("warehouse_store_inbound_logs");
+    storeInboundLogs = savedStore ? JSON.parse(savedStore) : [];
   }
 
   if (supabaseClient) {
@@ -645,7 +680,6 @@ function switchTab(tabId, btnElement) {
     return;
   }
 
-
   document.querySelectorAll(".tab-page").forEach(page => page.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
 
@@ -677,6 +711,12 @@ function switchTab(tabId, btnElement) {
   }
   if (tabId === "mfaq") {
     renderMfaq();
+  }
+  if (tabId === "store-inbound") {
+    setTimeout(() => {
+      const inputEl = document.getElementById("store-barcode-input");
+      if (inputEl) inputEl.focus();
+    }, 150);
   }
 }
 
@@ -2257,6 +2297,12 @@ function chooseModalItem(artNo) {
   } else if (modalSelectTarget === "ptag") {
     document.getElementById("ptag-artno").value = artNo;
     onPtagArtNoInput(artNo);
+  } else if (modalSelectTarget === "store_inbound") {
+    const input = document.getElementById("store-barcode-input");
+    if (input) input.value = artNo;
+    if (typeof handleStoreBarcodeInput === "function") {
+      handleStoreBarcodeInput(artNo);
+    }
   } else {
     document.getElementById("reg-artno").value = artNo;
     onArtNoInput(artNo);
@@ -2412,6 +2458,36 @@ function initRealtimeSubscriptions() {
       handleRealtimeMfaq(payload);
     })
     .subscribe();
+
+  supabaseClient
+    .channel('public:store_inbound_logs')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inbound_logs' }, payload => {
+      handleRealtimeStoreInbound(payload);
+    })
+    .subscribe();
+}
+
+function handleRealtimeStoreInbound(payload) {
+  const { eventType, new: newRecord, old: oldRecord } = payload;
+  if (eventType === 'INSERT') {
+    const exists = storeInboundLogs.some(log => log.id === newRecord.id);
+    if (!exists) {
+      let mappedArtNo = String(newRecord.artno || newRecord.artNo || "").trim();
+      const digitsOnly = mappedArtNo.replace(/\D/g, '');
+      if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+        mappedArtNo = digitsOnly.padStart(8, '0');
+      }
+      storeInboundLogs.unshift({
+        ...newRecord,
+        artNo: mappedArtNo,
+        artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "매장 입고 품목")
+      });
+      localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+    }
+  } else if (eventType === 'DELETE') {
+    storeInboundLogs = storeInboundLogs.filter(log => log.id !== oldRecord.id);
+    localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+  }
 }
 
 function handleRealtimeMfaq(payload) {

@@ -2729,4 +2729,706 @@ window.saveEditItemName = async function() {
   if (typeof renderPickList === "function") renderPickList();
 };
 
+/* ==========================================================================
+   MORNING STORE INBOUND (아침 매장 입고 - 바코드 스캐너 건 전용) ENGINE
+   ========================================================================== */
+
+window.storeInboundCart = [];
+window.isContinuousScanMode = true; // Default to ON for rapid gun scanning
+window.lastScannedBarcode = "";
+window.lastScanTimestamp = 0;
+window.activeStoreProduct = null;
+
+// Sound AudioContext synthesizer for scan beep
+let scanAudioCtx = null;
+function playScanBeep(isDouble = false) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!scanAudioCtx) scanAudioCtx = new AudioContext();
+    if (scanAudioCtx.state === 'suspended') scanAudioCtx.resume();
+    
+    const now = scanAudioCtx.currentTime;
+    const osc = scanAudioCtx.createOscillator();
+    const gain = scanAudioCtx.createGain();
+    
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(1800, now + 0.08);
+    
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    
+    osc.connect(gain);
+    gain.connect(scanAudioCtx.destination);
+    
+    osc.start(now);
+    osc.stop(now + 0.08);
+
+    if (isDouble) {
+      setTimeout(() => {
+        try {
+          const osc2 = scanAudioCtx.createOscillator();
+          const gain2 = scanAudioCtx.createGain();
+          const now2 = scanAudioCtx.currentTime;
+          osc2.type = "sine";
+          osc2.frequency.setValueAtTime(1600, now2);
+          osc2.frequency.exponentialRampToValueAtTime(2200, now2 + 0.08);
+          gain2.gain.setValueAtTime(0.25, now2);
+          gain2.gain.exponentialRampToValueAtTime(0.01, now2 + 0.08);
+          osc2.connect(gain2);
+          gain2.connect(scanAudioCtx.destination);
+          osc2.start(now2);
+          osc2.stop(now2 + 0.08);
+        } catch(e){}
+      }, 100);
+    }
+  } catch(e) {
+    console.warn("Scan beep error:", e);
+  }
+}
+
+function playScanHaptic() {
+  if (navigator && typeof navigator.vibrate === "function") {
+    try { navigator.vibrate([70]); } catch(e){}
+  }
+}
+
+// Global Barcode Scanner Gun Keystroke Interceptor for #tab-store-inbound
+let globalScannerBuffer = "";
+let globalScannerTimer = null;
+
+document.addEventListener("keydown", function(e) {
+  const storeTab = document.getElementById("tab-store-inbound");
+  if (!storeTab || !storeTab.classList.contains("active")) return;
+
+  const activeEl = document.activeElement;
+  const inputEl = document.getElementById("store-barcode-input");
+
+  // If already in barcode input, let its onkeydown handle Enter
+  if (activeEl && activeEl.id === "store-barcode-input") {
+    return;
+  }
+
+  // Handle Enter key from hardware scanner gun
+  if (e.key === "Enter") {
+    if (globalScannerBuffer.trim().length >= 3) {
+      e.preventDefault();
+      const scannedCode = globalScannerBuffer.trim();
+      globalScannerBuffer = "";
+      handleStoreBarcodeInput(scannedCode);
+    }
+    return;
+  }
+
+  // Rapid buffer for hardware scanner gun
+  if (e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    globalScannerBuffer += e.key;
+    clearTimeout(globalScannerTimer);
+    globalScannerTimer = setTimeout(() => {
+      globalScannerBuffer = "";
+    }, 150);
+  }
+});
+
+// Auto-focus barcode input when clicking anywhere in store-inbound tab
+document.addEventListener("click", function(e) {
+  const storeTab = document.getElementById("tab-store-inbound");
+  if (!storeTab || !storeTab.classList.contains("active")) return;
+
+  if (
+    e.target.closest("button") || 
+    e.target.closest("a") || 
+    (e.target.tagName === "INPUT" && e.target.id !== "store-barcode-input") ||
+    e.target.closest(".autocomplete-dropdown") ||
+    e.target.closest(".modal-backdrop") ||
+    e.target.closest(".modal-content") ||
+    e.target.closest(".autocomplete-item")
+  ) {
+    return;
+  }
+
+  const inputEl = document.getElementById("store-barcode-input");
+  if (inputEl) inputEl.focus();
+});
+
+// Live Autocomplete for Morning Store Inbound Search
+window.handleStoreAutocompleteInput = function(query) {
+  const cleanQuery = String(query || '').trim().toLowerCase();
+  const dropdown = document.getElementById("store-barcode-dropdown");
+  if (!dropdown) return;
+
+  if (!cleanQuery) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+    return;
+  }
+
+  const catalog = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog : [];
+  const matches = catalog.filter(item => 
+    (item.artNo && item.artNo.toLowerCase().includes(cleanQuery)) ||
+    (item.artName && item.artName.toLowerCase().includes(cleanQuery)) ||
+    (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
+  ).slice(0, 12);
+
+  if (matches.length === 0) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(item => `
+    <div class="autocomplete-item" onclick="selectStoreAutocompleteItem('${item.artNo}')" style="display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 38) : ''}
+      <div class="art-info" style="flex:1; min-width:0;">
+        <div class="art-no-row" style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:3px;">${item.hfb}</span>` : ''}
+          <span class="art-no" style="font-weight:900; color:#ea580c; font-size:12.5px;">${item.artNo}</span>
+        </div>
+        <div class="art-name" style="font-size:12px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+      </div>
+      <i class="fa-solid fa-cart-plus" style="color:#ea580c; font-size:14px; padding:4px;"></i>
+    </div>
+  `).join("");
+
+  dropdown.classList.add("active");
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+window.selectStoreAutocompleteItem = function(artNo) {
+  const dropdown = document.getElementById("store-barcode-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+  const input = document.getElementById("store-barcode-input");
+  if (input) input.value = artNo;
+  
+  handleStoreBarcodeInput(artNo);
+};
+
+window.onContinuousScanToggle = function(checked) {
+  window.isContinuousScanMode = checked;
+  if (checked) {
+    showToast("⚡ 연속 빠른 담기 모드가 켜졌습니다. (스캔 시 자동 +1)", "success");
+  } else {
+    showToast("일반 스캔 모드로 전환되었습니다. (수량 직접 지정)", "info");
+  }
+};
+
+// Master Product Resolver
+function resolveMasterProduct(query) {
+  if (!query) return null;
+  const rawStr = String(query).trim();
+  const digitsOnly = rawStr.replace(/\D/g, '');
+  
+  let targetArtNo = "";
+  if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+    targetArtNo = digitsOnly.padStart(8, '0');
+  } else if (digitsOnly.length > 8) {
+    targetArtNo = digitsOnly.slice(-8);
+  } else {
+    targetArtNo = rawStr;
+  }
+
+  // 1. Direct match in masterCatalog
+  let found = (typeof masterCatalog !== "undefined" ? masterCatalog : []).find(
+    m => m.artNo === targetArtNo || m.artNo === digitsOnly || String(m.artNo).replace(/\D/g, '') === digitsOnly
+  );
+
+  // 2. Check masterCatalogMap
+  let artName = "";
+  if (found) {
+    artName = found.artName;
+  } else if (typeof masterCatalogMap !== "undefined" && masterCatalogMap) {
+    artName = masterCatalogMap.get(targetArtNo) || masterCatalogMap.get(digitsOnly) || "";
+    if (artName) {
+      found = { artNo: targetArtNo, artName: artName };
+    }
+  }
+
+  // 3. Substring match
+  if (!found && rawStr.length >= 3) {
+    found = (typeof masterCatalog !== "undefined" ? masterCatalog : []).find(
+      m => (m.artName && m.artName.toLowerCase().includes(rawStr.toLowerCase())) ||
+           (m.artNo && m.artNo.includes(rawStr))
+    );
+  }
+
+  if (found) {
+    return {
+      artNo: found.artNo || targetArtNo,
+      artName: found.artName || "매장 입고 품목",
+      hfb: found.hfb || "일반",
+      location: found.location || "매장"
+    };
+  }
+
+  // Fallback
+  return {
+    artNo: targetArtNo || rawStr,
+    artName: "미등록 신규 품목",
+    hfb: "일반",
+    location: "매장"
+  };
+}
+
+// Barcode Scanner Input Handler
+window.handleStoreBarcodeInput = function(inputValue) {
+  const inputEl = document.getElementById("store-barcode-input");
+  const rawQuery = String(inputValue || (inputEl ? inputEl.value : "")).trim();
+  
+  const dropdown = document.getElementById("store-barcode-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+  
+  if (!rawQuery) {
+    showToast("바코드 또는 아티클 번호를 입력해주세요.", "warning");
+    return;
+  }
+
+  const product = resolveMasterProduct(rawQuery);
+  if (!product) {
+    showToast(`품목을 찾을 수 없습니다: ${rawQuery}`, "danger");
+    return;
+  }
+
+  playScanBeep(window.isContinuousScanMode);
+  playScanHaptic();
+
+  if (inputEl) {
+    inputEl.value = "";
+    inputEl.focus();
+  }
+
+  const scanQtyEl = document.getElementById("store-scan-qty");
+  let scanQty = scanQtyEl ? parseInt(scanQtyEl.value, 10) : 1;
+  if (isNaN(scanQty) || scanQty < 1) scanQty = 1;
+
+  // Continuous Fast Add Mode (Default)
+  if (window.isContinuousScanMode) {
+    addStoreInboundCartItem(product.artNo, product.artName, scanQty);
+    
+    // Show instant flash notification banner
+    const box = document.getElementById("store-active-product-box");
+    if (box) {
+      const existingInCart = window.storeInboundCart.find(i => i.artNo === product.artNo);
+      const curTotalQty = existingInCart ? existingInCart.qty : scanQty;
+      box.style.display = "block";
+      box.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(product.artNo, product.artName, 42) : ''}
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:5px; margin-bottom:1px;">
+              <span style="font-size:12.5px; font-weight:900; color:#ea580c;">${product.artNo}</span>
+              <span style="font-size:10px; font-weight:800; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px;">+${scanQty}개 담김 (총 ${curTotalQty}개)</span>
+            </div>
+            <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${product.artName}</div>
+          </div>
+        </div>
+      `;
+      if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+    }
+
+    showToast(`⚡ [${product.artNo}] ${product.artName} (+${scanQty}개 담김)`, "success");
+    return;
+  }
+
+  // Normal Mode: Show active product box with quantity stepper
+  window.activeStoreProduct = { ...product, qty: scanQty };
+  renderStoreActiveProduct();
+};
+
+// Render Scanned Active Product Details
+function renderStoreActiveProduct() {
+  const box = document.getElementById("store-active-product-box");
+  if (!box || !window.activeStoreProduct) {
+    if (box) box.style.display = "none";
+    return;
+  }
+
+  const p = window.activeStoreProduct;
+  const currentStock = (typeof calculateStock === "function") ? calculateStock(p.artNo) : "-";
+
+  box.style.display = "block";
+  box.innerHTML = `
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(p.artNo, p.artName, 52) : ''}
+      <div style="flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+          <span style="font-size:13px; font-weight:900; color:#ea580c;">${p.artNo}</span>
+          <span style="font-size:10px; font-weight:700; background:#fed7aa; color:#9a3412; padding:1px 5px; border-radius:4px;">현재재고 ${currentStock}개</span>
+        </div>
+        <div style="font-size:12.5px; font-weight:800; color:#0f172a; word-break:break-all; line-height:1.2;">${p.artName}</div>
+      </div>
+    </div>
+
+    <!-- Quantity Stepper & Quick Add Buttons -->
+    <div style="display:flex; flex-direction:column; gap:6px; background:#ffffff; padding:8px 10px; border-radius:8px; border:1px solid #fed7aa;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11.5px; font-weight:700; color:#475569;">매장 입고 수량</span>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <button type="button" onclick="adjustActiveStoreQty(-1)" style="width:30px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:14px; font-weight:800; cursor:pointer;">-</button>
+          <input type="number" id="store-active-qty" value="${p.qty}" min="1" style="width:55px; height:30px; text-align:center; font-size:14px; font-weight:900; color:#ea580c; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed;" onchange="updateActiveStoreQty(this.value)">
+          <button type="button" onclick="adjustActiveStoreQty(1)" style="width:30px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:14px; font-weight:800; cursor:pointer;">+</button>
+        </div>
+      </div>
+
+      <!-- Quick Add Buttons -->
+      <div style="display:flex; gap:4px; justify-content:flex-end;">
+        <button type="button" onclick="adjustActiveStoreQty(1)" style="padding:2px 8px; font-size:10.5px; font-weight:700; border-radius:4px; background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; cursor:pointer;">+1</button>
+        <button type="button" onclick="adjustActiveStoreQty(5)" style="padding:2px 8px; font-size:10.5px; font-weight:700; border-radius:4px; background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; cursor:pointer;">+5</button>
+        <button type="button" onclick="adjustActiveStoreQty(10)" style="padding:2px 8px; font-size:10.5px; font-weight:700; border-radius:4px; background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; cursor:pointer;">+10</button>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:6px; margin-top:8px;">
+      <button type="button" onclick="confirmAddActiveStoreProduct()" style="flex:1; height:36px; border-radius:8px; background:#ffffff; border:1px solid #ea580c; color:#ea580c; font-size:12.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+        <i class="fa-solid fa-cart-plus"></i> 목록에 담기
+      </button>
+      <button type="button" onclick="directSaveActiveStoreProduct()" style="flex:1.2; height:36px; border-radius:8px; background:#ea580c; border:none; color:#ffffff; font-size:12.5px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; box-shadow:0 2px 6px rgba(234,88,12,0.25);">
+        <i class="fa-solid fa-bolt"></i> ⚡ 바로 입고 저장
+      </button>
+    </div>
+  `;
+
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+}
+
+window.adjustActiveStoreQty = function(delta) {
+  if (!window.activeStoreProduct) return;
+  window.activeStoreProduct.qty = Math.max(1, (window.activeStoreProduct.qty || 1) + delta);
+  const input = document.getElementById("store-active-qty");
+  if (input) input.value = window.activeStoreProduct.qty;
+};
+
+window.updateActiveStoreQty = function(val) {
+  if (!window.activeStoreProduct) return;
+  const num = parseInt(val, 10);
+  window.activeStoreProduct.qty = isNaN(num) || num < 1 ? 1 : num;
+};
+
+window.confirmAddActiveStoreProduct = function() {
+  if (!window.activeStoreProduct) return;
+  const p = window.activeStoreProduct;
+  addStoreInboundCartItem(p.artNo, p.artName, p.qty);
+  window.activeStoreProduct = null;
+  const box = document.getElementById("store-active-product-box");
+  if (box) box.style.display = "none";
+};
+
+window.directSaveActiveStoreProduct = async function() {
+  if (!window.activeStoreProduct) return;
+  const p = window.activeStoreProduct;
+  addStoreInboundCartItem(p.artNo, p.artName, p.qty);
+  window.activeStoreProduct = null;
+  const box = document.getElementById("store-active-product-box");
+  if (box) box.style.display = "none";
+  await processStoreInboundCart();
+};
+
+// Cart Item Management
+function addStoreInboundCartItem(artNo, artName, qty = 1) {
+  const existing = window.storeInboundCart.find(item => item.artNo === artNo);
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    window.storeInboundCart.unshift({
+      artNo: artNo,
+      artName: artName,
+      qty: qty,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+  }
+  renderStoreInboundCart();
+}
+
+window.removeStoreInboundCartItem = function(index) {
+  window.storeInboundCart.splice(index, 1);
+  renderStoreInboundCart();
+};
+
+window.setStoreCartItemQty = function(index, val) {
+  if (!window.storeInboundCart[index]) return;
+  const num = parseInt(val, 10);
+  window.storeInboundCart[index].qty = isNaN(num) || num < 1 ? 1 : num;
+  renderStoreInboundCart();
+};
+
+window.adjustStoreCartItemQty = function(index, delta) {
+  if (!window.storeInboundCart[index]) return;
+  window.storeInboundCart[index].qty = Math.max(1, window.storeInboundCart[index].qty + delta);
+  renderStoreInboundCart();
+};
+
+window.clearStoreInboundCart = function() {
+  if (window.storeInboundCart.length === 0) return;
+  if (!confirm("오늘 아침 매장 입고 목록을 모두 비우시겠습니까?")) return;
+  window.storeInboundCart = [];
+  renderStoreInboundCart();
+};
+
+// Render Cart
+function renderStoreInboundCart() {
+  const container = document.getElementById("store-inbound-cart-items");
+  const saveSection = document.getElementById("store-inbound-save-section");
+  const badge = document.getElementById("store-cart-badge");
+  const menuBadge = document.getElementById("badge-store-inbound");
+  const totalQtyEl = document.getElementById("store-cart-total-qty");
+
+  const totalCount = window.storeInboundCart.length;
+  const totalQty = window.storeInboundCart.reduce((sum, item) => sum + (item.qty || 0), 0);
+
+  if (badge) badge.textContent = `${totalCount}건 (${totalQty}개)`;
+  if (menuBadge) {
+    if (totalCount > 0) {
+      menuBadge.style.display = "inline-block";
+      menuBadge.textContent = String(totalCount);
+    } else {
+      menuBadge.style.display = "none";
+    }
+  }
+
+  if (totalQtyEl) totalQtyEl.textContent = `${totalQty}개`;
+
+  if (!container) return;
+
+  if (totalCount === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:18px; color:#94a3b8; font-size:12px;">
+        <i class="fa-solid fa-barcode" style="font-size:24px; margin-bottom:4px; display:block; opacity:0.5;"></i>
+        스캔하거나 입력한 매장 입고 품목이 없습니다.
+      </div>
+    `;
+    if (saveSection) saveSection.style.display = "none";
+    return;
+  }
+
+  if (saveSection) saveSection.style.display = "block";
+
+  let html = "";
+  window.storeInboundCart.forEach((item, idx) => {
+    html += `
+      <div class="store-cart-item">
+        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 42) : ''}
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:12px; font-weight:900; color:#ea580c;">${item.artNo}</span>
+            <span style="font-size:9.5px; color:#64748b;">${item.time || ''}</span>
+          </div>
+          <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
+          <button type="button" onclick="adjustStoreCartItemQty(${idx}, -1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+          <input type="number" min="1" value="${item.qty}" onchange="setStoreCartItemQty(${idx}, this.value)" onfocus="this.select()" style="width:48px; height:28px; text-align:center; font-size:14px; font-weight:900; color:#ea580c; border:1.5px solid #fed7aa; border-radius:6px; background:#fff7ed; padding:0 2px; -moz-appearance:textfield;" title="수량 직접 입력">
+          <button type="button" onclick="adjustStoreCartItemQty(${idx}, 1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+          <button type="button" onclick="removeStoreInboundCartItem(${idx})" style="background:none; border:none; color:#94a3b8; font-size:14px; cursor:pointer; padding:2px 4px; margin-left:2px;" title="삭제">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+}
+
+// Process and Save Store Inbound Cart
+window.processStoreInboundCart = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 계정은 매장 입고를 등록할 수 없습니다.", "warning");
+    return;
+  }
+
+  if (window.storeInboundCart.length === 0) {
+    showToast("입고 처리할 품목이 없습니다.", "warning");
+    return;
+  }
+
+  const saveBtn = document.getElementById("btn-save-store-inbound");
+  const originalBtnText = saveBtn ? saveBtn.innerHTML : "";
+  if (saveBtn) {
+    saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 매장 입고 저장 중...`;
+    saveBtn.disabled = true;
+  }
+
+  const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0];
+  const totalItemCount = window.storeInboundCart.length;
+  const totalItemQty = window.storeInboundCart.reduce((sum, i) => sum + (i.qty || 0), 0);
+
+  const payload = window.storeInboundCart.map(item => ({
+    date: todayStr,
+    type: "매장입고",
+    artno: item.artNo,
+    artname: item.artName,
+    qty: item.qty,
+    user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "매장"
+  }));
+
+  try {
+    if (typeof supabaseClient !== "undefined" && supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from('store_inbound_logs')
+        .insert(payload)
+        .select();
+
+      if (error) throw error;
+      
+      if (data && typeof storeInboundLogs !== "undefined") {
+        data.forEach(inserted => {
+          let cleanNo = String(inserted.artno || inserted.artNo || "").trim();
+          const digitsOnly = cleanNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            cleanNo = digitsOnly.padStart(8, '0');
+          }
+          storeInboundLogs.unshift({
+            ...inserted,
+            artNo: cleanNo,
+            artName: inserted.artname || inserted.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "매장 입고 품목")
+          });
+        });
+        localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+      }
+    } else {
+      // Local fallback
+      if (typeof storeInboundLogs !== "undefined") {
+        payload.forEach(p => {
+          storeInboundLogs.unshift({
+            id: Date.now() + Math.random(),
+            date: p.date,
+            type: p.type,
+            artNo: p.artno,
+            artName: p.artname,
+            qty: p.qty,
+            user: p.user
+          });
+        });
+        localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+      }
+    }
+
+    // Refresh app views
+    if (typeof invalidateStockCache === "function") invalidateStockCache();
+    if (typeof renderStockLookup === "function") renderStockLookup();
+    if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+    if (typeof updateDashboard === "function") updateDashboard();
+
+    showToast(`🎉 아침 매장 입고 완료! (${totalItemCount}개 품목 / 총 ${totalItemQty}개)`, "success");
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+
+    window.storeInboundCart = [];
+    renderStoreInboundCart();
+
+  } catch (err) {
+    console.error("Store inbound save error:", err);
+    showToast("매장 입고 저장 중 오류가 발생했습니다.", "danger");
+  } finally {
+    if (saveBtn) {
+      saveBtn.innerHTML = originalBtnText;
+      saveBtn.disabled = false;
+    }
+  }
+};
+
+// ==========================================================================
+// STORE INBOUND EXCEL EXPORT (.XLSX)
+// ==========================================================================
+window.exportStoreInboundToExcel = async function() {
+  if (typeof XLSX === "undefined") {
+    showToast("엑셀 내보내기 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.", "warning");
+    return;
+  }
+
+  let dataToExport = [];
+
+  // 1. Fetch from Supabase store_inbound_logs
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      const { data: dbLogs, error } = await supabaseClient
+        .from('store_inbound_logs')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (!error && dbLogs && dbLogs.length > 0) {
+        dataToExport = dbLogs.map(row => {
+          let cleanNo = String(row.artno || row.artNo || "").trim();
+          const digitsOnly = cleanNo.replace(/\D/g, '');
+          if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+            cleanNo = digitsOnly.padStart(8, '0');
+          }
+          return {
+            ...row,
+            artNo: cleanNo,
+            artName: row.artname || row.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "매장 입고 품목")
+          };
+        });
+      }
+    } catch(e) {
+      console.warn("Fetch store_inbound_logs error:", e);
+    }
+  }
+
+  // 2. Fallback to memory storeInboundLogs
+  if (dataToExport.length === 0 && typeof storeInboundLogs !== "undefined" && storeInboundLogs.length > 0) {
+    dataToExport = [...storeInboundLogs];
+  }
+
+  // 3. Fallback to current unsaved cart
+  if (dataToExport.length === 0 && window.storeInboundCart && window.storeInboundCart.length > 0) {
+    const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0];
+    dataToExport = window.storeInboundCart.map(item => ({
+      date: todayStr,
+      type: "매장입고(대기)",
+      artNo: item.artNo,
+      artName: item.artName,
+      qty: item.qty,
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "매장"
+    }));
+  }
+
+  if (dataToExport.length === 0) {
+    showToast("추출할 매장 입고 내역이 없습니다.", "warning");
+    return;
+  }
+
+  const rows = dataToExport.map((log, index) => ({
+    "연번": index + 1,
+    "입고일자": log.date || (log.created_at ? log.created_at.split('T')[0] : "-"),
+    "구분": log.type || "매장입고",
+    "아티클 번호 (ARTNO)": log.artNo || log.artno || "-",
+    "품목명": log.artName || log.artname || "-",
+    "입고 수량": log.qty || 1,
+    "등록자": log.user || "매장",
+    "등록일시": log.created_at || log.time || "-"
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  worksheet["!cols"] = [
+    { wch: 6 },  // 연번
+    { wch: 12 }, // 입고일자
+    { wch: 10 }, // 구분
+    { wch: 14 }, // 아티클 번호
+    { wch: 35 }, // 품목명
+    { wch: 10 }, // 입고 수량
+    { wch: 12 }, // 등록자
+    { wch: 22 }  // 등록일시
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "매장입고기록");
+  const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split("T")[0];
+  XLSX.writeFile(workbook, `매장입고_기록_${todayStr}.xlsx`);
+  showToast(`📊 매장 입고 기록 (${dataToExport.length}건) 엑셀 추출이 완료되었습니다!`, "success");
+  if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+};
+
+
+
+
 

@@ -2201,3 +2201,88 @@ b o d y  
   text-align: center;
   white-space: nowrap;
 }
+
+/* STORE INBOUND & SCANNER STYLES */
+.scanner-laser-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ea580c, #f97316, #ea580c, transparent);
+  box-shadow: 0 0 8px #ea580c, 0 0 14px #f97316;
+  animation: scanLaser 2s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes scanLaser {
+  0% { top: 8%; opacity: 0.7; }
+  50% { top: 92%; opacity: 1; }
+  100% { top: 8%; opacity: 0.7; }
+}
+
+/* Switch Toggle Styling */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-toggle .slider-toggle {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: .2s;
+  border-radius: 22px;
+}
+
+.switch-toggle .slider-toggle:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.switch-toggle input:checked + .slider-toggle {
+  background-color: #ea580c;
+}
+
+.switch-toggle input:checked + .slider-toggle:before {
+  transform: translateX(16px);
+}
+
+/* Store Inbound Cart Item */
+.store-cart-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.store-cart-item:hover {
+  border-color: #fed7aa;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.08);
+}
