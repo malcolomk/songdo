@@ -629,7 +629,7 @@
             <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin:0; display:flex; align-items:center; gap:5px;">
               <i class="fa-solid fa-store" style="color:#ea580c;"></i> 아침 매장 입고
             </h2>
-            <span style="font-size:10px; font-weight:800; color:#ea580c; background:#fff7ed; padding:1px 6px; border-radius:10px; border:1px solid #fed7aa;">고양-송도입고 </span>
+            <span style="font-size:10px; font-weight:800; color:#ea580c; background:#fff7ed; padding:1px 6px; border-radius:10px; border:1px solid #fed7aa;">매장 직송 전용</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <button type="button" id="btn-store-excel-export" onclick="exportStoreInboundToExcel()" style="padding:5px 11px; font-size:11.5px; font-weight:800; border-radius:8px; background:#107c41; color:#ffffff; border:none; cursor:pointer; height:32px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 1px 3px rgba(16,124,65,0.25);" title="매장 입고 기록 엑셀 파일 다운로드">
@@ -661,29 +661,34 @@
             </label>
           </div>
 
-          <!-- Barcode Scanner & Search Autocomplete Input Row -->
-          <div style="display:flex; gap:6px; align-items:center;">
-            <div class="autocomplete-wrapper" style="flex:1; position:relative;">
-              <div style="position:relative; width:100%;">
-                <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; color:#ea580c; z-index:2;"></i>
-                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 7058, 쿠기스)" class="input-control" style="font-size:13.5px; font-weight:800; height:44px; padding-left:36px; padding-right:10px; border:2px solid #ea580c; border-radius:10px; background:#fff7ed; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleStoreBarcodeInput(this.value); }">
+          <!-- Row 1: Full-Width Search & Barcode Scan Input with Master Catalog Button -->
+          <div class="autocomplete-wrapper" style="position:relative; margin-bottom:8px;">
+            <div style="display:flex; gap:6px; align-items:center;">
+              <div style="position:relative; flex:1;">
+                <i class="fa-solid fa-barcode" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:17px; color:#ea580c; z-index:2;"></i>
+                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 쿠기스, 7058)" class="input-control" style="font-size:13.5px; font-weight:800; height:46px; padding-left:38px; padding-right:10px; border:2px solid #ea580c; border-radius:10px; background:#fff7ed; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleStoreBarcodeInput(this.value); }">
               </div>
-              <div id="store-barcode-dropdown" class="autocomplete-dropdown" style="z-index: 2100;"></div>
+              <button type="button" class="btn-secondary" onclick="openMasterSelectModal('store_inbound')" style="padding:0 14px; font-size:13px; font-weight:800; border-radius:10px; height:46px; white-space:nowrap; background:#f8fafc; color:#334155; border:1.5px solid #cbd5e1; box-sizing:border-box; display:flex; align-items:center; gap:5px;" title="전체 13,836개 마스터 품목 검색">
+                <i class="fa-solid fa-list"></i> 전체
+              </button>
+            </div>
+            <!-- Full-Width Autocomplete Dropdown List -->
+            <div id="store-barcode-dropdown" class="autocomplete-dropdown" style="z-index: 2100; left:0; right:0; width:100%; max-height:280px; box-shadow:0 10px 25px rgba(0,0,0,0.18); border:1.5px solid #fed7aa; border-radius:12px;"></div>
+          </div>
+
+          <!-- Row 2: Quantity Controls & Direct Add Button -->
+          <div style="display:flex; gap:8px; align-items:center;">
+            <!-- Pre-set Quantity Stepper -->
+            <div style="display:flex; align-items:center; background:#fff7ed; border:1.5px solid #fed7aa; border-radius:10px; padding:2px 8px; height:42px; box-sizing:border-box;">
+              <label for="store-scan-qty" style="font-size:12px; font-weight:800; color:#ea580c; white-space:nowrap; margin-right:6px;">입고 수량</label>
+              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = Math.max(1, (parseInt(q.value,10)||1) - 1);" style="width:28px; height:30px; border-radius:6px; border:1px solid #fed7aa; background:#ffffff; color:#ea580c; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+              <input type="number" id="store-scan-qty" value="1" min="1" style="width:40px; height:30px; text-align:center; font-size:15px; font-weight:900; color:#ea580c; border:none; background:transparent; outline:none;" onfocus="this.select()" title="스캔 시 적용할 수량">
+              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = (parseInt(q.value,10)||1) + 1;" style="width:28px; height:30px; border-radius:6px; border:1px solid #fed7aa; background:#ffffff; color:#ea580c; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
             </div>
 
-            <!-- Master Catalog Modal Select Button -->
-            <button type="button" class="btn-secondary" onclick="openMasterSelectModal('store_inbound')" style="padding:0 10px; font-size:12px; font-weight:800; border-radius:10px; height:44px; white-space:nowrap; background:#fff; color:#334155; border:1.5px solid #cbd5e1; box-sizing:border-box;" title="전체 13,836개 마스터 품목 검색">
-              <i class="fa-solid fa-list"></i> 전체
-            </button>
-
-            <!-- Pre-set Quantity Input -->
-            <div style="display:flex; align-items:center; background:#fff7ed; border:2px solid #fed7aa; border-radius:10px; padding:0 4px; height:44px; box-sizing:border-box; flex-shrink:0;">
-              <label for="store-scan-qty" style="font-size:11px; font-weight:800; color:#ea580c; white-space:nowrap; margin-left:4px; margin-right:2px;">수량</label>
-              <input type="number" id="store-scan-qty" value="1" min="1" style="width:38px; height:32px; text-align:center; font-size:14px; font-weight:900; color:#ea580c; border:none; background:transparent; outline:none;" onfocus="this.select()" title="스캔 시 적용할 수량">
-            </div>
-
-            <button type="button" onclick="handleStoreBarcodeInput(document.getElementById('store-barcode-input').value)" style="padding:0 12px; font-size:12.5px; font-weight:800; border-radius:10px; height:44px; background:#ea580c; color:#ffffff; border:none; cursor:pointer; white-space:nowrap; box-shadow:0 2px 6px rgba(234,88,12,0.25); flex-shrink:0;">
-              입력
+            <!-- Submit Button -->
+            <button type="button" onclick="handleStoreBarcodeInput(document.getElementById('store-barcode-input').value)" style="flex:1; height:42px; font-size:13.5px; font-weight:900; border-radius:10px; background:#ea580c; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 6px rgba(234,88,12,0.25);">
+              <i class="fa-solid fa-plus"></i> 담기 (입력)
             </button>
           </div>
           

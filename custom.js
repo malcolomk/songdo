@@ -2878,16 +2878,18 @@ window.handleStoreAutocompleteInput = function(query) {
   }
 
   dropdown.innerHTML = matches.map(item => `
-    <div class="autocomplete-item" onclick="selectStoreAutocompleteItem('${item.artNo}')" style="display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;">
-      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 38) : ''}
+    <div class="autocomplete-item" onclick="selectStoreAutocompleteItem('${item.artNo}')" style="display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; background:#ffffff;">
+      ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 44) : ''}
       <div class="art-info" style="flex:1; min-width:0;">
         <div class="art-no-row" style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:3px;">${item.hfb}</span>` : ''}
-          <span class="art-no" style="font-weight:900; color:#ea580c; font-size:12.5px;">${item.artNo}</span>
+          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:800; padding:1px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
+          <span class="art-no" style="font-weight:900; color:#ea580c; font-size:13px;">${item.artNo}</span>
         </div>
-        <div class="art-name" style="font-size:12px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+        <div class="art-name" style="font-size:12.5px; font-weight:700; color:#0f172a; white-space:normal; line-height:1.35;">${item.artName}</div>
       </div>
-      <i class="fa-solid fa-cart-plus" style="color:#ea580c; font-size:14px; padding:4px;"></i>
+      <div style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:#fff7ed; border:1px solid #fed7aa; flex-shrink:0;">
+        <i class="fa-solid fa-cart-plus" style="color:#ea580c; font-size:13.5px;"></i>
+      </div>
     </div>
   `).join("");
 
