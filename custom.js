@@ -2383,16 +2383,28 @@ window.exportStockToExcel = function() {
       artName = data.artName;
     }
     
+    const digitsOnly = String(artNo).replace(/\D/g, '');
+    const numVal = digitsOnly ? parseInt(digitsOnly, 10) : artNo;
+
     exportData.push({
       "연번": index++,
       "아티클 이름": artName,
-      "번호 (ARTNO)": artNo,
-      "재고 수량": data.currentStock !== undefined ? data.currentStock : 0,
+      "번호 (ARTNO)": numVal,
+      "재고 수량": data.currentStock !== undefined ? Number(data.currentStock) : 0,
       "위치": data.location || "미지정"
     });
   });
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  for (let r = 2; r <= exportData.length + 1; r++) {
+    const artCell = worksheet['C' + r];
+    if (artCell && typeof artCell.v === 'number') {
+      artCell.t = 'n';
+      artCell.z = '00000000';
+    }
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "재고현황");
 
@@ -2794,6 +2806,54 @@ function playScanHaptic() {
   }
 }
 
+function playWarningBeep() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!scanAudioCtx) scanAudioCtx = new AudioContext();
+    if (scanAudioCtx.state === 'suspended') scanAudioCtx.resume();
+    
+    const now = scanAudioCtx.currentTime;
+    
+    // First warning buzz tone (low pitch sawtooth 300Hz)
+    const osc1 = scanAudioCtx.createOscillator();
+    const gain1 = scanAudioCtx.createGain();
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(300, now);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+    osc1.connect(gain1);
+    gain1.connect(scanAudioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.16);
+
+    // Second deeper warning tone
+    setTimeout(() => {
+      try {
+        const now2 = scanAudioCtx.currentTime;
+        const osc2 = scanAudioCtx.createOscillator();
+        const gain2 = scanAudioCtx.createGain();
+        osc2.type = "sawtooth";
+        osc2.frequency.setValueAtTime(220, now2);
+        gain2.gain.setValueAtTime(0.35, now2);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now2 + 0.28);
+        osc2.connect(gain2);
+        gain2.connect(scanAudioCtx.destination);
+        osc2.start(now2);
+        osc2.stop(now2 + 0.28);
+      } catch(e){}
+    }, 170);
+  } catch(e) {
+    console.warn("Warning beep error:", e);
+  }
+}
+
+function playWarningHaptic() {
+  if (navigator && typeof navigator.vibrate === "function") {
+    try { navigator.vibrate([150, 100, 150]); } catch(e){}
+  }
+}
+
 // Global Barcode Scanner Gun Keystroke Interceptor for #tab-store-inbound
 let globalScannerBuffer = "";
 let globalScannerTimer = null;
@@ -2854,7 +2914,7 @@ document.addEventListener("click", function(e) {
 
 // Live Autocomplete for Morning Store Inbound Search
 window.handleStoreAutocompleteInput = function(query) {
-  const cleanQuery = String(query || '').trim().toLowerCase();
+  let cleanQuery = String(query || '').trim().toLowerCase();
   const dropdown = document.getElementById("store-barcode-dropdown");
   if (!dropdown) return;
 
@@ -2862,6 +2922,11 @@ window.handleStoreAutocompleteInput = function(query) {
     dropdown.classList.remove("active");
     dropdown.innerHTML = "";
     return;
+  }
+
+  const digitsOnly = cleanQuery.replace(/\D/g, '');
+  if (digitsOnly.length > 8) {
+    cleanQuery = digitsOnly.slice(0, 8);
   }
 
   const catalog = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog : [];
@@ -2882,13 +2947,13 @@ window.handleStoreAutocompleteInput = function(query) {
       ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 44) : ''}
       <div class="art-info" style="flex:1; min-width:0;">
         <div class="art-no-row" style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-          ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:800; padding:1px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
-          <span class="art-no" style="font-weight:900; color:#ea580c; font-size:13px;">${item.artNo}</span>
+          ${item.hfb ? `<span style="background:#eff6ff; color:#0058a3; font-size:10px; font-weight:800; padding:1px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
+          <span class="art-no" style="font-weight:900; color:#0058a3; font-size:13px;">${item.artNo}</span>
         </div>
         <div class="art-name" style="font-size:12.5px; font-weight:700; color:#0f172a; white-space:normal; line-height:1.35;">${item.artName}</div>
       </div>
-      <div style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:#fff7ed; border:1px solid #fed7aa; flex-shrink:0;">
-        <i class="fa-solid fa-cart-plus" style="color:#ea580c; font-size:13.5px;"></i>
+      <div style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; flex-shrink:0;">
+        <i class="fa-solid fa-cart-plus" style="color:#0058a3; font-size:13.5px;"></i>
       </div>
     </div>
   `).join("");
@@ -2918,33 +2983,48 @@ window.onContinuousScanToggle = function(checked) {
   }
 };
 
-// Master Product Resolver
+// Master Product Resolver (Extracts front 8 digits for long barcode gun outputs)
 function resolveMasterProduct(query) {
   if (!query) return null;
   const rawStr = String(query).trim();
   const digitsOnly = rawStr.replace(/\D/g, '');
   
   let targetArtNo = "";
+  let front8 = "";
+  let back8 = "";
+
   if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
     targetArtNo = digitsOnly.padStart(8, '0');
   } else if (digitsOnly.length > 8) {
-    targetArtNo = digitsOnly.slice(-8);
+    // Barcode scanner outputs long strings (e.g. 90618173230792) -> Front 8 digits is the IKEA article number!
+    front8 = digitsOnly.slice(0, 8);
+    back8 = digitsOnly.slice(-8);
+    targetArtNo = front8;
   } else {
     targetArtNo = rawStr;
   }
 
   // 1. Direct match in masterCatalog
   let found = (typeof masterCatalog !== "undefined" ? masterCatalog : []).find(
-    m => m.artNo === targetArtNo || m.artNo === digitsOnly || String(m.artNo).replace(/\D/g, '') === digitsOnly
+    m => m.artNo === targetArtNo || 
+         (front8 && (m.artNo === front8 || String(m.artNo).replace(/\D/g, '') === front8)) ||
+         m.artNo === digitsOnly || 
+         String(m.artNo).replace(/\D/g, '') === digitsOnly ||
+         (back8 && (m.artNo === back8 || String(m.artNo).replace(/\D/g, '') === back8))
   );
 
   // 2. Check masterCatalogMap
   let artName = "";
   if (found) {
     artName = found.artName;
+    targetArtNo = found.artNo;
   } else if (typeof masterCatalogMap !== "undefined" && masterCatalogMap) {
-    artName = masterCatalogMap.get(targetArtNo) || masterCatalogMap.get(digitsOnly) || "";
+    artName = (front8 && masterCatalogMap.get(front8)) ||
+              masterCatalogMap.get(targetArtNo) || 
+              masterCatalogMap.get(digitsOnly) || 
+              (back8 && masterCatalogMap.get(back8)) || "";
     if (artName) {
+      if (front8 && masterCatalogMap.get(front8)) targetArtNo = front8;
       found = { artNo: targetArtNo, artName: artName };
     }
   }
@@ -2955,6 +3035,9 @@ function resolveMasterProduct(query) {
       m => (m.artName && m.artName.toLowerCase().includes(rawStr.toLowerCase())) ||
            (m.artNo && m.artNo.includes(rawStr))
     );
+    if (found) {
+      targetArtNo = found.artNo;
+    }
   }
 
   if (found) {
@@ -2962,18 +3045,82 @@ function resolveMasterProduct(query) {
       artNo: found.artNo || targetArtNo,
       artName: found.artName || "매장 입고 품목",
       hfb: found.hfb || "일반",
-      location: found.location || "매장"
+      location: found.location || "매장",
+      isUnregistered: false
     };
   }
 
-  // Fallback
+  // Fallback for unregistered products (always use front 8 digits if scanned code was longer than 8)
   return {
     artNo: targetArtNo || rawStr,
     artName: "미등록 신규 품목",
     hfb: "일반",
-    location: "매장"
+    location: "매장",
+    isUnregistered: true
   };
 }
+
+// Unregistered Product Warning Modal Handlers
+let pendingUnregisteredScan = null;
+
+window.openUnregisteredProductModal = function(artNo, qty) {
+  pendingUnregisteredScan = { artNo, qty };
+  const modal = document.getElementById("unreg-barcode-modal");
+  const artNoEl = document.getElementById("unreg-modal-artno");
+  const artNameInput = document.getElementById("unreg-modal-artname");
+  
+  if (artNoEl) artNoEl.textContent = artNo;
+  if (artNameInput) artNameInput.value = "";
+  if (modal) modal.classList.add("active");
+};
+
+window.closeUnregisteredProductModal = function() {
+  pendingUnregisteredScan = null;
+  const modal = document.getElementById("unreg-barcode-modal");
+  if (modal) modal.classList.remove("active");
+  const inputEl = document.getElementById("store-barcode-input");
+  if (inputEl) {
+    inputEl.value = "";
+    inputEl.focus();
+  }
+};
+
+window.confirmAddUnregisteredProduct = function() {
+  if (!pendingUnregisteredScan) return;
+  const { artNo, qty } = pendingUnregisteredScan;
+  const artNameInput = document.getElementById("unreg-modal-artname");
+  const customName = (artNameInput && artNameInput.value.trim()) ? artNameInput.value.trim() : "미등록 신규 품목";
+
+  // Add to cart
+  addStoreInboundCartItem(artNo, customName, qty);
+  
+  // Show flash notification banner in active product box
+  const box = document.getElementById("store-active-product-box");
+  if (box) {
+    const existingInCart = window.storeInboundCart.find(i => i.artNo === artNo);
+    const curTotalQty = existingInCart ? existingInCart.qty : qty;
+    box.style.display = "block";
+    box.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="product-thumb-container" style="width:42px; height:42px; min-width:42px; min-height:42px;">
+          <div class="product-thumb-placeholder"><i class="fa-solid fa-couch"></i></div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:5px; margin-bottom:1px;">
+            <span style="font-size:12.5px; font-weight:900; color:#0058a3;">${artNo}</span>
+            <span style="font-size:10px; font-weight:800; background:#eff6ff; color:#0058a3; padding:1px 6px; border-radius:4px; border:1px solid #bfdbfe;">+${qty}개 담김 (미등록)</span>
+          </div>
+          <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${customName}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  showToast(`[${artNo}] ${customName} (+${qty}개 등록됨)`, "warning");
+  playScanBeep(false);
+
+  closeUnregisteredProductModal();
+};
 
 // Barcode Scanner Input Handler
 window.handleStoreBarcodeInput = function(inputValue) {
@@ -2997,17 +3144,28 @@ window.handleStoreBarcodeInput = function(inputValue) {
     return;
   }
 
-  playScanBeep(window.isContinuousScanMode);
-  playScanHaptic();
-
   if (inputEl) {
     inputEl.value = "";
-    inputEl.focus();
   }
 
   const scanQtyEl = document.getElementById("store-scan-qty");
   let scanQty = scanQtyEl ? parseInt(scanQtyEl.value, 10) : 1;
   if (isNaN(scanQty) || scanQty < 1) scanQty = 1;
+
+  // If unregistered product, trigger warning tone/haptic & prompt modal with QR barcode guidance!
+  if (product.isUnregistered) {
+    playWarningBeep();
+    playWarningHaptic();
+    openUnregisteredProductModal(product.artNo, scanQty);
+    return;
+  }
+
+  playScanBeep(window.isContinuousScanMode);
+  playScanHaptic();
+
+  if (inputEl) {
+    inputEl.focus();
+  }
 
   // Continuous Fast Add Mode (Default)
   if (window.isContinuousScanMode) {
@@ -3024,8 +3182,8 @@ window.handleStoreBarcodeInput = function(inputValue) {
           ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(product.artNo, product.artName, 42) : ''}
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:5px; margin-bottom:1px;">
-              <span style="font-size:12.5px; font-weight:900; color:#ea580c;">${product.artNo}</span>
-              <span style="font-size:10px; font-weight:800; background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px;">+${scanQty}개 담김 (총 ${curTotalQty}개)</span>
+              <span style="font-size:12.5px; font-weight:900; color:#0058a3;">${product.artNo}</span>
+              <span style="font-size:10px; font-weight:800; background:#eff6ff; color:#0058a3; padding:1px 6px; border-radius:4px; border:1px solid #bfdbfe;">+${scanQty}개 담김 (총 ${curTotalQty}개)</span>
             </div>
             <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${product.artName}</div>
           </div>
@@ -3060,20 +3218,20 @@ function renderStoreActiveProduct() {
       ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(p.artNo, p.artName, 52) : ''}
       <div style="flex:1; min-width:0;">
         <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px;">
-          <span style="font-size:13px; font-weight:900; color:#ea580c;">${p.artNo}</span>
-          <span style="font-size:10px; font-weight:700; background:#fed7aa; color:#9a3412; padding:1px 5px; border-radius:4px;">현재재고 ${currentStock}개</span>
+          <span style="font-size:13px; font-weight:900; color:#0058a3;">${p.artNo}</span>
+          <span style="font-size:10px; font-weight:700; background:#f1f5f9; color:#475569; padding:1px 5px; border-radius:4px;">현재재고 ${currentStock}개</span>
         </div>
         <div style="font-size:12.5px; font-weight:800; color:#0f172a; word-break:break-all; line-height:1.2;">${p.artName}</div>
       </div>
     </div>
 
     <!-- Quantity Stepper & Quick Add Buttons -->
-    <div style="display:flex; flex-direction:column; gap:6px; background:#ffffff; padding:8px 10px; border-radius:8px; border:1px solid #fed7aa;">
+    <div style="display:flex; flex-direction:column; gap:6px; background:#ffffff; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:11.5px; font-weight:700; color:#475569;">매장 입고 수량</span>
         <div style="display:flex; align-items:center; gap:4px;">
           <button type="button" onclick="adjustActiveStoreQty(-1)" style="width:30px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:14px; font-weight:800; cursor:pointer;">-</button>
-          <input type="number" id="store-active-qty" value="${p.qty}" min="1" style="width:55px; height:30px; text-align:center; font-size:14px; font-weight:900; color:#ea580c; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed;" onchange="updateActiveStoreQty(this.value)">
+          <input type="number" id="store-active-qty" value="${p.qty}" min="1" style="width:55px; height:30px; text-align:center; font-size:14px; font-weight:900; color:#0f172a; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;" onchange="updateActiveStoreQty(this.value)">
           <button type="button" onclick="adjustActiveStoreQty(1)" style="width:30px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:14px; font-weight:800; cursor:pointer;">+</button>
         </div>
       </div>
@@ -3088,10 +3246,10 @@ function renderStoreActiveProduct() {
 
     <!-- Actions -->
     <div style="display:flex; gap:6px; margin-top:8px;">
-      <button type="button" onclick="confirmAddActiveStoreProduct()" style="flex:1; height:36px; border-radius:8px; background:#ffffff; border:1px solid #ea580c; color:#ea580c; font-size:12.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+      <button type="button" onclick="confirmAddActiveStoreProduct()" style="flex:1; height:36px; border-radius:8px; background:#ffffff; border:1px solid #0058a3; color:#0058a3; font-size:12.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
         <i class="fa-solid fa-cart-plus"></i> 목록에 담기
       </button>
-      <button type="button" onclick="directSaveActiveStoreProduct()" style="flex:1.2; height:36px; border-radius:8px; background:#ea580c; border:none; color:#ffffff; font-size:12.5px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; box-shadow:0 2px 6px rgba(234,88,12,0.25);">
+      <button type="button" onclick="directSaveActiveStoreProduct()" style="flex:1.2; height:36px; border-radius:8px; background:#0058a3; border:none; color:#ffffff; font-size:12.5px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; box-shadow:0 2px 6px rgba(0,88,163,0.25);">
         <i class="fa-solid fa-bolt"></i> ⚡ 바로 입고 저장
       </button>
     </div>
@@ -3134,14 +3292,21 @@ window.directSaveActiveStoreProduct = async function() {
 
 // Cart Item Management
 function addStoreInboundCartItem(artNo, artName, qty = 1) {
+  const storeDateEl = document.getElementById("store-inbound-date");
+  const selectedDate = (storeDateEl && storeDateEl.value) 
+    ? storeDateEl.value 
+    : ((typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0]);
+
   const existing = window.storeInboundCart.find(item => item.artNo === artNo);
   if (existing) {
     existing.qty += qty;
+    existing.date = selectedDate;
   } else {
     window.storeInboundCart.unshift({
       artNo: artNo,
       artName: artName,
       qty: qty,
+      date: selectedDate,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
   }
@@ -3218,14 +3383,14 @@ function renderStoreInboundCart() {
         ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 42) : ''}
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:4px;">
-            <span style="font-size:12px; font-weight:900; color:#ea580c;">${item.artNo}</span>
+            <span style="font-size:12px; font-weight:900; color:#0058a3;">${item.artNo}</span>
             <span style="font-size:9.5px; color:#64748b;">${item.time || ''}</span>
           </div>
           <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
         </div>
         <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
           <button type="button" onclick="adjustStoreCartItemQty(${idx}, -1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
-          <input type="number" min="1" value="${item.qty}" onchange="setStoreCartItemQty(${idx}, this.value)" onfocus="this.select()" style="width:48px; height:28px; text-align:center; font-size:14px; font-weight:900; color:#ea580c; border:1.5px solid #fed7aa; border-radius:6px; background:#fff7ed; padding:0 2px; -moz-appearance:textfield;" title="수량 직접 입력">
+          <input type="number" min="1" value="${item.qty}" onchange="setStoreCartItemQty(${idx}, this.value)" onfocus="this.select()" style="width:48px; height:28px; text-align:center; font-size:14px; font-weight:900; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:0 2px; -moz-appearance:textfield;" title="수량 직접 입력">
           <button type="button" onclick="adjustStoreCartItemQty(${idx}, 1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
           <button type="button" onclick="removeStoreInboundCartItem(${idx})" style="background:none; border:none; color:#94a3b8; font-size:14px; cursor:pointer; padding:2px 4px; margin-left:2px;" title="삭제">
             <i class="fa-solid fa-xmark"></i>
@@ -3258,12 +3423,16 @@ window.processStoreInboundCart = async function() {
     saveBtn.disabled = true;
   }
 
-  const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0];
+  const storeDateEl = document.getElementById("store-inbound-date");
+  const selectedDateStr = (storeDateEl && storeDateEl.value) 
+    ? storeDateEl.value 
+    : ((typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0]);
+
   const totalItemCount = window.storeInboundCart.length;
   const totalItemQty = window.storeInboundCart.reduce((sum, i) => sum + (i.qty || 0), 0);
 
   const payload = window.storeInboundCart.map(item => ({
-    date: todayStr,
+    date: item.date || selectedDateStr,
     type: "매장입고",
     artno: item.artNo,
     artname: item.artName,
@@ -3397,18 +3566,37 @@ window.exportStoreInboundToExcel = async function() {
     return;
   }
 
-  const rows = dataToExport.map((log, index) => ({
-    "연번": index + 1,
-    "입고일자": log.date || (log.created_at ? log.created_at.split('T')[0] : "-"),
-    "구분": log.type || "매장입고",
-    "아티클 번호 (ARTNO)": log.artNo || log.artno || "-",
-    "품목명": log.artName || log.artname || "-",
-    "입고 수량": log.qty || 1,
-    "등록자": log.user || "매장",
-    "등록일시": log.created_at || log.time || "-"
-  }));
+  const rows = dataToExport.map((log, index) => {
+    const rawNo = String(log.artNo || log.artno || "").trim();
+    const digitsOnly = rawNo.replace(/\D/g, '');
+    const numVal = digitsOnly ? parseInt(digitsOnly, 10) : rawNo;
+    return {
+      "연번": index + 1,
+      "입고일자": log.date || (log.created_at ? log.created_at.split('T')[0] : "-"),
+      "구분": log.type || "매장입고",
+      "아티클 번호 (ARTNO)": numVal,
+      "품목명": log.artName || log.artname || "-",
+      "입고 수량": Number(log.qty) || 1,
+      "등록자": log.user || "매장",
+      "등록일시": log.created_at || log.time || "-"
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  // Set explicit numeric cell format for formulas (VLOOKUP, INDEX/MATCH, SUMIF)
+  for (let r = 2; r <= rows.length + 1; r++) {
+    const artCell = worksheet['D' + r];
+    if (artCell && typeof artCell.v === 'number') {
+      artCell.t = 'n';
+      artCell.z = '00000000';
+    }
+    const qtyCell = worksheet['F' + r];
+    if (qtyCell && typeof qtyCell.v === 'number') {
+      qtyCell.t = 'n';
+      qtyCell.z = '#,##0';
+    }
+  }
 
   // Column widths
   worksheet["!cols"] = [

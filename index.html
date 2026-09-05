@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>세일즈 창고 입출고 & 재고 관리</title>
   
-  <!-- Google Fonts & FontAwesome -->
-  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <!-- Google Fonts: Noto Sans KR & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- SheetJS for Excel Import/Export -->
@@ -223,9 +225,9 @@
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" id="btn-global-refresh" onclick="if(typeof refreshAppRealtime === 'function') refreshAppRealtime();" style="background:#fff7ed; border:1px solid #fed7aa; color:#ea580c; font-size:10.5px; font-weight:900; cursor:pointer; padding:3px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;" title="실시간 데이터 새로고침">
-          <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:10.5px; color:#ea580c;"></i>
-          <span style="font-size:10.5px; color:#ea580c; font-weight:900; white-space:nowrap;">새로고침</span>
+        <button type="button" id="btn-global-refresh" onclick="if(typeof refreshAppRealtime === 'function') refreshAppRealtime();" style="background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; font-size:10.5px; font-weight:900; cursor:pointer; padding:3px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;" title="실시간 데이터 새로고침">
+          <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:10.5px; color:#0058a3;"></i>
+          <span style="font-size:10.5px; color:#0058a3; font-weight:900; white-space:nowrap;">새로고침</span>
         </button>
         <button type="button" id="btn-notification-bell" onclick="if(typeof openNotificationModal === 'function') openNotificationModal();" style="position:relative; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="오더 알림함">
           <i class="fa-solid fa-bell" style="font-size:11px; color:#475569;"></i>
@@ -340,7 +342,7 @@
             <button type="button" class="btn-add-cart" onclick="handleAddRegCart()">
               <i class="fa-solid fa-plus"></i> 항목 담기
             </button>
-            <button type="button" class="btn-direct-save" onclick="handleSingleRegSave()" style="background-color:#ea580c; color:#ffffff; font-size:13px; font-weight:900; box-shadow:0 3px 8px rgba(234,88,12,0.35);">
+            <button type="button" class="btn-direct-save" onclick="handleSingleRegSave()" style="background-color:#0058a3; color:#ffffff; font-size:13px; font-weight:900; box-shadow:0 3px 8px rgba(0,88,163,0.3);">
               <i class="fa-solid fa-bolt"></i> 바로 입출고 저장
             </button>
           </div>
@@ -348,8 +350,8 @@
           <!-- Cart List -->
           <div id="reg-cart-list" class="cart-list-container" style="display:none; margin-top:8px;"></div>
           
-          <!-- Submit Button (위 바로 입출고 저장 버튼과 동일한 주황색) -->
-          <button type="button" class="btn-submit-compact" id="btn-save" style="display:none; margin-top:8px; background-color:#ea580c; color:#ffffff; font-weight:900; box-shadow:0 2px 8px rgba(234,88,12,0.35);" onclick="processRegCart()">
+          <!-- Submit Button -->
+          <button type="button" class="btn-submit-compact" id="btn-save" style="display:none; margin-top:8px; background-color:#0058a3; color:#ffffff; font-weight:900; box-shadow:0 2px 8px rgba(0,88,163,0.3);" onclick="processRegCart()">
             <i class="fa-solid fa-floppy-disk"></i> 담긴 항목 일괄 저장
           </button>
         </form>
@@ -627,9 +629,9 @@
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin:0; display:flex; align-items:center; gap:5px;">
-              <i class="fa-solid fa-store" style="color:#ea580c;"></i> 아침 매장 입고
+              <i class="fa-solid fa-boxes-packing" style="color:#0058a3;"></i> 아침 매장 입고
             </h2>
-            <span style="font-size:10px; font-weight:800; color:#ea580c; background:#fff7ed; padding:1px 6px; border-radius:10px; border:1px solid #fed7aa;">고양-송도 입고 </span>
+            <span style="font-size:10px; font-weight:800; color:#0058a3; background:#eff6ff; padding:1px 6px; border-radius:10px; border:1px solid #bfdbfe;">매장 직송 전용</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <button type="button" id="btn-store-excel-export" onclick="exportStoreInboundToExcel()" style="padding:5px 11px; font-size:11.5px; font-weight:800; border-radius:8px; background:#107c41; color:#ffffff; border:none; cursor:pointer; height:32px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 1px 3px rgba(16,124,65,0.25);" title="매장 입고 기록 엑셀 파일 다운로드">
@@ -644,61 +646,69 @@
         <!-- Dedicated Hardware Barcode Scanner Panel -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
           
-          <!-- Scanner Ready Status Pill & Continuous Mode Switch -->
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div style="display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; border:1px solid #a7f3d0; padding:3px 8px; border-radius:20px;">
-              <span style="width:7px; height:7px; border-radius:50%; background:#10b981; display:inline-block; animation:pulse 1.5s infinite;"></span>
-              <span style="font-size:11px; font-weight:800; color:#065f46;">스캐너 대기 중 (상시 인식)</span>
+          <!-- Row 0: 입고 날짜 (자동 오늘 날짜) & 스캐너 대기 상태/연속 모드 토글 -->
+          <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:8px; align-items:center; margin-bottom:10px;">
+            <div class="form-group" style="margin:0;">
+              <label for="store-inbound-date" style="font-size:11.5px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:4px; margin-bottom:3px;">
+                <i class="fa-regular fa-calendar" style="color:#0058a3;"></i> 날짜
+              </label>
+              <input type="date" id="store-inbound-date" required class="input-control" style="font-size:13px; font-weight:800; height:38px; padding:4px 8px;">
             </div>
 
-            <!-- Continuous Mode Toggle -->
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
-              <span style="font-size:11.5px; font-weight:800; color:#475569;">연속 빠른 담기</span>
-              <div class="switch-toggle" style="margin:0;">
-                <input type="checkbox" id="toggle-continuous-scan" checked onchange="onContinuousScanToggle(this.checked)">
-                <span class="slider-toggle"></span>
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end; gap:4px;">
+              <div style="display:inline-flex; align-items:center; gap:5px; background:#ecfdf5; border:1px solid #a7f3d0; padding:2px 7px; border-radius:20px;">
+                <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; animation:pulse 1.5s infinite;"></span>
+                <span style="font-size:10.5px; font-weight:800; color:#065f46;">스캐너 상시 대기</span>
               </div>
-            </label>
+              <!-- Continuous Mode Toggle -->
+              <label style="display:flex; align-items:center; gap:5px; cursor:pointer; margin:0;">
+                <span style="font-size:11px; font-weight:800; color:#475569;">연속 빠른 담기</span>
+                <div class="switch-toggle" style="margin:0; width:34px; height:18px;">
+                  <input type="checkbox" id="toggle-continuous-scan" checked onchange="onContinuousScanToggle(this.checked)">
+                  <span class="slider-toggle"></span>
+                </div>
+              </label>
+            </div>
           </div>
 
           <!-- Row 1: Full-Width Search & Barcode Scan Input with Master Catalog Button -->
           <div class="autocomplete-wrapper" style="position:relative; margin-bottom:8px;">
             <div style="display:flex; gap:6px; align-items:center;">
               <div style="position:relative; flex:1;">
-                <i class="fa-solid fa-barcode" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:17px; color:#ea580c; z-index:2;"></i>
-                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 쿠기스, 7058)" class="input-control" style="font-size:13.5px; font-weight:800; height:46px; padding-left:38px; padding-right:10px; border:2px solid #ea580c; border-radius:10px; background:#fff7ed; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleStoreBarcodeInput(this.value); }">
+                <i class="fa-solid fa-barcode" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:17px; color:#0058a3; z-index:2;"></i>
+                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 쿠기스, 7058)" class="input-control" style="font-size:13.5px; font-weight:800; height:46px; padding-left:38px; padding-right:10px; border:2px solid #0058a3; border-radius:10px; background:#ffffff; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleStoreBarcodeInput(this.value); }">
               </div>
               <button type="button" class="btn-secondary" onclick="openMasterSelectModal('store_inbound')" style="padding:0 14px; font-size:13px; font-weight:800; border-radius:10px; height:46px; white-space:nowrap; background:#f8fafc; color:#334155; border:1.5px solid #cbd5e1; box-sizing:border-box; display:flex; align-items:center; gap:5px;" title="전체 13,836개 마스터 품목 검색">
                 <i class="fa-solid fa-list"></i> 전체
               </button>
             </div>
             <!-- Full-Width Autocomplete Dropdown List -->
-            <div id="store-barcode-dropdown" class="autocomplete-dropdown" style="z-index: 2100; left:0; right:0; width:100%; max-height:280px; box-shadow:0 10px 25px rgba(0,0,0,0.18); border:1.5px solid #fed7aa; border-radius:12px;"></div>
+            <div id="store-barcode-dropdown" class="autocomplete-dropdown" style="z-index: 2100; left:0; right:0; width:100%; max-height:280px; box-shadow:0 10px 25px rgba(0,0,0,0.18); border:1.5px solid #bfdbfe; border-radius:12px;"></div>
           </div>
 
           <!-- Row 2: Quantity Controls & Direct Add Button -->
           <div style="display:flex; gap:8px; align-items:center;">
             <!-- Pre-set Quantity Stepper -->
-            <div style="display:flex; align-items:center; background:#fff7ed; border:1.5px solid #fed7aa; border-radius:10px; padding:2px 8px; height:42px; box-sizing:border-box;">
-              <label for="store-scan-qty" style="font-size:12px; font-weight:800; color:#ea580c; white-space:nowrap; margin-right:6px;">입고 수량</label>
-              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = Math.max(1, (parseInt(q.value,10)||1) - 1);" style="width:28px; height:30px; border-radius:6px; border:1px solid #fed7aa; background:#ffffff; color:#ea580c; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
-              <input type="number" id="store-scan-qty" value="1" min="1" style="width:40px; height:30px; text-align:center; font-size:15px; font-weight:900; color:#ea580c; border:none; background:transparent; outline:none;" onfocus="this.select()" title="스캔 시 적용할 수량">
-              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = (parseInt(q.value,10)||1) + 1;" style="width:28px; height:30px; border-radius:6px; border:1px solid #fed7aa; background:#ffffff; color:#ea580c; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+            <div style="display:flex; align-items:center; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:2px 8px; height:42px; box-sizing:border-box;">
+              <label for="store-scan-qty" style="font-size:12px; font-weight:800; color:#0f172a; white-space:nowrap; margin-right:6px;">입고 수량</label>
+              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = Math.max(1, (parseInt(q.value,10)||1) - 1);" style="width:28px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+              <input type="number" id="store-scan-qty" value="1" min="1" style="width:40px; height:30px; text-align:center; font-size:15px; font-weight:900; color:#0f172a; border:none; background:transparent; outline:none;" onfocus="this.select()" title="스캔 시 적용할 수량">
+              <button type="button" onclick="const q = document.getElementById('store-scan-qty'); q.value = (parseInt(q.value,10)||1) + 1;" style="width:28px; height:30px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
             </div>
 
             <!-- Submit Button -->
-            <button type="button" onclick="handleStoreBarcodeInput(document.getElementById('store-barcode-input').value)" style="flex:1; height:42px; font-size:13.5px; font-weight:900; border-radius:10px; background:#ea580c; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 6px rgba(234,88,12,0.25);">
+            <button type="button" onclick="handleStoreBarcodeInput(document.getElementById('store-barcode-input').value)" style="flex:1; height:42px; font-size:13.5px; font-weight:900; border-radius:10px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 6px rgba(0,88,163,0.25);">
               <i class="fa-solid fa-plus"></i> 담기 (입력)
             </button>
           </div>
           
           <div style="font-size:11px; color:#64748b; margin-top:5px; display:flex; align-items:center; gap:4px;">
-            <i class="fa-solid fa-circle-info" style="color:#ea580c;"></i>
+            <i class="fa-solid fa-circle-info" style="color:#0058a3;"></i>
             <span>바코드 스캐너 건을 당겨 바코드를 찍으면 설정된 수량만큼 즉시 등록됩니다.</span>
           </div>
 
           <!-- Recently Scanned Product Alert Box -->
-          <div id="store-active-product-box" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border:1px solid #fed7aa; border-radius:10px;">
+          <div id="store-active-product-box" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
             <!-- Rendered dynamically by JS -->
           </div>
         </div>
@@ -707,8 +717,8 @@
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <h3 style="font-size:13.5px; font-weight:900; color:#0f172a; margin:0;"><i class="fa-solid fa-boxes-packing" style="color:#ea580c;"></i> 오늘 아침 매장 입고 목록</h3>
-              <span id="store-cart-badge" style="font-size:11px; font-weight:800; color:#ea580c; background:#fff7ed; padding:1px 6px; border-radius:10px; border:1px solid #fed7aa;">0건</span>
+              <h3 style="font-size:13.5px; font-weight:900; color:#0f172a; margin:0;"><i class="fa-solid fa-boxes-packing" style="color:#0058a3;"></i> 오늘 아침 매장 입고 목록</h3>
+              <span id="store-cart-badge" style="font-size:11px; font-weight:800; color:#0058a3; background:#eff6ff; padding:1px 6px; border-radius:10px; border:1px solid #bfdbfe;">0건</span>
             </div>
             <button type="button" onclick="clearStoreInboundCart()" style="font-size:11px; color:#94a3b8; background:none; border:none; cursor:pointer; text-decoration:underline;">목록 비우기</button>
           </div>
@@ -721,9 +731,9 @@
           <div id="store-inbound-save-section" style="display:none; margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:10px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; font-weight:800;">
               <span>총 입고 예정 수량</span>
-              <span id="store-cart-total-qty" style="color:#ea580c; font-size:15px; font-weight:900;">0개</span>
+              <span id="store-cart-total-qty" style="color:#0058a3; font-size:15px; font-weight:900;">0개</span>
             </div>
-            <button type="button" id="btn-save-store-inbound" onclick="processStoreInboundCart()" style="width:100%; padding:10px; font-size:14px; font-weight:900; border-radius:8px; background:#ea580c; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 3px 10px rgba(234,88,12,0.35);">
+            <button type="button" id="btn-save-store-inbound" onclick="processStoreInboundCart()" style="width:100%; padding:10px; font-size:14px; font-weight:900; border-radius:8px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 3px 10px rgba(0,88,163,0.3);">
               <i class="fa-solid fa-check-double"></i> 아침 매장 입고 일괄 완료 저장
             </button>
           </div>
@@ -736,12 +746,12 @@
         <div class="menu-grid" style="padding: 0;">
           <!-- 1. 매장 입고 (NEW) -->
           <a class="menu-item" onclick="switchTab('store-inbound', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#fff7ed; color:#ea580c;">
+            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
               <i class="fa-solid fa-barcode"></i>
             </div>
             <span class="menu-text">매장 입고</span>
             <span class="menu-subtext">바코드 스캔 · 아침 입고</span>
-            <span id="badge-store-inbound" class="nav-badge" style="display:none; background:#ea580c;">0</span>
+            <span id="badge-store-inbound" class="nav-badge" style="display:none; background:#0058a3;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-icon-box" style="background:#eff6ff; color:#2563eb;">
@@ -1291,6 +1301,123 @@
           <button type="submit" class="btn-submit" style="background: #0f172a; color: #fff;">저장</button>
         </form>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Unregistered Barcode Warning Modal (미등록 제품 알림 및 QR 경고) -->
+  <div id="unreg-barcode-modal" class="modal-backdrop" onclick="closeUnregisteredProductModal()" style="z-index: 9999;">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 440px; border-top: 5px solid #0058a3; border-radius: 16px; padding: 20px;">
+      
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#eff6ff; color:#0058a3; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 style="font-size:16px; font-weight:900; color:#0f172a; margin:0;">미등록 제품 감지</h3>
+            <span style="font-size:11.5px; color:#64748b; font-weight:600;">마스터 목록에 없는 품목입니다</span>
+          </div>
+        </div>
+        <button type="button" class="close-btn" onclick="closeUnregisteredProductModal()" style="font-size:18px; color:#94a3b8; background:none; border:none; cursor:pointer; padding:4px;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Scanned Code Preview Box -->
+      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:12px; text-align:center;">
+        <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px;">스캔된 아티클 번호</div>
+        <div id="unreg-modal-artno" style="font-size:24px; font-weight:900; color:#0058a3; letter-spacing:1px; font-family:monospace;">-</div>
+      </div>
+
+      <!-- QR Code Warning Notice Box -->
+      <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:12px 14px; margin-bottom:14px; display:flex; gap:10px; align-items:flex-start;">
+        <i class="fa-solid fa-qrcode" style="font-size:22px; color:#d97706; margin-top:2px; flex-shrink:0;"></i>
+        <div style="font-size:12.5px; color:#92400e; line-height:1.45;">
+          <strong style="display:block; font-size:13.5px; color:#78350f; margin-bottom:3px;">
+            <i class="fa-solid fa-circle-exclamation"></i> QR코드가 아닌 바코드를 스캔해 주세요!
+          </strong>
+          제품 라벨의 <b>QR코드</b>를 스캔하면 번호가 다르게 인식될 수 있습니다. 반드시 <b>1차원 바코드(선 형태)</b>를 스캔해 주세요.
+        </div>
+      </div>
+
+      <!-- Optional ArtName Input for manual registration -->
+      <div style="margin-bottom:16px;">
+        <label for="unreg-modal-artname" style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">
+          <i class="fa-solid fa-tag"></i> 품목명 수동 지정 (선택)
+        </label>
+        <input type="text" id="unreg-modal-artname" placeholder="품목명을 입력하지 않으면 '미등록 신규 품목'으로 저장됩니다" class="input-control" style="font-size:13px; height:40px; border-radius:8px;">
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-secondary" onclick="closeUnregisteredProductModal()" style="flex:1; height:44px; font-size:13px; font-weight:800; border-radius:10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer;">
+          <i class="fa-solid fa-rotate-left"></i> 다시 스캔 (취소)
+        </button>
+        <button type="button" onclick="confirmAddUnregisteredProduct()" style="flex:1.2; height:44px; font-size:13.5px; font-weight:900; border-radius:10px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(0,88,163,0.3);">
+          <i class="fa-solid fa-check"></i> 그래도 입고 등록
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: Register Tab Unregistered Article Alert Modal (입출고 등록 미등록 제품 안내) -->
+  <div id="reg-unregistered-modal" class="modal-backdrop" onclick="closeRegUnregisteredModal()" style="z-index: 9999;">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 440px; border-top: 5px solid #0058a3; border-radius: 16px; padding: 22px 20px;">
+      
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:#eff6ff; color:#0058a3; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 style="font-size:16px; font-weight:900; color:#0f172a; margin:0;">아티클 번호 확인 필요</h3>
+            <span style="font-size:11.5px; color:#64748b; font-weight:600;">등록되지 않은 품목 번호입니다</span>
+          </div>
+        </div>
+        <button type="button" class="close-btn" onclick="closeRegUnregisteredModal()" style="font-size:18px; color:#94a3b8; background:none; border:none; cursor:pointer; padding:4px;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Scanned / Entered Article Number Display -->
+      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:14px; text-align:center;">
+        <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px;">입력된 아티클 번호</div>
+        <div id="reg-unreg-modal-artno" style="font-size:24px; font-weight:900; color:#0058a3; letter-spacing:1px; font-family:monospace;">-</div>
+      </div>
+
+      <!-- Core Warning & Guidance Box -->
+      <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <i class="fa-solid fa-circle-xmark" style="color:#ef4444; font-size:16px; margin-top:2px; flex-shrink:0;"></i>
+          <div style="font-size:13px; color:#0f172a; font-weight:800; line-height:1.45;">
+            현재 시스템은 <b>13,836개 모든 이케아 판매 제품</b>을 불러오고 있으므로, 입력하신 번호가 잘못되었거나 오타일 가능성이 높습니다.
+          </div>
+        </div>
+        <div style="border-top:1px dashed #e2e8f0; padding-top:8px; font-size:12px; color:#475569; line-height:1.45;">
+          📌 <b>아티클 번호(8자리)</b>를 다시 한 번 정확히 확인해 주세요.<br>
+          💡 바코드 스캐너 사용 시 <b>QR코드가 아닌 1차원 바코드(선 형태)</b>를 스캔해 주세요.
+        </div>
+      </div>
+
+      <!-- Optional Custom Name Field for exception registering -->
+      <div style="margin-bottom:16px;">
+        <label for="reg-unreg-modal-artname" style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">
+          <i class="fa-solid fa-tag"></i> 품목명 직접 입력 (예외 등록 시)
+        </label>
+        <input type="text" id="reg-unreg-modal-artname" placeholder="미등록 상태로 등록할 품목명을 입력하세요" class="input-control" style="font-size:13px; height:40px; border-radius:8px;">
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:8px;">
+        <button type="button" onclick="closeRegUnregisteredModal()" style="flex:1.2; height:44px; font-size:13px; font-weight:800; border-radius:10px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(0,88,163,0.3);">
+          <i class="fa-solid fa-pen-to-square"></i> 번호 다시 확인 (수정)
+        </button>
+        <button type="button" onclick="confirmAddRegUnregisteredProduct()" style="flex:0.8; height:44px; font-size:12px; font-weight:700; border-radius:10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="fa-solid fa-arrow-right"></i> 그래도 등록
+        </button>
+      </div>
+
     </div>
   </div>
 

@@ -666,10 +666,13 @@ async function saveOrderLogs(order) {
 function initFormDate() {
   const today = new Date().toISOString().split("T")[0];
   const regDateElem = document.getElementById("reg-date");
-  if (regDateElem) regDateElem.value = today;
+  if (regDateElem && !regDateElem.value) regDateElem.value = today;
 
   const orderDateElem = document.getElementById("order-date");
-  if (orderDateElem) orderDateElem.value = today;
+  if (orderDateElem && !orderDateElem.value) orderDateElem.value = today;
+
+  const storeDateElem = document.getElementById("store-inbound-date");
+  if (storeDateElem && !storeDateElem.value) storeDateElem.value = today;
 }
 
 // Tab Switching (With Access Control)
@@ -691,7 +694,7 @@ function switchTab(tabId, btnElement) {
     stockDisplayLimit = RENDER_LIMIT;
     renderStockLookup();
   }
-  if (tabId === "register" || tabId === "order") {
+  if (tabId === "register" || tabId === "order" || tabId === "store-inbound") {
     initFormDate();
   }
   if (tabId === "order") {
@@ -860,28 +863,35 @@ function onArtNoInput(artNoValue) {
   const icon = document.getElementById("artname-status-icon");
 
   if (!cleanNo) {
-    artNameInput.value = "";
-    stockPreview.textContent = "- 개";
-    icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    if (artNameInput) artNameInput.value = "";
+    if (stockPreview) stockPreview.textContent = "- 개";
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
     return;
   }
 
-  const artNameMatch = masterCatalogMap.get(cleanNo);
+  const product = (typeof resolveMasterProduct === 'function') ? resolveMasterProduct(cleanNo) : null;
+  const isFound = product && !product.isUnregistered;
+  const artNameMatch = isFound ? product.artName : (typeof masterCatalogMap !== 'undefined' && masterCatalogMap ? masterCatalogMap.get(cleanNo) : "");
+  const targetArtNo = isFound ? product.artNo : cleanNo;
 
-  if (artNameMatch) {
-    artNameInput.value = artNameMatch;
-    icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
+  if (isFound || artNameMatch) {
+    if (artNameInput) artNameInput.value = artNameMatch;
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #059669;"></i>';
     
-    const currentStock = getItemStock(cleanNo);
-    stockPreview.textContent = `${currentStock} 개`;
-    stockPreview.style.color = currentStock > 0 ? "#059669" : "#dc2626";
-    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, artNameMatch);
+    const currentStock = getItemStock(targetArtNo);
+    if (stockPreview) {
+      stockPreview.textContent = `${currentStock} 개`;
+      stockPreview.style.color = currentStock > 0 ? "#059669" : "#dc2626";
+    }
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(targetArtNo, artNameMatch);
   } else {
-    icon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #d97706;"></i>';
-    const currentStock = getItemStock(cleanNo);
-    stockPreview.textContent = `${currentStock} 개`;
-    stockPreview.style.color = currentStock > 0 ? "#059669" : "#64748b";
-    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(cleanNo, "");
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: #d97706;" title="미등록 제품 번호"></i>';
+    const currentStock = getItemStock(targetArtNo);
+    if (stockPreview) {
+      stockPreview.textContent = `${currentStock} 개`;
+      stockPreview.style.color = currentStock > 0 ? "#059669" : "#64748b";
+    }
+    if (typeof updateRegProductThumb === 'function') updateRegProductThumb(targetArtNo, "");
   }
 }
 
@@ -998,9 +1008,10 @@ function getItemStock(artNo) {
 
 // --- NEW CART STATE ---
 let regCartList = [];
+let pendingRegUnregistered = null;
 
 // --- REG CART LOGIC ---
-function handleAddRegCart() {
+function handleAddRegCart(bypassUnregisteredCheck = false) {
   if (typeof isViewerUser !== 'undefined' && isViewerUser) {
     showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
     return;
@@ -1008,16 +1019,32 @@ function handleAddRegCart() {
   const date = document.getElementById("reg-date").value;
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
   const type = typeOption ? typeOption.value : "입고";
-  const artNo = document.getElementById("reg-artno").value.trim();
+  const rawArtNo = document.getElementById("reg-artno").value.trim();
   const artName = document.getElementById("reg-artname").value.trim();
   const qty = Number(document.getElementById("reg-qty").value);
 
-  if (!artNo || !qty || qty <= 0) {
+  if (!rawArtNo || !qty || qty <= 0) {
     showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
 
-  regCartList.push({ date, type, artNo, artName: artName || "기타 품목", qty });
+  // Resolve product using resolveMasterProduct to check if article number exists in masterCatalog (13,836 items)
+  const product = (typeof resolveMasterProduct === 'function') ? resolveMasterProduct(rawArtNo) : null;
+  const isUnregistered = product ? product.isUnregistered : (!masterCatalogMap.has(rawArtNo) && !masterCatalogMap.has(rawArtNo.padStart(8, '0')));
+  const finalArtNo = product ? product.artNo : rawArtNo;
+
+  if (isUnregistered && !bypassUnregisteredCheck) {
+    if (typeof playWarningBeep === 'function') playWarningBeep();
+    if (typeof playWarningHaptic === 'function') playWarningHaptic();
+    openRegUnregisteredModal(finalArtNo, artName, qty, type, date, false);
+    return;
+  }
+
+  const resolvedName = (product && !product.isUnregistered && product.artName)
+    ? product.artName
+    : (artName || "기타 품목");
+
+  regCartList.push({ date, type, artNo: finalArtNo, artName: resolvedName, qty });
   renderRegCart();
   
   document.getElementById("reg-artno").value = "";
@@ -1033,17 +1060,86 @@ function handleSingleRegSave() {
     showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
     return;
   }
-  const artNo = document.getElementById("reg-artno").value.trim();
+  const rawArtNo = document.getElementById("reg-artno").value.trim();
   const qty = Number(document.getElementById("reg-qty").value);
+  const date = document.getElementById("reg-date").value;
+  const typeOption = document.querySelector('input[name="reg-type"]:checked');
+  const type = typeOption ? typeOption.value : "입고";
+  const artName = document.getElementById("reg-artname").value.trim();
   
-  if (!artNo || !qty || qty <= 0) {
+  if (!rawArtNo || !qty || qty <= 0) {
     showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
     return;
   }
+
+  const product = (typeof resolveMasterProduct === 'function') ? resolveMasterProduct(rawArtNo) : null;
+  const isUnregistered = product ? product.isUnregistered : (!masterCatalogMap.has(rawArtNo) && !masterCatalogMap.has(rawArtNo.padStart(8, '0')));
+  const finalArtNo = product ? product.artNo : rawArtNo;
+
+  if (isUnregistered) {
+    if (typeof playWarningBeep === 'function') playWarningBeep();
+    if (typeof playWarningHaptic === 'function') playWarningHaptic();
+    openRegUnregisteredModal(finalArtNo, artName, qty, type, date, true);
+    return;
+  }
   
-  handleAddRegCart();
+  handleAddRegCart(true);
   processRegCart();
 }
+
+// Unregistered Article Modal Handlers for Register Tab
+window.openRegUnregisteredModal = function(artNo, currentArtName, qty, type, date, isSingleSave = false) {
+  pendingRegUnregistered = { artNo, currentArtName, qty, type, date, isSingleSave };
+  const modal = document.getElementById("reg-unregistered-modal");
+  const artNoEl = document.getElementById("reg-unreg-modal-artno");
+  const artNameInput = document.getElementById("reg-unreg-modal-artname");
+  
+  if (artNoEl) artNoEl.textContent = artNo;
+  if (artNameInput) artNameInput.value = currentArtName || "";
+  if (modal) modal.classList.add("active");
+};
+
+window.closeRegUnregisteredModal = function() {
+  pendingRegUnregistered = null;
+  const modal = document.getElementById("reg-unregistered-modal");
+  if (modal) modal.classList.remove("active");
+  const artNoInput = document.getElementById("reg-artno");
+  if (artNoInput) {
+    artNoInput.focus();
+    artNoInput.select();
+  }
+};
+
+window.confirmAddRegUnregisteredProduct = function() {
+  if (!pendingRegUnregistered) return;
+  const { artNo, qty, type, date, isSingleSave } = pendingRegUnregistered;
+  const customNameInput = document.getElementById("reg-unreg-modal-artname");
+  const customName = (customNameInput && customNameInput.value.trim()) ? customNameInput.value.trim() : "미등록 품목";
+
+  regCartList.push({ date, type, artNo, artName: customName, qty });
+  renderRegCart();
+
+  document.getElementById("reg-artno").value = "";
+  document.getElementById("reg-artname").value = "";
+  document.getElementById("reg-qty").value = "";
+  document.getElementById("reg-current-stock").textContent = "- 개";
+  if (typeof updateRegProductThumb === 'function') updateRegProductThumb("", "");
+
+  showToast(`[${artNo}] ${customName} (+${qty}개 담김)`, "warning");
+
+  const modal = document.getElementById("reg-unregistered-modal");
+  if (modal) modal.classList.remove("active");
+  
+  const shouldProcess = isSingleSave;
+  pendingRegUnregistered = null;
+
+  if (shouldProcess) {
+    processRegCart();
+  } else {
+    const artNoInput = document.getElementById("reg-artno");
+    if (artNoInput) artNoInput.focus();
+  }
+};
 
 function renderRegCart() {
   const container = document.getElementById("reg-cart-list");
@@ -1531,17 +1627,31 @@ function exportOrdersToExcel() {
     return;
   }
 
-  const exportData = orderLogs.map((item, index) => ({
-    "연번": index + 1,
-    "요청 날짜": item.date,
-    "번호 (ARTNO)": item.artNo,
-    "아티클 이름": item.artName,
-    "요청 수량": item.qty,
-    "요청자": item.user,
-    "상태": item.status || "요청됨"
-  }));
+  const exportData = orderLogs.map((item, index) => {
+    const rawNo = String(item.artNo || "").trim();
+    const digitsOnly = rawNo.replace(/\D/g, '');
+    const numVal = digitsOnly ? parseInt(digitsOnly, 10) : rawNo;
+    return {
+      "연번": index + 1,
+      "요청 날짜": item.date,
+      "번호 (ARTNO)": numVal,
+      "아티클 이름": item.artName,
+      "요청 수량": Number(item.qty) || 1,
+      "요청자": item.user,
+      "상태": item.status || "요청됨"
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  for (let r = 2; r <= exportData.length + 1; r++) {
+    const artCell = worksheet['C' + r];
+    if (artCell && typeof artCell.v === 'number') {
+      artCell.t = 'n';
+      artCell.z = '00000000';
+    }
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "오더요청");
 
@@ -2061,17 +2171,31 @@ function exportHistoryToExcel() {
     return;
   }
 
-  const exportData = historyLogs.map((log, index) => ({
-    "연번": index + 1,
-    "날짜": log.date,
-    "구분": log.type,
-    "아티클 이름": log.artName,
-    "번호 (ARTNO)": log.artNo,
-    "수량": log.qty,
-    "작성자": log.user || "-"
-  }));
+  const exportData = historyLogs.map((log, index) => {
+    const rawNo = String(log.artNo || "").trim();
+    const digitsOnly = rawNo.replace(/\D/g, '');
+    const numVal = digitsOnly ? parseInt(digitsOnly, 10) : rawNo;
+    return {
+      "연번": index + 1,
+      "날짜": log.date,
+      "구분": log.type,
+      "아티클 이름": log.artName,
+      "번호 (ARTNO)": numVal,
+      "수량": Number(log.qty) || 1,
+      "작성자": log.user || "-"
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  for (let r = 2; r <= exportData.length + 1; r++) {
+    const artCell = worksheet['E' + r];
+    if (artCell && typeof artCell.v === 'number') {
+      artCell.t = 'n';
+      artCell.z = '00000000';
+    }
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "기록");
 
