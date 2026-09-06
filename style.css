@@ -2285,3 +2285,320 @@ body { overflow-behavior-y: none; }
   border-color: #bfdbfe;
   box-shadow: 0 2px 6px rgba(0, 88, 163, 0.08);
 }
+
+/* ===================================================
+   USER MANUAL MODAL & CAROUSEL SLIDER STYLES
+   =================================================== */
+#manual-modal,
+#manual-login-prompt-modal {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.manual-modal-content {
+  background: #ffffff;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.3), 0 0 1px 1px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #e2e8f0;
+}
+
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.manual-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.manual-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-header-title h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-step-badge {
+  font-size: 11px;
+  font-weight: 800;
+  background: #eff6ff;
+  color: #0058a3;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #dbeafe;
+}
+
+/* Slide Slider Track */
+.manual-slider-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  flex: 1;
+  background: #ffffff;
+  touch-action: pan-y;
+}
+
+.manual-slide-track {
+  display: flex;
+  width: 100%;
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.manual-slide-card {
+  min-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 22px;
+  max-height: 58vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Slide Card Header Banner */
+.manual-card-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1px solid #e2e8f0;
+}
+
+.manual-hero-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #0058a3;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 88, 163, 0.25);
+}
+
+.manual-hero-text h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+}
+
+.manual-hero-text p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Step Items */
+.manual-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-step-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  align-items: flex-start;
+}
+
+.manual-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #e2e8f0;
+  color: #1e293b;
+  font-size: 11.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.manual-step-item.highlight .manual-step-num {
+  background: #0058a3;
+  color: #ffffff;
+}
+
+.manual-step-info {
+  flex: 1;
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.manual-step-info strong {
+  color: #0f172a;
+  font-size: 12.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* TIP Box */
+.manual-tip-box {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  color: #92400e;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.manual-tip-box i {
+  color: #d97706;
+  font-size: 14px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.manual-badge-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+}
+
+.manual-badge-pill.primary {
+  background: #eff6ff;
+  color: #0058a3;
+  border: 1px solid #bfdbfe;
+}
+
+.manual-badge-pill.admin {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Modal Footer & Navigation */
+.manual-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.manual-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.manual-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.manual-dot.active {
+  width: 22px;
+  background: #0058a3;
+}
+
+.manual-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.manual-btn-prev {
+  background: #ffffff;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.manual-btn-prev:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.manual-btn-prev:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.manual-btn-next {
+  background: #0058a3;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 88, 163, 0.25);
+}
+
+.manual-btn-next:hover {
+  background: #004f93;
+  transform: translateY(-1px);
+}
+
+.manual-btn-finish {
+  background: #059669;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+.manual-btn-finish:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+

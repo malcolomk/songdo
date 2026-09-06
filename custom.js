@@ -3406,8 +3406,8 @@ function renderStoreInboundCart() {
 
 // Process and Save Store Inbound Cart
 window.processStoreInboundCart = async function() {
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    showToast("Viewer(읽기 전용) 계정은 매장 입고를 등록할 수 없습니다.", "warning");
+  if (typeof isAdminUser === 'undefined' || !isAdminUser) {
+    showToast("매장 입고 등록은 관리자(Admin) 계정만 가능합니다.", "danger");
     return;
   }
 
@@ -3509,6 +3509,11 @@ window.processStoreInboundCart = async function() {
 // STORE INBOUND EXCEL EXPORT (.XLSX)
 // ==========================================================================
 window.exportStoreInboundToExcel = async function() {
+  if (typeof isAdminUser === 'undefined' || !isAdminUser) {
+    showToast("매장 입고 엑셀 추출은 관리자(Admin) 전용 기능입니다.", "danger");
+    return;
+  }
+
   if (typeof XLSX === "undefined") {
     showToast("엑셀 내보내기 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.", "warning");
     return;

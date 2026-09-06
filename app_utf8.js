@@ -25,7 +25,7 @@ const ALLOWED_USER_IDS = [
 ];
 
 // --- Designated Admin Users List ---
-const ADMIN_USERS = ["jipar5", "hycho30", "junkoo", "minjong"];
+const ADMIN_USERS = ["jipar5", "hycho30", "junkoo", "minjong", "julee33"];
 
 // Initial default passwords (all '522')
 const INITIAL_PASSWORD = "522";
@@ -100,6 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initFormDate();
   setupDebouncedInputs();
   initRegLocation();
+  initManualModalEvents();
 });
 
 function setupDebouncedInputs() {
@@ -222,6 +223,15 @@ function checkLoginSession() {
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
 
+    const storeInboundLockBadge = document.getElementById("badge-store-inbound-lock");
+    if (storeInboundLockBadge) {
+      storeInboundLockBadge.style.display = "inline-block";
+      storeInboundLockBadge.innerHTML = isAdminUser ? "👑 관리자" : "🔒 관리자 전용";
+      storeInboundLockBadge.style.background = isAdminUser ? "#fef3c7" : "#f1f5f9";
+      storeInboundLockBadge.style.color = isAdminUser ? "#b45309" : "#64748b";
+      storeInboundLockBadge.style.borderColor = isAdminUser ? "#fde68a" : "#cbd5e1";
+    }
+
     if (isViewerUser) {
       document.body.classList.add("is-viewer-mode");
       if (viewerRoleBadge) viewerRoleBadge.style.display = "inline-block";
@@ -339,6 +349,13 @@ function handleLoginSubmit(e) {
   }
 
   checkLoginSession();
+
+  // Show manual login prompt modal
+  setTimeout(() => {
+    if (typeof showManualLoginPrompt === "function") {
+      showManualLoginPrompt();
+    }
+  }, 350);
 }
 
 function handleLogout() {
@@ -388,6 +405,199 @@ function handleResetPasswordSubmit(e) {
 
   showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success");
   document.getElementById("login-pw").value = newPw;
+}
+
+// ==========================================
+// USER MANUAL MODAL & CAROUSEL SLIDER LOGIC
+// ==========================================
+let currentManualSlide = 0;
+const TOTAL_MANUAL_SLIDES = 6;
+
+function showManualLoginPrompt() {
+  if (!currentUser) return;
+
+  const isGuest = currentUser.toLowerCase().startsWith("guest");
+  const userKey = `warehouse_manual_hide_until_${currentUser.toLowerCase()}`;
+  const hideUntilStr = localStorage.getItem(userKey);
+
+  if (hideUntilStr) {
+    const hideUntil = new Date(hideUntilStr);
+    if (new Date() < hideUntil) {
+      return; // Still within hide duration
+    }
+  }
+
+  // Update label text dynamically based on account type
+  const labelElem = document.getElementById("manual-hide-label-text");
+  if (labelElem) {
+    labelElem.textContent = isGuest ? "오늘 하루 동안 보지 않기" : "일주일 동안 보지 않기";
+  }
+
+  const checkbox = document.getElementById("manual-hide-today");
+  if (checkbox) checkbox.checked = false;
+
+  const promptModal = document.getElementById("manual-login-prompt-modal");
+  if (promptModal) {
+    promptModal.classList.add("active");
+  }
+}
+window.showManualLoginPrompt = showManualLoginPrompt;
+
+function closeManualLoginPrompt() {
+  const checkbox = document.getElementById("manual-hide-today");
+  if (checkbox && checkbox.checked && currentUser) {
+    const isGuest = currentUser.toLowerCase().startsWith("guest");
+    const now = new Date();
+    let hideUntil;
+
+    if (isGuest) {
+      // 1 day for guests (오늘 하루 동안)
+      hideUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else {
+      // 7 days for admin and regular accounts (일주일 동안)
+      hideUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const userKey = `warehouse_manual_hide_until_${currentUser.toLowerCase()}`;
+    localStorage.setItem(userKey, hideUntil.toISOString());
+  }
+
+  const promptModal = document.getElementById("manual-login-prompt-modal");
+  if (promptModal) {
+    promptModal.classList.remove("active");
+  }
+}
+window.closeManualLoginPrompt = closeManualLoginPrompt;
+
+function confirmOpenManualFromPrompt() {
+  closeManualLoginPrompt();
+  openManualModal(0);
+}
+window.confirmOpenManualFromPrompt = confirmOpenManualFromPrompt;
+
+function openManualModal(startSlide = 0) {
+  const modal = document.getElementById("manual-modal");
+  if (!modal) return;
+  modal.classList.add("active");
+  manualGoToSlide(startSlide);
+}
+window.openManualModal = openManualModal;
+
+function closeManualModal() {
+  const modal = document.getElementById("manual-modal");
+  if (!modal) return;
+  modal.classList.remove("active");
+}
+window.closeManualModal = closeManualModal;
+
+function manualGoToSlide(index) {
+  if (index < 0) index = 0;
+  if (index >= TOTAL_MANUAL_SLIDES) index = TOTAL_MANUAL_SLIDES - 1;
+  currentManualSlide = index;
+
+  const track = document.getElementById("manual-slide-track");
+  if (track) {
+    track.style.transform = `translateX(-${currentManualSlide * 100}%)`;
+  }
+
+  // Update step badge
+  const badge = document.getElementById("manual-step-badge");
+  if (badge) {
+    badge.textContent = `${currentManualSlide + 1} / ${TOTAL_MANUAL_SLIDES}`;
+  }
+
+  // Update dots
+  const dots = document.querySelectorAll("#manual-dots .manual-dot");
+  dots.forEach((dot, idx) => {
+    if (idx === currentManualSlide) {
+      dot.classList.add("active");
+    } else {
+      dot.classList.remove("active");
+    }
+  });
+
+  // Update Prev / Next buttons
+  const prevBtn = document.getElementById("manual-btn-prev");
+  const nextBtn = document.getElementById("manual-btn-next");
+
+  if (prevBtn) {
+    prevBtn.disabled = currentManualSlide === 0;
+  }
+
+  if (nextBtn) {
+    if (currentManualSlide === TOTAL_MANUAL_SLIDES - 1) {
+      nextBtn.className = "manual-btn manual-btn-finish";
+      nextBtn.innerHTML = `<span>🚀 숙지 완료 / 닫기</span>`;
+      nextBtn.onclick = function() {
+        closeManualModal();
+        showToast("사용자 매뉴얼 숙지가 완료되었습니다!", "success");
+      };
+    } else {
+      nextBtn.className = "manual-btn manual-btn-next";
+      nextBtn.innerHTML = `다음 <i class="fa-solid fa-chevron-right"></i>`;
+      nextBtn.onclick = manualNextSlide;
+    }
+  }
+}
+
+function manualNextSlide() {
+  if (currentManualSlide < TOTAL_MANUAL_SLIDES - 1) {
+    manualGoToSlide(currentManualSlide + 1);
+  } else {
+    closeManualModal();
+  }
+}
+
+function manualPrevSlide() {
+  if (currentManualSlide > 0) {
+    manualGoToSlide(currentManualSlide - 1);
+  }
+}
+window.manualGoToSlide = manualGoToSlide;
+window.manualNextSlide = manualNextSlide;
+window.manualPrevSlide = manualPrevSlide;
+
+// Touch swipe support and Keyboard navigation for Manual Modal
+function initManualModalEvents() {
+  const container = document.getElementById("manual-slider-container");
+  if (!container) return;
+
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  container.addEventListener("touchstart", (e) => {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      touchStartX = e.changedTouches[0].screenX;
+    }
+  }, { passive: true });
+
+  container.addEventListener("touchend", (e) => {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      touchEndX = e.changedTouches[0].screenX;
+      const diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 45) {
+        if (diff < 0) {
+          manualNextSlide();
+        } else {
+          manualPrevSlide();
+        }
+      }
+    }
+  }, { passive: true });
+
+  // Keyboard navigation
+  window.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("manual-modal");
+    if (!modal || !modal.classList.contains("active")) return;
+
+    if (e.key === "ArrowRight") {
+      manualNextSlide();
+    } else if (e.key === "ArrowLeft") {
+      manualPrevSlide();
+    } else if (e.key === "Escape") {
+      closeManualModal();
+    }
+  });
 }
 
 // --- Storage & Data Load Helpers ---
@@ -678,8 +888,8 @@ function initFormDate() {
 // Tab Switching (With Access Control)
 function switchTab(tabId, btnElement) {
   // Access Restrictions
-  if (tabId === "master" && !isAdminUser) {
-    showToast("해당 메뉴는 관리자 전용입니다.", "danger");
+  if ((tabId === "master" || tabId === "store-inbound") && !isAdminUser) {
+    showToast("매장 입고 메뉴는 관리자(Admin) 전용 기능입니다.", "danger");
     return;
   }
 

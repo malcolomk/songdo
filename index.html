@@ -229,6 +229,9 @@
           <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:10.5px; color:#0058a3;"></i>
           <span style="font-size:10.5px; color:#0058a3; font-weight:900; white-space:nowrap;">새로고침</span>
         </button>
+        <button type="button" id="btn-manual-guide" onclick="if(typeof openManualModal === 'function') openManualModal();" style="background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="사용자 매뉴얼 가이드">
+          <i class="fa-solid fa-book-open" style="font-size:11px; color:#0058a3;"></i>
+        </button>
         <button type="button" id="btn-notification-bell" onclick="if(typeof openNotificationModal === 'function') openNotificationModal();" style="position:relative; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="오더 알림함">
           <i class="fa-solid fa-bell" style="font-size:11px; color:#475569;"></i>
           <span id="notif-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:8px; font-weight:900; border-radius:10px; padding:1px 3px; min-width:13px; text-align:center; box-shadow:0 1px 3px rgba(239,68,68,0.4); line-height:1.1;">0</span>
@@ -744,13 +747,14 @@
     <section id="tab-menu" class="tab-page">
       <div style="padding: 2px 0 20px 0;">
         <div class="menu-grid" style="padding: 0;">
-          <!-- 1. 매장 입고 (NEW) -->
-          <a class="menu-item" onclick="switchTab('store-inbound', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
+          <!-- 1. 매장 입고 (관리자 전용) -->
+          <a class="menu-item" id="menu-item-store-inbound" onclick="switchTab('store-inbound', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
               <i class="fa-solid fa-barcode"></i>
             </div>
             <span class="menu-text">매장 입고</span>
             <span class="menu-subtext">바코드 스캔 · 아침 입고</span>
+            <span id="badge-store-inbound-lock" class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#fef3c7; color:#b45309; border-radius:6px; font-weight:800; border:1px solid #fde68a;">👑 관리자</span>
             <span id="badge-store-inbound" class="nav-badge" style="display:none; background:#0058a3;">0</span>
           </a>
           <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
@@ -790,6 +794,14 @@
             <span class="menu-text">송도 MFAQ</span>
             <span class="menu-subtext">자주 묻는 질문</span>
             <span id="badge-mfaq" class="nav-badge" style="display:none;">0</span>
+          </a>
+          <a class="menu-item" onclick="if(typeof openManualModal === 'function') openManualModal()" style="position:relative; border-color:#bfdbfe; background:linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);">
+            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
+              <i class="fa-solid fa-book-open"></i>
+            </div>
+            <span class="menu-text" style="color:#0058a3; font-weight:800;">사용자 매뉴얼</span>
+            <span class="menu-subtext">슬라이드 가이드 · 사용법</span>
+            <span class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#dbeafe; color:#1e40af; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">📘 가이드</span>
           </a>
           <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#f0f9ff; color:#0284c7;">
@@ -833,6 +845,10 @@
               <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🏷️ P-Tag / 송도 MFAQ</strong>
               누락된 라벨/태그 발급 요청 및 FAQ 가이드를 열람합니다.
             </div>
+
+            <button type="button" onclick="if(typeof openManualModal === 'function') openManualModal()" style="margin-top: 6px; width: 100%; padding: 10px; background: #0058a3; color: #ffffff; font-weight: 800; font-size: 12.5px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,88,163,0.2);">
+              <i class="fa-solid fa-book-open"></i> 전체 사용자 매뉴얼 (카드 슬라이드) 열기
+            </button>
           </div>
           
           <div style="margin-top: 10px; text-align: center; font-size: 11.5px; color: #94a3b8; font-weight: 600;">
@@ -1106,12 +1122,12 @@
               <option value="minjong">minjong (👑 관리자)</option>
               <option value="jipar5">jipar5 (👑 관리자)</option>
               <option value="hycho30">hycho30 (👑 관리자)</option>
+              <option value="julee33">julee33 (👑 관리자)</option>
               <option value="guest1">guest1 (게스트 1)</option>
               <option value="guest2">guest2 (게스트 2)</option>
               <option value="amelie">amelie</option>
               <option value="sulee21">sulee21</option>
               <option value="jocho16">jocho16</option>
-              <option value="julee33">julee33</option>
               <option value="tabae3">tabae3</option>
               <option value="goyoo">goyoo</option>
               <option value="suahn2">suahn2</option>
@@ -1186,6 +1202,345 @@
           <button type="button" class="btn-submit" style="padding:10px 20px; margin:0;" onclick="if(typeof confirmNoticeModal === 'function') confirmNoticeModal()">확인 및 닫기</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Login Manual Prompt Modal (로그인 시 매뉴얼 보기/닫기 안내 팝업) -->
+  <div id="manual-login-prompt-modal" class="modal-backdrop" style="z-index: 10006;" onclick="closeManualLoginPrompt()">
+    <div class="modal-content" style="max-width: 400px; border-radius: 18px; padding: 22px 20px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);" onclick="event.stopPropagation()">
+      <div style="width: 50px; height: 50px; border-radius: 14px; background: #eff6ff; color: #0058a3; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 12px auto; border: 1px solid #bfdbfe;">
+        <i class="fa-solid fa-book-open"></i>
+      </div>
+      
+      <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; margin: 0 0 6px 0;">시스템 사용자 매뉴얼 안내</h3>
+      <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0; line-height: 1.5;">
+        스마트 바코드 스캔, 아침 매장 입고, 재고 조회 등<br>시스템의 핵심 사용법을 확인하시겠습니까?
+      </p>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <button type="button" class="btn-secondary" onclick="closeManualLoginPrompt()" style="flex: 1; padding: 11px; font-size: 13.5px; font-weight: 700; border-radius: 10px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; cursor: pointer;">
+          닫기
+        </button>
+        <button type="button" class="btn-primary" onclick="confirmOpenManualFromPrompt()" style="flex: 1.3; padding: 11px; font-size: 13.5px; font-weight: 800; border-radius: 10px; background: #0058a3; color: #ffffff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 8px rgba(0,88,163,0.3);">
+          <i class="fa-solid fa-book-open"></i> 매뉴얼 보기
+        </button>
+      </div>
+
+      <label style="font-size: 12px; color: #64748b; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="checkbox" id="manual-hide-today" style="width: 14px; height: 14px; cursor: pointer;">
+        <span id="manual-hide-label-text">일주일 동안 보지 않기</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- MODAL: Full User Manual Modal (사용자 매뉴얼 카드 슬라이드) -->
+  <div id="manual-modal" class="modal-backdrop" onclick="closeManualModal()" style="z-index: 10005;">
+    <div class="manual-modal-content" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div class="manual-modal-header">
+        <div class="manual-header-title">
+          <h3><i class="fa-solid fa-book-open" style="color:#0058a3;"></i> 시스템 사용자 매뉴얼</h3>
+          <span class="manual-step-badge" id="manual-step-badge">1 / 6</span>
+        </div>
+        <button type="button" class="close-btn" onclick="closeManualModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Slider Container -->
+      <div class="manual-slider-container" id="manual-slider-container">
+        <div class="manual-slide-track" id="manual-slide-track">
+
+          <!-- Slide 1: 🔑 로그인 및 권한 안내 -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#0058a3;">
+                <i class="fa-solid fa-user-shield"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>1. 로그인 & 계정 권한 안내</h4>
+                <p>접속 아이디 및 관리자 권한별 기능 안내</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>초기 기본 비밀번호</strong>
+                  모든 사용자 아이디의 초기 비밀번호는 <span class="manual-badge-pill primary">522</span> 로 설정되어 있습니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>비밀번호 변경</strong>
+                  로그인 창 하단 <b>[비밀번호 재설정]</b> 또는 상단 사용자 메뉴를 통해 원하는 새 비밀번호로 안전하게 변경 가능합니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>👑 관리자 (Admin) 권한 계정</strong>
+                  <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">
+                    <span class="manual-badge-pill admin">jipar5</span>
+                    <span class="manual-badge-pill admin">hycho30</span>
+                    <span class="manual-badge-pill admin">junkoo</span>
+                    <span class="manual-badge-pill admin">minjong</span>
+                    <span class="manual-badge-pill admin">julee33</span>
+                  </div>
+                  <span style="font-size:11.5px; color:#64748b; margin-top:4px; display:block; line-height:1.4;">
+                    관리자는 <b>아침 매장 입고</b>, <b>전체 엑셀 추출</b>, <b>오더 승인/확정</b>, <b>마스터 카탈로그 관리</b> 권한을 갖습니다.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-lightbulb"></i>
+              <div><b>보안 권장:</b> 첫 로그인 후 본인만 아는 비밀번호로 변경하여 사용하시는 것을 권장합니다.</div>
+            </div>
+          </div>
+
+          <!-- Slide 2: 📦 입/출고 등록 & 스마트 바코드 -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#2563eb;">
+                <i class="fa-solid fa-boxes-stacked"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>2. 입/출고 등록 & 스마트 바코드</h4>
+                <p>바코드 스캔 및 IKEA 마스터 품목 자동 매핑</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>아티클 번호 입력 및 바코드 자동 추출</strong>
+                  아티클 번호 입력 및 이름 검색으로 가능하며, 바코드 스캐너 이용 시 자동으로 추출됩니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>13,800여 개 전 품목 자동 조회</strong>
+                  8자리 아티클 번호를 입력하거나 스캔하면 상품명과 HFB 카테고리가 자동으로 입력됩니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>미등록 아티클 입력 시 안내창 표출</strong>
+                  IKEA 마스터에 없는 번호를 입력할 경우 "아티클 번호 재확인" 안내창이 나타나 오기입을 방지합니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">4</div>
+                <div class="manual-step-info">
+                  <strong>카트 담기 후 [일괄 등록]</strong>
+                  입출고할 물품들을 카트에 차례로 담은 뒤 하단 [일괄 등록] 버튼을 누르면 재고에 즉시 반영됩니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-lightbulb"></i>
+              <div><b>스캔 팁:</b> 스캐너 커서가 아티클 번호 입력창에 있을 때 스캔하시면 가장 빠릅니다.</div>
+            </div>
+          </div>
+
+          <!-- Slide 3: 🚚 아침 매장 입고 (👑 관리자) -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#0284c7;">
+                <i class="fa-solid fa-truck-ramp-box"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>3. 아침 매장 입고 (👑 관리자)</h4>
+                <p>당일 매장 직송 입고 스캔 및 표준 엑셀 추출</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>당일 입고 날짜 자동 세팅</strong>
+                  메뉴 진입 시 오늘 날짜가 기본으로 설정되어 있지만 확인 후 진행해주세요.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>바코드 스캔 및 입고 수량 등록</strong>
+                  박스 및 제품 바코드를 연속 스캔하거나 수량을 입력하여 입고 카트에 추가합니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>수식 100% 호환 표준 8자리 엑셀 추출</strong>
+                  [엑셀 추출] 시 아티클 번호가 순수 8자리 숫자형(00000000)으로 저장되어, 다른 엑셀의 VLOOKUP 등 수식에 바로 붙여넣어 완벽 호환됩니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-circle-check" style="color:#059669;"></i>
+              <div><b>권한 안내:</b> 관리자 계정(<code>jipar5</code>, <code>hycho30</code>, <code>junkoo</code>, <code>minjong</code>, <code>julee33</code>)만 접근 가능합니다.</div>
+            </div>
+          </div>
+
+          <!-- Slide 4: 🏢 실시간 재고 조회 & 검색 -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#0f172a;">
+                <i class="fa-solid fa-warehouse"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>4. 실시간 재고 조회 & 검색</h4>
+                <p>HFB 카테고리 필터링 및 창고 위치/수량 확인</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>HFB 카테고리 필터 & 통합 검색</strong>
+                  Living, Bedding, Kitchen 등 18개 HFB 카테고리 버튼과 아티클 번호/품명 실시간 검색 지원
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>창고 구역 위치 (B1, B2, B3) 관리</strong>
+                  각 품목의 보관 위치를 확인하고, 우측 구역 버튼을 눌러 손쉽게 위치를 수정할 수 있습니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>부족 재고 경고 표시</strong>
+                  재고가 안전 기준 이하로 부족한 품목은 붉은색 뱃지로 강조되어 발주가 용이합니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-lightbulb"></i>
+              <div><b>상세 보기:</b> 품목 카드를 클릭하면 상품 상세 스펙과 최근 입출고 이력을 확인할 수 있습니다.</div>
+            </div>
+          </div>
+
+          <!-- Slide 5: 📋 창고 챙기기 & 🛒 오더 요청 -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#e11d48;">
+                <i class="fa-solid fa-cart-flatbed"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>5. 창고 챙기기 (Pick List) & 오더</h4>
+                <p>매장 부족 오더 접수 및 원클릭 출고 처리</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>오더 요청 접수</strong>
+                  매장에 필요한 품목과 수량을 접수하면 실시간 오더 대기열에 등록됩니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>창고 챙기기 (Pick List) 대기열</strong>
+                  창고에 재고가 있는 오더들을 모아서 직관적인 피킹 리스트 카드로 보여줍니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>[챙김 완료] 원클릭 출고</strong>
+                  물품 준비 후 <b>[챙김 완료]</b> 버튼을 누르면 재고 차감과 오더 처리가 즉시 완료됩니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-lightbulb"></i>
+              <div><b>실시간 뱃지:</b> 하단 메뉴 뱃지에 처리 대기 중인 오더 건수가 실시간으로 표시됩니다.</div>
+            </div>
+          </div>
+
+          <!-- Slide 6: 🏷️ P-Tag 발급 & ❓ 송도 MFAQ / 백업 -->
+          <div class="manual-slide-card">
+            <div class="manual-card-hero">
+              <div class="manual-hero-icon" style="background:#7c3aed;">
+                <i class="fa-solid fa-tag"></i>
+              </div>
+              <div class="manual-hero-text">
+                <h4>6. P-Tag · 송도 MFAQ · 시스템 백업</h4>
+                <p>라벨 발급 요청, FAQ 및 시스템 활용 팁</p>
+              </div>
+            </div>
+
+            <div class="manual-step-list">
+              <div class="manual-step-item highlight">
+                <div class="manual-step-num">1</div>
+                <div class="manual-step-info">
+                  <strong>P-Tag / 렉라벨 발급 요청</strong>
+                  누락되거나 손상된 가격표/렉라벨 발급을 간편하게 요청하고 상태를 조회합니다.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">2</div>
+                <div class="manual-step-info">
+                  <strong>송도 MFAQ (자주 묻는 질문)</strong>
+                  현장 운영 규칙 및 자주 묻는 질문들을 키워드 검색으로 빠르게 확인하세요.
+                </div>
+              </div>
+              <div class="manual-step-item">
+                <div class="manual-step-num">3</div>
+                <div class="manual-step-info">
+                  <strong>데이터 백업 및 안전 관리</strong>
+                  모든 재고 및 입출고 데이터는 안전하게 동기화 및 백업 관리됩니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="manual-tip-box">
+              <i class="fa-solid fa-headset" style="color:#0058a3;"></i>
+              <div><b>문의 안내:</b> 기능 개선 제안이나 시스템 버그 발견 시 지인에게 문의해주세요</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="manual-modal-footer">
+        <div class="manual-dots" id="manual-dots">
+          <div class="manual-dot active" onclick="manualGoToSlide(0)"></div>
+          <div class="manual-dot" onclick="manualGoToSlide(1)"></div>
+          <div class="manual-dot" onclick="manualGoToSlide(2)"></div>
+          <div class="manual-dot" onclick="manualGoToSlide(3)"></div>
+          <div class="manual-dot" onclick="manualGoToSlide(4)"></div>
+          <div class="manual-dot" onclick="manualGoToSlide(5)"></div>
+        </div>
+        <div class="manual-nav-btns">
+          <button type="button" class="manual-btn manual-btn-prev" id="manual-btn-prev" onclick="manualPrevSlide()" disabled>
+            <i class="fa-solid fa-chevron-left"></i> 이전
+          </button>
+          <button type="button" class="manual-btn manual-btn-next" id="manual-btn-next" onclick="manualNextSlide()">
+            다음 <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1736,8 +2091,8 @@
     // 5. Override switchTab to allow everyone to access History
     window.switchTab = function(rawTabId, btnElement) {
       let tabId = rawTabId ? String(rawTabId).replace(/^tab-/, '') : 'register';
-      if (tabId === "master" && (typeof isAdminUser !== "undefined" && !isAdminUser)) {
-        showToast("해당 메뉴는 관리자만 접근할 수 있습니다.", "danger");
+      if ((tabId === "master" || tabId === "store-inbound") && (typeof isAdminUser !== "undefined" && !isAdminUser)) {
+        showToast("매장 입고 메뉴는 관리자(Admin) 전용 기능입니다.", "danger");
         return;
       }
       
