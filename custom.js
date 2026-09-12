@@ -2854,6 +2854,9 @@ function playWarningHaptic() {
   }
 }
 
+window.playWarningBeep = playWarningBeep;
+window.playWarningHaptic = playWarningHaptic;
+
 // Global Barcode Scanner Gun Keystroke Interceptor for #tab-store-inbound
 let globalScannerBuffer = "";
 let globalScannerTimer = null;
@@ -3290,12 +3293,109 @@ window.directSaveActiveStoreProduct = async function() {
   await processStoreInboundCart();
 };
 
+// ==========================================================================
+// LOCAL DATE UTILITIES (KST Timezone Safe, Prevents UTC Morning Shift Bug)
+// ==========================================================================
+function getLocalDateString(d = new Date()) {
+  const target = (d instanceof Date && !isNaN(d)) ? d : new Date();
+  const year = target.getFullYear();
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const day = String(target.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+window.getLocalDateString = getLocalDateString;
+window.getTodayDateString = function() {
+  return getLocalDateString(new Date());
+};
+window.getYesterdayDateString = function() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return getLocalDateString(d);
+};
+
+// Quick Date Setters for Store Inbound
+window.setStoreInboundDateToday = function() {
+  const input = document.getElementById("store-inbound-date");
+  if (input) {
+    const today = window.getTodayDateString();
+    input.value = today;
+    window.onStoreInboundDateChange(today);
+  }
+};
+
+window.setStoreInboundDateYesterday = function() {
+  const input = document.getElementById("store-inbound-date");
+  if (input) {
+    const yesterday = window.getYesterdayDateString();
+    input.value = yesterday;
+    window.onStoreInboundDateChange(yesterday);
+  }
+};
+
+// Quantity Stepper for Store Inbound
+window.stepStoreScanQty = function(delta) {
+  const q = document.getElementById("store-scan-qty");
+  if (q) {
+    const cur = parseInt(q.value, 10) || 1;
+    q.value = Math.max(1, cur + delta);
+  }
+};
+
+let storeInboundPendingBtnElem = null;
+
+// Handle Store Inbound Menu Click (Shows Notice Popup for all accounts except viewer)
+window.handleStoreInboundMenuClick = function(btnElement) {
+  storeInboundPendingBtnElem = btnElement;
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 매장 입고를 이용할 수 없습니다.", "danger");
+    return;
+  }
+  openStoreInboundNoticeModal();
+};
+
+window.openStoreInboundNoticeModal = function() {
+  const modal = document.getElementById("store-inbound-notice-modal");
+  if (modal) {
+    modal.classList.add("active");
+  } else {
+    // Fallback if modal not present
+    switchTab('store-inbound', storeInboundPendingBtnElem || document.querySelector('.bottom-nav .nav-item:first-child'));
+  }
+};
+
+window.closeStoreInboundNoticeModal = function() {
+  const modal = document.getElementById("store-inbound-notice-modal");
+  if (modal) modal.classList.remove("active");
+};
+
+window.confirmStoreInboundNotice = function() {
+  closeStoreInboundNoticeModal();
+  switchTab('store-inbound', storeInboundPendingBtnElem || document.querySelector('.bottom-nav .nav-item:first-child'));
+};
+
+// When user changes date picker in Store Inbound
+window.onStoreInboundDateChange = function(newDate) {
+  const targetDate = newDate || window.getTodayDateString();
+  
+  // 1. Update all staged items in the cart
+  if (window.storeInboundCart && window.storeInboundCart.length > 0) {
+    window.storeInboundCart.forEach(item => {
+      item.date = targetDate;
+    });
+  }
+
+  // 2. Re-render Cart & Saved List for this date
+  renderStoreInboundCart();
+  renderStoreInboundSavedList();
+};
+
 // Cart Item Management
 function addStoreInboundCartItem(artNo, artName, qty = 1) {
   const storeDateEl = document.getElementById("store-inbound-date");
   const selectedDate = (storeDateEl && storeDateEl.value) 
     ? storeDateEl.value 
-    : ((typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0]);
+    : window.getTodayDateString();
 
   const existing = window.storeInboundCart.find(item => item.artNo === artNo);
   if (existing) {
@@ -3333,7 +3433,7 @@ window.adjustStoreCartItemQty = function(index, delta) {
 
 window.clearStoreInboundCart = function() {
   if (window.storeInboundCart.length === 0) return;
-  if (!confirm("오늘 아침 매장 입고 목록을 모두 비우시겠습니까?")) return;
+  if (!confirm("매장 입고 대기 목록을 모두 비우시겠습니까?")) return;
   window.storeInboundCart = [];
   renderStoreInboundCart();
 };
@@ -3345,6 +3445,14 @@ function renderStoreInboundCart() {
   const badge = document.getElementById("store-cart-badge");
   const menuBadge = document.getElementById("badge-store-inbound");
   const totalQtyEl = document.getElementById("store-cart-total-qty");
+  const cartDateLabel = document.getElementById("store-cart-date-label");
+
+  const storeDateEl = document.getElementById("store-inbound-date");
+  const selectedDate = (storeDateEl && storeDateEl.value) ? storeDateEl.value : window.getTodayDateString();
+
+  if (cartDateLabel) {
+    cartDateLabel.textContent = selectedDate;
+  }
 
   const totalCount = window.storeInboundCart.length;
   const totalQty = window.storeInboundCart.reduce((sum, item) => sum + (item.qty || 0), 0);
@@ -3367,7 +3475,7 @@ function renderStoreInboundCart() {
     container.innerHTML = `
       <div style="text-align:center; padding:18px; color:#94a3b8; font-size:12px;">
         <i class="fa-solid fa-barcode" style="font-size:24px; margin-bottom:4px; display:block; opacity:0.5;"></i>
-        스캔하거나 입력한 매장 입고 품목이 없습니다.
+        스캔하거나 입력한 입고 대기 품목이 없습니다. (${selectedDate})
       </div>
     `;
     if (saveSection) saveSection.style.display = "none";
@@ -3382,8 +3490,9 @@ function renderStoreInboundCart() {
       <div class="store-cart-item">
         ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 42) : ''}
         <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:4px;">
+          <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
             <span style="font-size:12px; font-weight:900; color:#0058a3;">${item.artNo}</span>
+            <span style="font-size:9.5px; background:#f1f5f9; color:#475569; padding:1px 5px; border-radius:4px; font-weight:700;">${item.date || selectedDate}</span>
             <span style="font-size:9.5px; color:#64748b;">${item.time || ''}</span>
           </div>
           <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
@@ -3404,10 +3513,132 @@ function renderStoreInboundCart() {
   if (typeof loadProductThumbnails === "function") loadProductThumbnails();
 }
 
-// Process and Save Store Inbound Cart
+// Render Saved Store Inbound Records for Selected Date
+window.renderStoreInboundSavedList = function() {
+  const container = document.getElementById("store-inbound-saved-items");
+  const dateLabel = document.getElementById("store-saved-date-label");
+  const badge = document.getElementById("store-saved-badge");
+
+  const storeDateEl = document.getElementById("store-inbound-date");
+  const selectedDate = (storeDateEl && storeDateEl.value) ? storeDateEl.value : window.getTodayDateString();
+
+  if (dateLabel) dateLabel.textContent = selectedDate;
+
+  if (typeof storeInboundLogs === "undefined" || !storeInboundLogs) {
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:16px; color:#94a3b8; font-size:12px;">
+          <i class="fa-regular fa-folder-open" style="font-size:20px; display:block; margin-bottom:4px; opacity:0.5;"></i>
+          매장 입고 기록을 불러오는 중입니다...
+        </div>
+      `;
+    }
+    return;
+  }
+
+  // Filter logs for selected date
+  const filtered = storeInboundLogs.filter(log => {
+    const logDate = (log.date || (log.created_at ? log.created_at.split('T')[0] : "")).trim();
+    return logDate === selectedDate;
+  });
+
+  const totalCount = filtered.length;
+  const totalQty = filtered.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+
+  if (badge) {
+    badge.textContent = `${totalCount}건 (${totalQty}개)`;
+  }
+
+  if (!container) return;
+
+  if (totalCount === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:18px; color:#94a3b8; font-size:12px; background:#f8fafc; border-radius:10px; border:1px dashed #cbd5e1;">
+        <i class="fa-regular fa-calendar-xmark" style="font-size:22px; display:block; margin-bottom:4px; opacity:0.5;"></i>
+        해당 일자(${selectedDate})에 완료된 매장 입고 기록이 없습니다.
+      </div>
+    `;
+    return;
+  }
+
+  let html = "";
+  filtered.forEach((log) => {
+    const rawNo = String(log.artNo || log.artno || "").trim();
+    const cleanNo = rawNo.replace(/\D/g, '').padStart(8, '0');
+    const artName = log.artName || log.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "매장 입고 품목");
+    const qty = Number(log.qty) || 1;
+    const user = log.user || "매장";
+    const timeStr = log.time || (log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "");
+
+    html += `
+      <div class="store-saved-item" id="store-saved-${log.id}">
+        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, artName, 40) : ''}
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:12px; font-weight:900; color:#0058a3;">${cleanNo}</span>
+            <span style="font-size:9.5px; color:#64748b;">${timeStr} · ${user}</span>
+          </div>
+          <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${artName}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <span style="font-size:12.5px; font-weight:900; color:#107c41; background:#ecfdf5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px;">
+            ${qty}개
+          </span>
+          ${(typeof isAdminUser !== 'undefined' && isAdminUser) ? `
+            <button type="button" onclick="deleteStoreInboundLog('${log.id}')" style="background:none; border:none; color:#94a3b8; font-size:13px; cursor:pointer; padding:3px;" title="이 입고 기록 삭제">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+// Delete a single saved store inbound log
+window.deleteStoreInboundLog = async function(id) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 삭제가 불가능합니다.", "danger");
+    return;
+  }
+
+  const target = (typeof storeInboundLogs !== "undefined") ? storeInboundLogs.find(l => String(l.id) === String(id)) : null;
+  const artName = target ? (target.artName || target.artNo) : "선택 품목";
+
+  if (!confirm(`[${artName}] 매장 입고 기록을 삭제하시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    if (typeof supabaseClient !== "undefined" && supabaseClient) {
+      await supabaseClient.from('store_inbound_logs').delete().eq('id', id);
+    }
+  } catch (err) {
+    console.warn("Supabase store inbound delete error:", err);
+  }
+
+  if (typeof storeInboundLogs !== "undefined") {
+    storeInboundLogs = storeInboundLogs.filter(l => String(l.id) !== String(id));
+    localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+  }
+
+  // Refresh views
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+  if (typeof updateDashboard === "function") updateDashboard();
+  renderStoreInboundSavedList();
+
+  showToast("매장 입고 기록이 삭제되었습니다.", "info");
+};
+
+// Process and Save Store Inbound Cart (Available to all accounts except Viewer)
 window.processStoreInboundCart = async function() {
-  if (typeof isAdminUser === 'undefined' || !isAdminUser) {
-    showToast("매장 입고 등록은 관리자(Admin) 계정만 가능합니다.", "danger");
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 매장 입고를 등록할 수 없습니다.", "danger");
     return;
   }
 
@@ -3426,13 +3657,14 @@ window.processStoreInboundCart = async function() {
   const storeDateEl = document.getElementById("store-inbound-date");
   const selectedDateStr = (storeDateEl && storeDateEl.value) 
     ? storeDateEl.value 
-    : ((typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0]);
+    : window.getTodayDateString();
 
   const totalItemCount = window.storeInboundCart.length;
   const totalItemQty = window.storeInboundCart.reduce((sum, i) => sum + (i.qty || 0), 0);
 
+  // Guarantee date strictly matches the selected date in UI
   const payload = window.storeInboundCart.map(item => ({
-    date: item.date || selectedDateStr,
+    date: selectedDateStr,
     type: "매장입고",
     artno: item.artNo,
     artname: item.artName,
@@ -3458,6 +3690,7 @@ window.processStoreInboundCart = async function() {
           }
           storeInboundLogs.unshift({
             ...inserted,
+            date: inserted.date || selectedDateStr,
             artNo: cleanNo,
             artName: inserted.artname || inserted.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "매장 입고 품목")
           });
@@ -3488,11 +3721,12 @@ window.processStoreInboundCart = async function() {
     if (typeof renderHistoryLogs === "function") renderHistoryLogs();
     if (typeof updateDashboard === "function") updateDashboard();
 
-    showToast(`🎉 아침 매장 입고 완료! (${totalItemCount}개 품목 / 총 ${totalItemQty}개)`, "success");
+    showToast(`🎉 [${selectedDateStr}] 매장 입고 완료! (${totalItemCount}개 품목 / 총 ${totalItemQty}개)`, "success");
     if (typeof playSuccessFeedback === "function") playSuccessFeedback();
 
     window.storeInboundCart = [];
     renderStoreInboundCart();
+    renderStoreInboundSavedList();
 
   } catch (err) {
     console.error("Store inbound save error:", err);
@@ -3506,9 +3740,9 @@ window.processStoreInboundCart = async function() {
 };
 
 // ==========================================================================
-// STORE INBOUND EXCEL EXPORT (.XLSX)
+// STORE INBOUND EXCEL EXPORT (.XLSX) - ALL ADMIN ACCOUNTS SUPPORTED
 // ==========================================================================
-window.exportStoreInboundToExcel = async function() {
+window.exportStoreInboundToExcel = async function(selectedDateOnly = false) {
   if (typeof isAdminUser === 'undefined' || !isAdminUser) {
     showToast("매장 입고 엑셀 추출은 관리자(Admin) 전용 기능입니다.", "danger");
     return;
@@ -3519,15 +3753,24 @@ window.exportStoreInboundToExcel = async function() {
     return;
   }
 
+  const storeDateEl = document.getElementById("store-inbound-date");
+  const selectedDateStr = (storeDateEl && storeDateEl.value) ? storeDateEl.value : window.getTodayDateString();
+
   let dataToExport = [];
 
   // 1. Fetch from Supabase store_inbound_logs
   if (typeof supabaseClient !== "undefined" && supabaseClient) {
     try {
-      const { data: dbLogs, error } = await supabaseClient
+      let query = supabaseClient
         .from('store_inbound_logs')
         .select('*')
         .order('id', { ascending: false });
+
+      if (selectedDateOnly) {
+        query = query.eq('date', selectedDateStr);
+      }
+
+      const { data: dbLogs, error } = await query;
 
       if (!error && dbLogs && dbLogs.length > 0) {
         dataToExport = dbLogs.map(row => {
@@ -3550,14 +3793,17 @@ window.exportStoreInboundToExcel = async function() {
 
   // 2. Fallback to memory storeInboundLogs
   if (dataToExport.length === 0 && typeof storeInboundLogs !== "undefined" && storeInboundLogs.length > 0) {
-    dataToExport = [...storeInboundLogs];
+    if (selectedDateOnly) {
+      dataToExport = storeInboundLogs.filter(log => (log.date || (log.created_at ? log.created_at.split('T')[0] : "")) === selectedDateStr);
+    } else {
+      dataToExport = [...storeInboundLogs];
+    }
   }
 
-  // 3. Fallback to current unsaved cart
+  // 3. Fallback to current unsaved cart if exporting selected date
   if (dataToExport.length === 0 && window.storeInboundCart && window.storeInboundCart.length > 0) {
-    const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split('T')[0];
     dataToExport = window.storeInboundCart.map(item => ({
-      date: todayStr,
+      date: item.date || selectedDateStr,
       type: "매장입고(대기)",
       artNo: item.artNo,
       artName: item.artName,
@@ -3567,7 +3813,7 @@ window.exportStoreInboundToExcel = async function() {
   }
 
   if (dataToExport.length === 0) {
-    showToast("추출할 매장 입고 내역이 없습니다.", "warning");
+    showToast(selectedDateOnly ? `선택한 날짜(${selectedDateStr})에 추출할 매장 입고 내역이 없습니다.` : "추출할 매장 입고 내역이 없습니다.", "warning");
     return;
   }
 
@@ -3617,11 +3863,13 @@ window.exportStoreInboundToExcel = async function() {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "매장입고기록");
-  const todayStr = (typeof getTodayDateString === "function") ? getTodayDateString() : new Date().toISOString().split("T")[0];
-  XLSX.writeFile(workbook, `매장입고_기록_${todayStr}.xlsx`);
+  
+  const fileName = selectedDateOnly ? `매장입고_기록_${selectedDateStr}.xlsx` : `매장입고_전체기록_${window.getTodayDateString()}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
   showToast(`📊 매장 입고 기록 (${dataToExport.length}건) 엑셀 추출이 완료되었습니다!`, "success");
   if (typeof playSuccessFeedback === "function") playSuccessFeedback();
 };
+
 
 
 

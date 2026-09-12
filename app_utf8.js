@@ -210,7 +210,8 @@ function checkLoginSession() {
 
   if (sessionUser && ALLOWED_USER_IDS.some(id => id.toLowerCase() === sessionUser.toLowerCase())) {
     currentUser = sessionUser;
-    isAdminUser = ADMIN_USERS.includes(sessionUser);
+    isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === sessionUser.toLowerCase());
+    window.isAdminUser = isAdminUser;
     isViewerUser = (sessionUser.toLowerCase() === "viewer");
 
     if (loginOverlay) {
@@ -226,10 +227,17 @@ function checkLoginSession() {
     const storeInboundLockBadge = document.getElementById("badge-store-inbound-lock");
     if (storeInboundLockBadge) {
       storeInboundLockBadge.style.display = "inline-block";
-      storeInboundLockBadge.innerHTML = isAdminUser ? "👑 관리자" : "🔒 관리자 전용";
-      storeInboundLockBadge.style.background = isAdminUser ? "#fef3c7" : "#f1f5f9";
-      storeInboundLockBadge.style.color = isAdminUser ? "#b45309" : "#64748b";
-      storeInboundLockBadge.style.borderColor = isAdminUser ? "#fde68a" : "#cbd5e1";
+      if (isViewerUser) {
+        storeInboundLockBadge.innerHTML = "🔒 뷰어 제한";
+        storeInboundLockBadge.style.background = "#f1f5f9";
+        storeInboundLockBadge.style.color = "#64748b";
+        storeInboundLockBadge.style.borderColor = "#cbd5e1";
+      } else {
+        storeInboundLockBadge.innerHTML = "🚚 매장 직송";
+        storeInboundLockBadge.style.background = "#eff6ff";
+        storeInboundLockBadge.style.color = "#0058a3";
+        storeInboundLockBadge.style.borderColor = "#bfdbfe";
+      }
     }
 
     if (isViewerUser) {
@@ -322,7 +330,8 @@ function handleLoginSubmit(e) {
   }
 
   currentUser = matchedId;
-  isAdminUser = ADMIN_USERS.includes(matchedId);
+  isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === matchedId.toLowerCase());
+  window.isAdminUser = isAdminUser;
   isViewerUser = (matchedId.toLowerCase() === "viewer");
 
   if (isViewerUser) {
@@ -872,9 +881,17 @@ async function saveOrderLogs(order) {
   return insertedId;
 }
 
-// Date Default (Today)
+// Date Default (Today, Local Timezone Safe)
+function getAppLocalDateString(d = new Date()) {
+  const target = (d instanceof Date && !isNaN(d)) ? d : new Date();
+  const year = target.getFullYear();
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const day = String(target.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function initFormDate() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = (typeof window.getTodayDateString === "function") ? window.getTodayDateString() : getAppLocalDateString();
   const regDateElem = document.getElementById("reg-date");
   if (regDateElem && !regDateElem.value) regDateElem.value = today;
 
@@ -883,13 +900,20 @@ function initFormDate() {
 
   const storeDateElem = document.getElementById("store-inbound-date");
   if (storeDateElem && !storeDateElem.value) storeDateElem.value = today;
+
+  const auditDateElem = document.getElementById("audit-date");
+  if (auditDateElem && !auditDateElem.value) auditDateElem.value = today;
 }
 
 // Tab Switching (With Access Control)
 function switchTab(tabId, btnElement) {
   // Access Restrictions
-  if ((tabId === "master" || tabId === "store-inbound") && !isAdminUser) {
-    showToast("매장 입고 메뉴는 관리자(Admin) 전용 기능입니다.", "danger");
+  if (tabId === "master" && !isAdminUser) {
+    showToast("마스터 데이터 관리는 관리자(Admin) 전용 기능입니다.", "danger");
+    return;
+  }
+  if (tabId === "store-inbound" && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 매장 입고 메뉴를 이용할 수 없습니다.", "danger");
     return;
   }
 
@@ -926,9 +950,25 @@ function switchTab(tabId, btnElement) {
     renderMfaq();
   }
   if (tabId === "store-inbound") {
+    initFormDate();
+    if (typeof renderStoreInboundSavedList === "function") {
+      renderStoreInboundSavedList();
+    }
+    if (typeof renderStoreInboundCart === "function") {
+      renderStoreInboundCart();
+    }
     setTimeout(() => {
       const inputEl = document.getElementById("store-barcode-input");
       if (inputEl) inputEl.focus();
+    }, 150);
+  }
+  if (tabId === "audit") {
+    if (typeof initAuditTab === "function") {
+      initAuditTab();
+    }
+    setTimeout(() => {
+      const artNoInput = document.getElementById("audit-artno");
+      if (artNoInput) artNoInput.focus();
     }, 150);
   }
 }
@@ -1865,7 +1905,7 @@ function exportOrdersToExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "오더요청");
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = (typeof window.getTodayDateString === "function") ? window.getTodayDateString() : getAppLocalDateString();
   XLSX.writeFile(workbook, `오더_요청_내역_${todayStr}.xlsx`);
   showToast("관리자 권한으로 오더 요청 엑셀 파일(.xlsx) 추출을 완료했습니다!", "success");
 }
@@ -2409,7 +2449,7 @@ function exportHistoryToExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "기록");
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = (typeof window.getTodayDateString === "function") ? window.getTodayDateString() : getAppLocalDateString();
   XLSX.writeFile(workbook, `입출고_기록_${todayStr}.xlsx`);
   showToast("관리자 권한으로 엑셀 파일(.xlsx) 추출을 시작했습니다!", "success");
 }
@@ -2628,9 +2668,12 @@ function chooseModalItem(artNo) {
   if (modalSelectTarget === "order") {
     document.getElementById("order-artno").value = artNo;
     onOrderArtNoInput(artNo);
-  } else if (modalSelectTarget === "ptag") {
-    document.getElementById("ptag-artno").value = artNo;
-    onPtagArtNoInput(artNo);
+  } else if (modalSelectTarget === "audit") {
+    const input = document.getElementById("audit-artno");
+    if (input) input.value = artNo;
+    if (typeof onAuditArtNoInput === "function") {
+      onAuditArtNoInput(artNo);
+    }
   } else if (modalSelectTarget === "store_inbound") {
     const input = document.getElementById("store-barcode-input");
     if (input) input.value = artNo;
