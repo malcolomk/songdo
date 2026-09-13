@@ -784,7 +784,7 @@
     <section id="tab-menu" class="tab-page">
       <div style="padding: 2px 0 20px 0;">
         <div class="menu-grid" style="padding: 0;">
-          <!-- 1. 매장 입고 (모든 계정 사용 가능, 뷰어 제외) -->
+          <!-- 1. 매장 입고 (모든 계정 사용 가능) -->
           <a class="menu-item" id="menu-item-store-inbound" onclick="handleStoreInboundMenuClick(document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
               <i class="fa-solid fa-barcode"></i>
@@ -2373,15 +2373,11 @@
       if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
     };
 
-    // 5. Override switchTab to allow everyone to access History and Store Inbound (Viewer restricted)
+    // 5. Override switchTab to allow everyone to access History and Store Inbound
     window.switchTab = function(rawTabId, btnElement) {
       let tabId = rawTabId ? String(rawTabId).replace(/^tab-/, '') : 'register';
       if (tabId === "master" && (typeof isAdminUser !== "undefined" && !isAdminUser)) {
         showToast("마스터 데이터 관리는 관리자(Admin) 전용 기능입니다.", "danger");
-        return;
-      }
-      if (tabId === "store-inbound" && (typeof isViewerUser !== "undefined" && isViewerUser)) {
-        showToast("Viewer(읽기 전용) 모드에서는 매장 입고 기능을 사용할 수 없습니다.", "danger");
         return;
       }
       

@@ -227,17 +227,10 @@ function checkLoginSession() {
     const storeInboundLockBadge = document.getElementById("badge-store-inbound-lock");
     if (storeInboundLockBadge) {
       storeInboundLockBadge.style.display = "inline-block";
-      if (isViewerUser) {
-        storeInboundLockBadge.innerHTML = "🔒 뷰어 제한";
-        storeInboundLockBadge.style.background = "#f1f5f9";
-        storeInboundLockBadge.style.color = "#64748b";
-        storeInboundLockBadge.style.borderColor = "#cbd5e1";
-      } else {
-        storeInboundLockBadge.innerHTML = "🚚 매장 직송";
-        storeInboundLockBadge.style.background = "#eff6ff";
-        storeInboundLockBadge.style.color = "#0058a3";
-        storeInboundLockBadge.style.borderColor = "#bfdbfe";
-      }
+      storeInboundLockBadge.innerHTML = "🚚 매장 직송";
+      storeInboundLockBadge.style.background = "#eff6ff";
+      storeInboundLockBadge.style.color = "#0058a3";
+      storeInboundLockBadge.style.borderColor = "#bfdbfe";
     }
 
     if (isViewerUser) {
@@ -910,10 +903,6 @@ function switchTab(tabId, btnElement) {
   // Access Restrictions
   if (tabId === "master" && !isAdminUser) {
     showToast("마스터 데이터 관리는 관리자(Admin) 전용 기능입니다.", "danger");
-    return;
-  }
-  if (tabId === "store-inbound" && isViewerUser) {
-    showToast("Viewer(읽기 전용) 모드에서는 매장 입고 메뉴를 이용할 수 없습니다.", "danger");
     return;
   }
 

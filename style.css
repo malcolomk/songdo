@@ -381,6 +381,15 @@ body {
   display: none !important;
 }
 
+/* Store Inbound (아침 매장 입고) is fully enabled for all accounts */
+.is-viewer-mode #tab-store-inbound button,
+.is-viewer-mode #tab-store-inbound .btn-del-inbound,
+.is-viewer-mode #tab-store-inbound button[onclick*="deleteStoreInboundLog"],
+.is-viewer-mode #tab-store-inbound #btn-save-store-inbound,
+.is-viewer-mode #tab-store-inbound #btn-store-excel-export {
+  display: inline-flex !important;
+}
+
 /* App Body & Tabs */
 .app-body {
   padding: 16px;

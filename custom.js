@@ -3344,13 +3344,9 @@ window.stepStoreScanQty = function(delta) {
 
 let storeInboundPendingBtnElem = null;
 
-// Handle Store Inbound Menu Click (Shows Notice Popup for all accounts except viewer)
+// Handle Store Inbound Menu Click (Shows Notice Popup for all accounts)
 window.handleStoreInboundMenuClick = function(btnElement) {
   storeInboundPendingBtnElem = btnElement;
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    showToast("Viewer(읽기 전용) 모드에서는 매장 입고를 이용할 수 없습니다.", "danger");
-    return;
-  }
   openStoreInboundNoticeModal();
 };
 
@@ -3600,11 +3596,6 @@ window.renderStoreInboundSavedList = function() {
 
 // Delete a single saved store inbound log
 window.deleteStoreInboundLog = async function(id) {
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    showToast("Viewer(읽기 전용) 모드에서는 삭제가 불가능합니다.", "danger");
-    return;
-  }
-
   const target = (typeof storeInboundLogs !== "undefined") ? storeInboundLogs.find(l => String(l.id) === String(id)) : null;
   const artName = target ? (target.artName || target.artNo) : "선택 품목";
 
@@ -3635,13 +3626,8 @@ window.deleteStoreInboundLog = async function(id) {
   showToast("매장 입고 기록이 삭제되었습니다.", "info");
 };
 
-// Process and Save Store Inbound Cart (Available to all accounts except Viewer)
+// Process and Save Store Inbound Cart (Available to all accounts)
 window.processStoreInboundCart = async function() {
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    showToast("Viewer(읽기 전용) 모드에서는 매장 입고를 등록할 수 없습니다.", "danger");
-    return;
-  }
-
   if (window.storeInboundCart.length === 0) {
     showToast("입고 처리할 품목이 없습니다.", "warning");
     return;
