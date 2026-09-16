@@ -18,10 +18,11 @@ try {
 
 // --- Allowed User IDs List ---
 const ALLOWED_USER_IDS = [
-  "guest1", "guest2", "amelie",
+  "guest1", "guest2", "amseo",
   "sulee21", "jocho16", "jipar5", "hycho30", "julee33", 
   "tabae3", "goyoo", "suahn2", "yehan1", "secho12",
-  "junkoo", "minjong", "Viewer"
+  "junkoo", "minjong", "micho51", "sekim63", "szpar19", 
+  "sukim68", "yonoh", "yocho36", "Viewer"
 ];
 
 // --- Designated Admin Users List ---
@@ -1762,46 +1763,14 @@ function renderPickList() {
 }
 
 async function completePickItem(index) {
-  const pickItem = orderLogs[index];
-  if (!pickItem || pickItem.status !== "출고대기") return;
-  
-  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
-  
-  try {
-    // 1. Update order status to 출고완료
-    pickItem.status = "출고완료";
-    if (supabaseClient && pickItem.id) {
-      const { error: updateError } = await supabaseClient
-        .from('order_requests')
-        .update({ status: '출고완료' })
-        .eq('id', pickItem.id);
-        
-      if (updateError) throw updateError;
-    }
-    
-    // 2. Insert into inventory_logs (actual checkout)
-    const newLog = {
-      date: new Date().toISOString().split('T')[0],
-      type: "출고",
-      artNo: pickItem.artNo,
-      artName: pickItem.artName,
-      qty: pickItem.qty,
-      user: currentUser || "system"
-    };
-    
-    const insertedId = await saveHistoryLogs(newLog);
-    historyLogs.unshift(newLog);
-    invalidateStockCache();
-    
-    showToast(`'${pickItem.artName}' 출고가 완료되었습니다!`, "success", insertedId);
-    playSuccessFeedback();
-    
-    renderStockLookup();
-    renderHistoryLogs();
-    renderOrderLogs(); // This will also call renderPickList()
-  } catch (err) {
-    console.error("Pick complete error:", err);
-    showToast("출고 완료 처리 실패: " + err.message, "danger");
+  const pickItem = (typeof index === 'string' && index.indexOf('-') !== -1)
+    ? orderLogs.find(log => String(log.id) === String(index))
+    : orderLogs[index];
+  if (!pickItem || pickItem.status === "출고완료" || pickItem.status === "완료") return;
+
+  if (typeof window.completePickItem_custom === "function") {
+    await window.completePickItem_custom(pickItem.id || index);
+    return;
   }
 }
 
@@ -3002,6 +2971,8 @@ function handleRealtimeOrder(payload) {
     const activeTab = document.querySelector('.tab-page.active');
     if (activeTab && (activeTab.id === 'tab-order' || activeTab.id === 'tab-picklist')) {
       renderOrderLogs();
+      if (typeof renderStandardPickList === 'function') renderStandardPickList();
+      if (typeof renderStandardInventory === 'function') renderStandardInventory();
     }
   } catch (e) {}
 }

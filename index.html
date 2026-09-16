@@ -1092,15 +1092,10 @@
               </div>
             </div>
 
-            <!-- Row 5: 총 실재고 합계 & 비고 메모 -->
-            <div id="audit-note-grid" style="display:grid; grid-template-columns: 1fr 1.3fr; gap:8px; align-items:center; margin-bottom:12px;">
-              <div id="audit-total-preview-group" style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:0 12px; height:40px; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between;">
-                <span style="font-size:11.5px; font-weight:800; color:#64748b; white-space:nowrap;">총 실재고</span>
-                <span id="audit-total-preview" style="font-size:15px; font-weight:900; color:#0058a3; white-space:nowrap;">0개</span>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <input type="text" id="audit-note" placeholder="비고 / 메모 (선택)" class="input-control" style="font-size:12.5px; height:40px; box-sizing:border-box;">
-              </div>
+            <!-- Row 5: 총 실재고 합계 -->
+            <div id="audit-total-preview-group" style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:0 14px; height:40px; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <span style="font-size:12px; font-weight:800; color:#64748b; white-space:nowrap;"><i class="fa-solid fa-calculator" style="color:#0058a3;"></i> 총 실재고 (매장+창고)</span>
+              <span id="audit-total-preview" style="font-size:16px; font-weight:900; color:#0058a3; white-space:nowrap;">0개</span>
             </div>
 
             <button type="submit" class="btn-submit" id="btn-audit-add" style="width:100%; height:42px; font-size:14.5px; font-weight:900; background:#0058a3; color:#fff; border:none; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 2px 6px rgba(0,88,163,0.25);">
@@ -1312,7 +1307,7 @@
               <option value="julee33">julee33 (👑 관리자)</option>
               <option value="guest1">guest1 (게스트 1)</option>
               <option value="guest2">guest2 (게스트 2)</option>
-              <option value="amelie">amelie</option>
+              <option value="amseo">amseo</option>
               <option value="sulee21">sulee21</option>
               <option value="jocho16">jocho16</option>
               <option value="tabae3">tabae3</option>
@@ -1320,6 +1315,12 @@
               <option value="suahn2">suahn2</option>
               <option value="yehan1">yehan1</option>
               <option value="secho12">secho12</option>
+              <option value="micho51">micho51</option>
+              <option value="sekim63">sekim63</option>
+              <option value="szpar19">szpar19</option>
+              <option value="sukim68">sukim68</option>
+              <option value="yonoh">yonoh</option>
+              <option value="yocho36">yocho36</option>
             </select>
           </div>
 
@@ -1422,8 +1423,8 @@
 
   <!-- MODAL: Store Inbound Notice Modal (매장 입고 안내 및 주의사항 팝업) -->
   <div id="store-inbound-notice-modal" class="modal-backdrop" style="z-index: 10007;" onclick="closeStoreInboundNoticeModal()">
-    <div class="modal-content" style="max-width: 420px; border-radius: 20px; padding: 24px 20px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);" onclick="event.stopPropagation()">
-      <div style="width: 56px; height: 56px; border-radius: 16px; background: #eff6ff; color: #0058a3; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 12px auto; border: 1.5px solid #bfdbfe;">
+    <div class="modal-content" style="max-width: 440px; border-radius: 20px; padding: 22px 20px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);" onclick="event.stopPropagation()">
+      <div style="width: 52px; height: 52px; border-radius: 16px; background: #eff6ff; color: #0058a3; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 10px auto; border: 1.5px solid #bfdbfe;">
         <i class="fa-solid fa-boxes-packing"></i>
       </div>
       
@@ -1431,9 +1432,14 @@
         <i class="fa-solid fa-triangle-exclamation"></i> 매장 입고 안내
       </div>
 
-      <h3 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0 0 6px 0;">아침 매장 입고 안내</h3>
+      <h3 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0 0 10px 0;">아침 매장 입고 안내</h3>
       
-      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; padding:16px 14px; margin:12px 0 16px 0; text-align:left;">
+      <!-- Store Inbound Notice Photo -->
+      <div style="margin: 0 0 12px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,0.06); background: #0f172a;">
+        <img src="store_inbound_notice.jpg" alt="매장 입고 실물 사진" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" onerror="this.parentElement.style.display='none';">
+      </div>
+      
+      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; padding:14px 14px; margin:0 0 16px 0; text-align:left;">
         <div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:10px;">
           <i class="fa-solid fa-circle-info" style="color:#0058a3; font-size:16px; margin-top:2px; flex-shrink:0;"></i>
           <p style="margin:0; font-size:13.5px; font-weight:800; color:#0f172a; line-height:1.55;">
@@ -1844,18 +1850,25 @@
 
   <!-- Single Item Location Modal -->
   <div id="single-loc-modal" class="modal-backdrop" onclick="closeSingleLocationModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:440px;">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-map-pin"></i> 구역 변경</h3>
+        <h3><i class="fa-solid fa-map-pin"></i> 창고 구역/위치 변경</h3>
         <button type="button" class="close-btn" onclick="closeSingleLocationModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
         <p id="single-loc-artname" style="margin-bottom:15px; color:#475569; font-size:14px; font-weight:bold;"></p>
-        <p style="margin-bottom:10px; color:#64748b; font-size:13px;">이동할 구역을 선택하세요:</p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 20px;">
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B1')">B1</button>
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B2')">B2</button>
-          <button type="button" class="btn-secondary" style="flex:1; padding:15px; font-weight:bold; font-size:16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="saveSingleLocation('B3')">B3</button>
+        <p style="margin-bottom:10px; color:#64748b; font-size:13px; font-weight:700;">빠른 구역 선택:</p>
+        <div id="single-loc-quick-buttons" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 16px;">
+          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B1')">B1</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2')">B2</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B3')">B3</button>
+        </div>
+        <div style="border-top:1px dashed #cbd5e1; padding-top:14px; margin-top:10px;">
+          <label for="single-loc-custom-input" style="display:block; font-size:12px; font-weight:bold; color:#475569; margin-bottom:6px;">구역 직접 입력:</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="single-loc-custom-input" placeholder="구역명 입력 (예: B1, A1, 진열장 등)" style="flex:1; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; font-weight:bold; outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitCustomSingleLocation();}">
+            <button type="button" class="btn-submit" onclick="submitCustomSingleLocation()" style="padding:10px 18px; background:#0058a3; color:white; border:none; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer; white-space:nowrap;">적용</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2074,9 +2087,13 @@
     
     // 1. Delete Pick Item
     window.deletePickItem_custom = async function(id) {
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 삭제할 수 없습니다.", "warning");
+        return;
+      }
       if (!confirm("대기 목록에서 이 항목을 삭제하시겠습니까?")) return;
       try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null") {
+        if (typeof supabaseClient !== "undefined" && supabaseClient && id && id !== "undefined" && id !== "null" && String(id).indexOf('.') === -1) {
           try {
             const { error } = await supabaseClient.from("order_requests").delete().eq("id", id);
             if (error) {
@@ -2097,6 +2114,8 @@
         }
         showToast("항목이 대기 목록에서 삭제되었습니다.", "info");
         if (typeof window.renderStandardPickList === "function") window.renderStandardPickList();
+        if (typeof window.renderStandardInventory === "function") window.renderStandardInventory();
+        if (typeof window.renderOrderLogs === "function") window.renderOrderLogs();
       } catch (err) {
         console.error("Delete pick item error:", err);
         showToast("항목 삭제 중 오류가 발생했습니다.", "danger");
@@ -2105,6 +2124,10 @@
 
     // 2. Modify Pick Item
     window.modifyPickItem_custom = async function(id) {
+      if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+        showToast("Viewer(읽기 전용) 계정은 수량을 수정할 수 없습니다.", "warning");
+        return;
+      }
       if (typeof orderLogs === "undefined") return;
       const pickItem = orderLogs.find(log => String(log.id) === String(id));
       if (!pickItem) return;
@@ -2119,13 +2142,16 @@
       }
       
       try {
-        if (typeof supabaseClient !== "undefined" && supabaseClient && pickItem.id) {
+        if (typeof supabaseClient !== "undefined" && supabaseClient && pickItem.id && String(pickItem.id).indexOf('.') === -1) {
           const { error } = await supabaseClient.from("order_requests").update({ qty: newQty }).eq("id", pickItem.id);
           if (error) throw error;
         }
         pickItem.qty = newQty;
+        try { localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs)); } catch(e) {}
         showToast("수량이 변경되었습니다.", "success");
         if (typeof window.renderStandardPickList === "function") window.renderStandardPickList();
+        if (typeof window.renderStandardInventory === "function") window.renderStandardInventory();
+        if (typeof window.renderOrderLogs === "function") window.renderOrderLogs();
       } catch (err) {
         console.error("Modify pick item error:", err);
         showToast("수량 변경 중 오류가 발생했습니다.", "danger");
@@ -2137,10 +2163,9 @@
       const container = document.getElementById("picklist-standard-cart");
       if (!container) return;
       
-      // Fix: Filter by '출고대기' to match addStandardToPickList
-      const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기");
+      const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기" || item.status === "요청" || item.status === "요청됨" || item.status === "승인" || item.status === "수락");
       
-      // Update Picklist Badge (Not Menu Badge)
+      // Update Picklist Badge
       const badgePicklist = document.getElementById("badge-picklist");
       if (badgePicklist) {
         if (pendingPicks.length > 0) {
@@ -2163,14 +2188,14 @@
       let html = "";
       pendingPicks.forEach(item => {
         const stockMap = buildStockMap();
-        let cleanNo = String(item.artNo || "").trim();
+        let cleanNo = String(item.artNo || item.artno || "").trim();
         if (cleanNo.length > 0 && cleanNo.length <= 8) {
           cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
         }
         const stockItem = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
         let location = "미지정";
         if (stockItem && stockItem.location) location = stockItem.location;
-        const displayName = item.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
+        const displayName = item.artName || item.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
         
         html += `
           <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #f87171; gap:10px; transition:all 0.2s ease; position:relative; overflow:hidden;">

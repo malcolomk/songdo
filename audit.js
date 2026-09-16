@@ -469,7 +469,6 @@ function setAuditInputMode(mode) {
   const whGroup = document.getElementById("audit-warehouse-group");
   const qtyGrid = document.getElementById("audit-qty-grid");
   const totalGroup = document.getElementById("audit-total-preview-group");
-  const noteGrid = document.getElementById("audit-note-grid");
   const submitBtn = document.getElementById("btn-audit-add");
   const modeDesc = document.getElementById("audit-mode-desc");
 
@@ -478,7 +477,6 @@ function setAuditInputMode(mode) {
     if (whGroup) whGroup.style.display = "block";
     if (qtyGrid) qtyGrid.style.gridTemplateColumns = "1fr 1fr";
     if (totalGroup) totalGroup.style.display = "flex";
-    if (noteGrid) noteGrid.style.gridTemplateColumns = "1fr 1.3fr";
     if (modeDesc) modeDesc.textContent = "매장 및 창고 재고 동시 입력";
     if (submitBtn) {
       submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> 실재고 등록 / 수정 (매장+창고)';
@@ -489,7 +487,6 @@ function setAuditInputMode(mode) {
     if (whGroup) whGroup.style.display = "none";
     if (qtyGrid) qtyGrid.style.gridTemplateColumns = "1fr";
     if (totalGroup) totalGroup.style.display = "none";
-    if (noteGrid) noteGrid.style.gridTemplateColumns = "1fr";
     if (modeDesc) modeDesc.textContent = "🏪 매장 재고 단독 입력";
     if (submitBtn) {
       submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> 매장 실재고 등록 / 수정';
@@ -502,7 +499,6 @@ function setAuditInputMode(mode) {
     if (whGroup) whGroup.style.display = "block";
     if (qtyGrid) qtyGrid.style.gridTemplateColumns = "1fr";
     if (totalGroup) totalGroup.style.display = "none";
-    if (noteGrid) noteGrid.style.gridTemplateColumns = "1fr";
     if (modeDesc) modeDesc.textContent = "🏬 창고 재고 단독 입력";
     if (submitBtn) {
       submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> 창고 실재고 등록 / 수정';

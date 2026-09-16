@@ -987,44 +987,122 @@ window.confirmDeletePickListItem = async function(id, artName) {
 };
 
 window.completePickItem_custom = async function(id) {
-  const pickItem = orderLogs.find(log => String(log.id) === String(id));
-  if (!pickItem || (pickItem.status !== "출고대기" && pickItem.status !== "요청" && pickItem.status !== "승인")) return;
-  
-  if (!confirm(`'${pickItem.artName}' ${pickItem.qty}개를 창고에서 챙겼습니까?\n(확인 시 즉시 출고 기록이 생성됩니다)`)) return;
-  
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 출고 완료 처리가 불가능합니다.", "danger");
+    return;
+  }
+
+  if (typeof orderLogs === "undefined" || !orderLogs) return;
+
+  let pickItem = orderLogs.find(log => String(log.id) === String(id));
+  if (!pickItem && typeof id === 'number') {
+    pickItem = orderLogs[id];
+  }
+  if (!pickItem) {
+    showToast("해당 챙기기 항목을 찾을 수 없습니다.", "danger");
+    return;
+  }
+
+  if (pickItem.status === "출고완료" || pickItem.status === "완료") {
+    showToast("이미 출고 완료 처리된 항목입니다.", "info");
+    return;
+  }
+
+  const rawNo = String(pickItem.artNo || pickItem.artno || "").trim();
+  const cleanNo = rawNo.replace(/\D/g, '').padStart(8, '0');
+  const resolvedName = pickItem.artName || pickItem.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+  const pickQty = parseInt(pickItem.qty, 10) || 1;
+
+  if (!confirm(`'${resolvedName}' ${pickQty}개를 창고에서 챙기셨습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료 처리됩니다)`)) {
+    return;
+  }
+
   try {
+    // 1. Update order status in memory & localStorage
     pickItem.status = "출고완료";
-    if (supabaseClient && pickItem.id) {
-      const { error: updateError } = await supabaseClient
-        .from('order_requests')
-        .update({ status: '출고완료' })
-        .eq('id', pickItem.id);
-        
-      if (updateError) throw updateError;
+    try {
+      localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+    } catch(e) {}
+
+    // 2. Sync order update to Supabase
+    if (typeof supabaseClient !== "undefined" && supabaseClient && pickItem.id && String(pickItem.id).indexOf('.') === -1) {
+      try {
+        await supabaseClient
+          .from('order_requests')
+          .update({ status: '출고완료' })
+          .eq('id', pickItem.id);
+      } catch (err) {
+        console.warn("Supabase order_requests update error:", err);
+      }
     }
-    
+
+    // 3. Create outbound inventory log
+    const todayStr = (typeof getAppLocalDateString === "function") 
+      ? getAppLocalDateString() 
+      : new Date().toISOString().split('T')[0];
+
     const newLog = {
-      date: new Date().toISOString().split('T')[0],
+      date: todayStr,
       type: "출고",
-      artNo: pickItem.artNo,
-      artName: pickItem.artName,
-      qty: pickItem.qty,
-      user: currentUser || "system",
-      created_at: new Date().toISOString()
+      artNo: cleanNo,
+      artName: resolvedName,
+      qty: pickQty,
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
     };
-    
-    const insertedId = await saveHistoryLogs(newLog);
-    historyLogs.unshift(newLog);
-    invalidateStockCache();
-    
-    showToast(`'${pickItem.artName}' 출고가 완료되었습니다.`, "success");
-    playSuccessFeedback();
-    
-    renderStockLookup();
-    renderOrderLogs(); 
+
+    if (typeof historyLogs !== "undefined") {
+      historyLogs.unshift(newLog);
+      try {
+        localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+      } catch(e) {}
+    }
+
+    // 4. Sync new outbound log to Supabase inventory_logs
+    if (typeof supabaseClient !== "undefined" && supabaseClient) {
+      try {
+        const dbLog = {
+          date: newLog.date,
+          type: newLog.type,
+          artNo: newLog.artNo,
+          qty: newLog.qty,
+          user: newLog.user
+        };
+        const { data, error } = await supabaseClient
+          .from("inventory_logs")
+          .insert([dbLog])
+          .select();
+        if (!error && data && data.length > 0) {
+          newLog.id = data[0].id;
+          newLog.created_at = data[0].created_at;
+          try {
+            localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+          } catch(e) {}
+        }
+      } catch (supaErr) {
+        console.warn("Supabase saveHistoryLogs error:", supaErr);
+      }
+    }
+
+    // 5. Invalidate stock cache
+    if (typeof invalidateStockCache === "function") {
+      invalidateStockCache();
+    }
+
+    showToast(`🎉 '${resolvedName}' ${pickQty}개 출고 완료! (재고 차감 완료)`, "success");
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+
+    // 6. Refresh all views
+    if (typeof renderStandardPickList === "function") renderStandardPickList();
+    if (typeof renderStandardInventory === "function") renderStandardInventory();
+    if (typeof renderStandardLocationButtons === "function") renderStandardLocationButtons();
+    if (typeof renderStockLookup === "function") renderStockLookup();
+    if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+    if (typeof renderOrderLogs === "function") renderOrderLogs();
+    if (typeof updateDashboard === "function") updateDashboard();
+
   } catch (err) {
     console.error("Pick complete error:", err);
-    showToast("출고 완료 처리 실패 " + err.message, "danger");
+    showToast("출고 완료 처리 실패: " + err.message, "danger");
   }
 };
 
@@ -1843,19 +1921,6 @@ window.switchTab = function(tabId) {
   }
 };
 
-const origCompletePickItem_custom = window.completePickItem_custom;
-window.completePickItem_custom = async function(id) {
-  if (typeof origCompletePickItem_custom === "function") {
-    await origCompletePickItem_custom(id);
-    
-    const activeTab = document.querySelector('.tab-page.active');
-    if (activeTab && activeTab.id === "tab-picklist") {
-      renderStandardLocationButtons();
-      renderStandardPickList();
-    }
-  }
-};
-
 window.currentPicklistLocation = "전체";
 
 window.renderStandardLocationButtons = function() {
@@ -1922,6 +1987,9 @@ window.renderStandardInventory = function() {
       cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
     }
     const displayName = item.artName || "기타 품목";
+    const pendingQty = (typeof getPendingPickQty === 'function') ? getPendingPickQty(cleanNo) : 0;
+    const availableQty = Math.max(0, item.currentStock - pendingQty);
+    const initialInputQty = availableQty > 0 ? availableQty : item.currentStock;
 
     html += `
       <label class="picklist-stock-card" style="display:flex; flex-direction:column; padding:12px 14px; margin-bottom:10px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.04); border:1px solid #e2e8f0; cursor:pointer; transition:all 0.15s ease; gap:8px;">
@@ -1936,6 +2004,9 @@ window.renderStandardInventory = function() {
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               <span style="display:inline-flex; align-items:center; gap:3px; background:#f0f9ff; color:#0369a1; font-size:11px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
+              <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
+                <i class="fa-solid fa-pen-to-square"></i> 구역 변경
+              </button>
               <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
             </div>
             <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.35; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
@@ -1946,10 +2017,11 @@ window.renderStandardInventory = function() {
         <div style="display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px dashed #f1f5f9; width:100%; margin-top:2px;">
           <div style="font-size:12px; color:#64748b; font-weight:600;">
             <i class="fa-solid fa-box" style="color:#059669;"></i> 현재 재고: <strong style="color:#0f172a; font-size:13px;">${item.currentStock}</strong>개
+            ${pendingQty > 0 ? `<span style="color:#b45309; font-size:11px; margin-left:4px; font-weight:700;">(대기중: ${pendingQty}개)</span>` : ''}
           </div>
           <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation();">
             <span style="font-size:12px; font-weight:700; color:#475569;">챙길 수량:</span>
-            <input type="number" id="std-qty-${cleanNo}" value="${item.currentStock}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:65px; padding:4px 6px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:bold; color:#0f172a; outline:none;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#cbd5e1'">
+            <input type="number" id="std-qty-${cleanNo}" value="${initialInputQty}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:65px; padding:4px 6px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:bold; color:#0f172a; outline:none;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#cbd5e1'">
           </div>
         </div>
       </label>
@@ -1972,11 +2044,12 @@ window.addStandardToPickList = async function() {
   }
   
   let addedCount = 0;
+  const todayStr = (typeof getAppLocalDateString === "function") ? getAppLocalDateString() : new Date().toISOString().split('T')[0];
   
   for (let cb of checkboxes) {
-    const artNo = cb.dataset.artno;
-    const artName = cb.dataset.artname;
-    const maxQty = parseInt(cb.dataset.maxqty, 10);
+    let artNo = String(cb.dataset.artno || "").replace(/\D/g, '').padStart(8, '0');
+    let artName = cb.dataset.artname;
+    const maxQty = parseInt(cb.dataset.maxqty, 10) || 1;
     const qtyInput = document.getElementById(`std-qty-${artNo}`);
     let qty = parseInt(qtyInput ? qtyInput.value : maxQty, 10);
     
@@ -1984,32 +2057,44 @@ window.addStandardToPickList = async function() {
     if (qty > maxQty) qty = maxQty;
     
     const newOrder = {
-      date: new Date().toISOString().split('T')[0],
+      date: todayStr,
       artNo: artNo,
       artName: artName,
       qty: qty,
-      user: currentUser || "system",
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system",
       status: "출고대기",
       created_at: new Date().toISOString()
     };
     
     try {
       const insertedId = await saveOrderLogs(newOrder); 
-      if (insertedId) newOrder.id = insertedId;
+      if (insertedId) {
+        newOrder.id = insertedId;
+      } else {
+        newOrder.id = Date.now() + Math.floor(Math.random() * 10000);
+      }
       orderLogs.unshift(newOrder);
       addedCount++;
     } catch (err) {
       console.error("Failed to add picklist item", err);
+      newOrder.id = Date.now() + Math.floor(Math.random() * 10000);
+      orderLogs.unshift(newOrder);
+      addedCount++;
     }
   }
   
   if (addedCount > 0) {
+    try {
+      localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+    } catch(e) {}
+    
     showToast(`${addedCount}개 품목이 챙기기 대기 목록으로 이동되었습니다.`, "success");
-    playSuccessFeedback();
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
     
     checkboxes.forEach(cb => cb.checked = false);
-    renderStandardPickList();
-    renderStandardInventory();
+    if (typeof renderStandardPickList === "function") renderStandardPickList();
+    if (typeof renderStandardInventory === "function") renderStandardInventory();
+    if (typeof renderOrderLogs === "function") renderOrderLogs();
   }
 };
 
@@ -2017,7 +2102,7 @@ window.renderStandardPickList = function() {
   const container = document.getElementById("picklist-standard-cart");
   if (!container) return;
   
-  const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기");
+  const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기" || item.status === "요청" || item.status === "요청됨" || item.status === "승인" || item.status === "수락");
   
   const badgePicklist = document.getElementById("badge-picklist");
   if (badgePicklist) {
@@ -2037,14 +2122,14 @@ window.renderStandardPickList = function() {
   let html = "";
   pendingPicks.forEach(item => {
     const stockMap = buildStockMap();
-    let cleanNo = String(item.artNo || "").trim();
+    let cleanNo = String(item.artNo || item.artno || "").trim();
     if (cleanNo.length > 0 && cleanNo.length <= 8) {
       cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
     }
     const stockItem = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
     let location = "미지정";
     if (stockItem && stockItem.location) location = stockItem.location;
-    const displayName = item.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
+    const displayName = item.artName || item.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
     
     const pickActionsHtml = (typeof isViewerUser === 'undefined' || !isViewerUser) ? `
       <div style="display:flex; gap:4px; margin-top:2px;">
@@ -2067,8 +2152,11 @@ window.renderStandardPickList = function() {
         ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
 
         <div style="flex:1; min-width:0; padding-left:2px;">
-          <div style="display:flex; align-items:center; gap:6px;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${location}</span>
+            <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
+              <i class="fa-solid fa-pen-to-square"></i> 구역 변경
+            </button>
             <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
           </div>
           <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
@@ -2096,57 +2184,113 @@ window.switchTab = function(tabId, btnElement) {
   }
 };
 
-const origCompletePickItemStandard = window.completePickItem_custom;
-window.completePickItem_custom = async function(id) {
-  if (typeof origCompletePickItemStandard === "function") {
-    await origCompletePickItemStandard(id);
-    
-    const activeTab = document.querySelector('.tab-page.active');
-    if (activeTab && activeTab.id === "tab-picklist") {
-      renderStandardLocationButtons();
-      renderStandardPickList();
-    }
-  }
-};
 let currentSingleLocArtNo = null;
 
 window.setSingleLocation = function(artNo) {
-  let masterItem = masterCatalog.find(m => m.artNo === artNo);
-  currentSingleLocArtNo = artNo;
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+  currentSingleLocArtNo = cleanNo;
   
-  const artName = masterItem ? masterItem.artName : "알 수 없음";
-  const currentLoc = masterItem && masterItem.location ? masterItem.location : "미지정";
+  let masterItem = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog.find(m => {
+    const mNo = String(m.artNo || m.artno || "").trim();
+    return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+  }) : null;
   
-  document.getElementById("single-loc-artname").innerHTML = `[${artNo}] ${artName} <br><span style="color:#2563eb; font-weight:normal; font-size:12px;">(현재 구역: ${currentLoc})</span>`;
-  document.getElementById("single-loc-modal").classList.add("active");
+  const artName = masterItem ? (masterItem.artName || masterItem.artname) : ((typeof masterCatalogMap !== 'undefined' && masterCatalogMap) ? masterCatalogMap.get(cleanNo) : "") || "알 수 없음";
+  const currentLoc = (masterItem && masterItem.location) ? masterItem.location : "미지정";
+  
+  const titleEl = document.getElementById("single-loc-artname");
+  if (titleEl) {
+    titleEl.innerHTML = `<span style="font-size:15px; font-weight:800; color:#0f172a;">[${cleanNo}] ${artName}</span><br><span style="color:#0058a3; font-weight:700; font-size:12.5px; display:inline-flex; align-items:center; gap:4px; margin-top:4px;"><i class="fa-solid fa-location-dot"></i> 현재 구역: <strong>${currentLoc}</strong></span>`;
+  }
+  
+  // Dynamically populate location buttons
+  const btnContainer = document.getElementById("single-loc-quick-buttons");
+  if (btnContainer) {
+    const locSet = new Set(["B1", "B2", "B3"]);
+    if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+      masterCatalog.forEach(m => {
+        if (m.location && m.location !== "미지정" && m.location.trim() !== "") {
+          m.location.split(',').map(l => l.trim()).forEach(l => { if (l) locSet.add(l); });
+        }
+      });
+    }
+    const locList = Array.from(locSet).sort();
+    let btnHtml = "";
+    locList.forEach(loc => {
+      const isCurrent = (currentLoc === loc);
+      btnHtml += `<button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:10px 12px; font-weight:bold; font-size:14px; border-radius:8px; cursor:pointer; transition:all 0.15s; ${isCurrent ? 'background:#0058a3; color:white; border:1px solid #0058a3;' : 'background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;'}" onclick="saveSingleLocation('${loc}')">${loc}${isCurrent ? ' (현재)' : ''}</button>`;
+    });
+    btnContainer.innerHTML = btnHtml;
+  }
+  
+  const customInput = document.getElementById("single-loc-custom-input");
+  if (customInput) {
+    customInput.value = (currentLoc !== "미지정") ? currentLoc : "";
+  }
+  
+  const modal = document.getElementById("single-loc-modal");
+  if (modal) modal.classList.add("active");
 };
 
 window.closeSingleLocationModal = function() {
-  document.getElementById("single-loc-modal").classList.remove("active");
+  const modal = document.getElementById("single-loc-modal");
+  if (modal) modal.classList.remove("active");
   currentSingleLocArtNo = null;
+};
+
+window.submitCustomSingleLocation = function() {
+  const input = document.getElementById("single-loc-custom-input");
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) {
+    showToast("변경할 구역명을 입력해주세요.", "warning");
+    return;
+  }
+  saveSingleLocation(val);
 };
 
 window.saveSingleLocation = async function(locStr) {
   if (!currentSingleLocArtNo) return;
-  const artNo = currentSingleLocArtNo;
-  
-  let masterItem = masterCatalog.find(m => m.artNo === artNo);
-  
-  if (masterItem) {
-    masterItem.location = locStr;
-  } else {
-    masterItem = { artNo: artNo, artName: "알 수 없음", location: locStr, hfb: "기본 HFB" };
-    masterCatalog.push(masterItem);
+  const targetLoc = (locStr || "").trim();
+  if (!targetLoc) {
+    showToast("구역명을 입력해주세요.", "warning");
+    return;
   }
   
-  saveMasterCatalog(); // Save locally
+  let cleanNo = String(currentSingleLocArtNo).trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
   
-  // Sync to Supabase
+  let masterItem = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog.find(m => {
+    const mNo = String(m.artNo || m.artno || "").trim();
+    return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+  }) : null;
+  
+  if (masterItem) {
+    masterItem.location = targetLoc;
+    masterItem.artNo = cleanNo;
+  } else {
+    const fallbackName = ((typeof masterCatalogMap !== 'undefined' && masterCatalogMap) ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
+    masterItem = { artNo: cleanNo, artName: fallbackName, location: targetLoc, hfb: "기본 HFB" };
+    if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+      masterCatalog.push(masterItem);
+    }
+  }
+  
+  // 1. Save locally
+  if (typeof saveMasterCatalog === "function") saveMasterCatalog();
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  
+  // 2. Sync to Supabase
   if (typeof supabaseClient !== "undefined" && supabaseClient) {
     try {
       const dbPayload = {
         artno: masterItem.artNo,
-        artname: masterItem.artName,
+        artname: masterItem.artName || masterItem.artname || "기타 품목",
         location: masterItem.location,
         hfb: masterItem.hfb || "기본 HFB"
       };
@@ -2158,10 +2302,10 @@ window.saveSingleLocation = async function(locStr) {
         const { error } = await supabaseClient.from("master_catalog").update(dbPayload).eq("id", masterItem.id);
         if (error) { hasError = true; lastErrorMsg = error.message; }
       } else {
-        const { data: existing, error: selErr } = await supabaseClient.from("master_catalog").select("id").eq("artno", masterItem.artNo).maybeSingle();
-        if (existing) {
-          masterItem.id = existing.id;
-          const { error: updErr } = await supabaseClient.from("master_catalog").update(dbPayload).eq("id", existing.id);
+        const { data: existing, error: selErr } = await supabaseClient.from("master_catalog").select("id").eq("artno", masterItem.artNo);
+        if (existing && existing.length > 0) {
+          masterItem.id = existing[0].id;
+          const { error: updErr } = await supabaseClient.from("master_catalog").update(dbPayload).eq("id", existing[0].id);
           if (updErr) { hasError = true; lastErrorMsg = updErr.message; }
         } else {
           const { data: inserted, error: insErr } = await supabaseClient.from("master_catalog").insert([dbPayload]).select();
@@ -2180,9 +2324,19 @@ window.saveSingleLocation = async function(locStr) {
     }
   }
   
-  showToast(`해당 품목의 위치가 [${locStr}] (으)로 변경되었습니다.`, "success");
-  playSuccessFeedback();
-  renderStockLookup();
+  // 3. Close modal & reset
+  closeSingleLocationModal();
+  
+  // 4. Invalidate & Refresh all views
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof renderStandardLocationButtons === "function") renderStandardLocationButtons();
+  if (typeof renderStandardInventory === "function") renderStandardInventory();
+  if (typeof renderStandardPickList === "function") renderStandardPickList();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof updateDashboard === "function") updateDashboard();
+  
+  showToast(`[${cleanNo}] 위치가 [${targetLoc}] (으)로 변경되었습니다.`, "success");
+  if (typeof playSuccessFeedback === "function") playSuccessFeedback();
 };
 
 // --- Notice Popup Logic ---
