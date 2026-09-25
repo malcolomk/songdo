@@ -225,30 +225,30 @@
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" id="btn-global-refresh" onclick="if(typeof refreshAppRealtime === 'function') refreshAppRealtime();" style="background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; font-size:10.5px; font-weight:900; cursor:pointer; padding:3px 7px; border-radius:10px; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;" title="실시간 데이터 새로고침">
-          <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:10.5px; color:#0058a3;"></i>
-          <span style="font-size:10.5px; color:#0058a3; font-weight:900; white-space:nowrap;">새로고침</span>
+        <button type="button" id="btn-global-refresh" onclick="if(typeof refreshAppRealtime === 'function') refreshAppRealtime();" style="background:#eff6ff; border:1.5px solid #bfdbfe; color:#0058a3; font-size:11.5px; font-weight:800; cursor:pointer; height:28px; width:28px; padding:0; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; flex-shrink:0; transition:all 0.2s;" title="실시간 데이터 새로고침">
+          <i id="global-refresh-icon" class="fa-solid fa-rotate" style="font-size:11.5px; color:#0058a3;"></i>
+          <span class="refresh-label" style="font-size:11.5px; color:#0058a3; font-weight:800; white-space:nowrap;">새로고침</span>
         </button>
-        <button type="button" id="btn-manual-guide" onclick="if(typeof openManualModal === 'function') openManualModal();" style="background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="사용자 매뉴얼 가이드">
-          <i class="fa-solid fa-book-open" style="font-size:11px; color:#0058a3;"></i>
+        <button type="button" id="btn-manual-guide" onclick="if(typeof openManualModal === 'function') openManualModal();" style="background:#eff6ff; border:1.5px solid #bfdbfe; color:#0058a3; font-size:12px; cursor:pointer; width:28px; height:28px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="사용자 매뉴얼 가이드">
+          <i class="fa-solid fa-book-open" style="font-size:12px; color:#0058a3;"></i>
         </button>
-        <button type="button" id="btn-notification-bell" onclick="if(typeof openNotificationModal === 'function') openNotificationModal();" style="position:relative; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; font-size:11px; cursor:pointer; padding:3px 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="오더 알림함">
-          <i class="fa-solid fa-bell" style="font-size:11px; color:#475569;"></i>
-          <span id="notif-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:8px; font-weight:900; border-radius:10px; padding:1px 3px; min-width:13px; text-align:center; box-shadow:0 1px 3px rgba(239,68,68,0.4); line-height:1.1;">0</span>
+        <button type="button" id="btn-notification-bell" onclick="if(typeof openNotificationModal === 'function') openNotificationModal();" style="position:relative; background:#f8fafc; border:1.5px solid #e2e8f0; color:#475569; font-size:12px; cursor:pointer; width:28px; height:28px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;" title="오더 알림함">
+          <i class="fa-solid fa-bell" style="font-size:12px; color:#475569;"></i>
+          <span id="notif-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:9px; font-weight:900; border-radius:10px; padding:1px 4px; min-width:14px; text-align:center; box-shadow:0 1px 3px rgba(239,68,68,0.4); line-height:1.1;">0</span>
         </button>
-        <div id="user-profile-badge" class="user-badge" style="display:none; align-items:center; gap:3px; padding:2px 6px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; white-space:nowrap; flex-shrink:0;">
-          <div id="online-presence-pill" style="display:none; background:#e2e8f0; padding:1px 4px; border-radius:8px; font-size:9px; font-weight:600; color:#334155; align-items:center; gap:2px; max-width:60px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+        <div id="user-profile-badge" class="user-badge" style="display:none; align-items:center; gap:3px; height:28px; padding:0 5px; border-radius:6px; background:#f8fafc; border:1.5px solid #e2e8f0; white-space:nowrap; flex-shrink:0;">
+          <div id="online-presence-pill" style="display:none; background:#e2e8f0; padding:1px 4px; border-radius:4px; font-size:9.5px; font-weight:700; color:#334155; align-items:center; gap:3px; max-width:55px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
             <div style="width:4px; height:4px; border-radius:50%; background-color:#10b981; flex-shrink:0;"></div>
             <span id="online-users-list" style="text-overflow:ellipsis; overflow:hidden;">접속중</span>
           </div>
-          <i class="fa-solid fa-circle-user" style="font-size:11px; color:#0058a3;"></i>
-          <span id="current-user-name" style="font-size:10.5px; font-weight:700; color:#0f172a; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">guest1</span>
-          <span id="admin-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#fef3c7; color:#b45309; border-radius:4px; font-weight:800; white-space:nowrap; border:1px solid #fde68a;">관리자</span>
-          <span id="viewer-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#f1f5f9; color:#475569; border-radius:4px; font-weight:800; white-space:nowrap; border:1px solid #cbd5e1;">읽기전용</span>
-          <button type="button" id="btn-sig-history" onclick="if(typeof openSigHistoryModal === 'function') openSigHistoryModal()" style="display:none; background:none; border:none; color:#0058a3; font-size:11px; cursor:pointer; padding:1px;" title="서명 히스토리">
+          <i class="fa-solid fa-circle-user" style="font-size:12px; color:#0058a3;"></i>
+          <span id="current-user-name" style="font-size:11px; font-weight:800; color:#0f172a; max-width:48px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">guest1</span>
+          <span id="admin-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#fef3c7; color:#b45309; border-radius:3px; font-weight:800; white-space:nowrap; border:1px solid #fde68a;">관리자</span>
+          <span id="viewer-role-badge" class="role-badge" style="display:none; font-size:8.5px; padding:1px 3px; background:#f1f5f9; color:#475569; border-radius:3px; font-weight:800; white-space:nowrap; border:1px solid #cbd5e1;">읽기전용</span>
+          <button type="button" id="btn-sig-history" onclick="if(typeof openSigHistoryModal === 'function') openSigHistoryModal()" style="display:none; background:none; border:none; color:#0058a3; font-size:11px; cursor:pointer; padding:2px;" title="서명 히스토리">
             <i class="fa-solid fa-clock-rotate-left"></i>
           </button>
-          <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃" style="background:none; border:none; color:#ef4444; font-size:12px; cursor:pointer; padding:1px; display:flex; align-items:center; margin-left:1px; flex-shrink:0;">
+          <button type="button" class="btn-logout" onclick="handleLogout()" title="로그아웃" style="background:none; border:none; color:#ef4444; font-size:12px; cursor:pointer; padding:1px; display:flex; align-items:center; margin-left:0; flex-shrink:0;">
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
           </button>
         </div>
@@ -317,6 +317,9 @@
             </div>
           </div>
 
+          <!-- Location Guide Banner (대형 보관 구역 하이라이트 & 안내) -->
+          <div id="reg-location-guide-banner" style="display:none; margin:0 0 10px 0; border-radius:12px; transition:all 0.2s ease;"></div>
+
           <!-- Row 4: 수량 (50%) + 현재 남은 재고 (50%) -->
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
             <div class="form-group">
@@ -331,11 +334,17 @@
 
           <!-- Row 5: 창고 구역 지정 (단독 행) -->
           <div class="form-group">
-            <label for="reg-location"><i class="fa-solid fa-location-dot" style="color:#0058a3;"></i> 창고 구역 지정 (선택)</label>
-            <div style="display:flex; gap:6px;">
-              <input type="text" id="reg-location" placeholder="구역 직접 입력 또는 버튼 선택" class="input-control" style="font-size:13px; flex:1; height:40px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label for="reg-location" style="margin:0; font-size:12px; font-weight:800; color:#0f172a;">
+                <i class="fa-solid fa-location-dot" style="color:#0058a3;"></i> 창고 구역 지정 <span id="reg-loc-req-badge" style="color:#ef4444; font-size:11px; font-weight:900;">(입고 시 필수)</span>
+              </label>
+              <span id="reg-loc-status-hint" style="font-size:11px; font-weight:700; color:#64748b;"></span>
+            </div>
+            <div style="display:flex; gap:4px; align-items:center; flex-wrap:nowrap; width:100%;">
+              <input type="text" id="reg-location" placeholder="직접입력 또는 선택" class="input-control" style="font-size:12.5px; flex:1; min-width:60px; height:38px; padding:0 8px;">
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B1')">B1</button>
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B2')">B2</button>
+              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B2 램프')" style="padding:0 6px; font-size:11.5px;">B2 램프</button>
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B3')">B3</button>
             </div>
           </div>
@@ -371,7 +380,10 @@
         </div>
       </div>
 
-
+      <!-- Realtime Warehouse Zone Dashboard (B1 / B2 / B2 램프 / B3 / 미지정 현황 카드) -->
+      <div id="stock-location-dashboard" style="margin: 8px 0 10px 0;">
+        <!-- Rendered dynamically by renderStockLocationDashboard() -->
+      </div>
 
       <!-- Quick Filter Chips & Category / Sort Toolbar -->
       <div class="stock-filter-toolbar">
@@ -523,38 +535,46 @@
         </div>
       </section>
 
-    <!-- NEW TAB 4: 창고 챙기기 (PICK LIST) -->
+    <!-- TAB 4: 창고 챙기기 (PICK LIST - 1-Touch Simplified Warehouse Picking) -->
     <section id="tab-picklist" class="tab-page">
-      <!-- 1. 창고 구역별 재고 담기 영역 -->
-      <div class="card-box" style="border-top: 4px solid #059669; margin-bottom: 20px;">
-        <div class="card-header space-between">
-          <h2><i class="fa-solid fa-map-location-dot"></i> 구역별 재고 담기</h2>
-        </div>
-        <div style="padding: 0 15px 15px 15px;">
-          <!-- 구역 선택 버튼 영역 -->
-          <div id="picklist-location-buttons" style="margin-bottom:12px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; -ms-overflow-style:none;">
-            <!-- JS 렌더링 -->
+      <div style="padding: 2px 0 20px 0;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div>
+            <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin:0; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-dolly" style="color:#059669;"></i> 창고 챙기기
+            </h2>
+            <span style="font-size:11px; font-weight:700; color:#64748b;">창고 층별 간편 출고 & 피킹</span>
           </div>
-          
-          <!-- 체크박스가 있는 재고 카드 목록 -->
-          <div id="picklist-standard-inventory" class="stock-cards-list" style="max-height: 400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; padding:8px;">
-            <!-- JS 렌더링 -->
-          </div>
-          
-          <button type="button" class="btn-submit" style="margin-top:12px; width:100%; font-size:15px; padding:12px; background-color:#2563eb;" onclick="addStandardToPickList()">
-            <i class="fa-solid fa-cart-arrow-down"></i> 선택 항목 챙기기 목록으로 이동
+          <button type="button" class="btn-secondary sm" onclick="if(typeof renderSimplePicklist === 'function') renderSimplePicklist()" style="font-size:11px; padding:4px 8px; border-radius:8px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+            <i class="fa-solid fa-rotate-right"></i> 새로고침
           </button>
         </div>
-      </div>
 
-      <!-- 2. 대기 목록 -->
-      <div class="card-box" style="border-top: 4px solid #f59e0b;">
-        <div class="card-header space-between">
-          <h2><i class="fa-solid fa-clipboard-check"></i> 대기 목록</h2>
+        <!-- 1. Warehouse Zone Selector Pills -->
+        <div id="picklist-zone-tabs" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:10px; scrollbar-width:none; -ms-overflow-style:none;">
+          <!-- Dynamically populated by renderPicklistZoneTabs() -->
         </div>
-        <div id="picklist-standard-cart" class="history-list" style="padding-top:10px;">
-          <!-- JS 렌더링 -->
+
+        <!-- 2. View Mode Toggle (대기열 vs 창고실재고) -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; background:#e2e8f0; padding:4px; border-radius:10px; margin-bottom:12px;">
+          <button type="button" id="picklist-mode-queue-btn" class="btn-picklist-mode active" onclick="setPicklistMode('queue')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:#ffffff; color:#059669; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.15s ease;">
+            <i class="fa-solid fa-clipboard-list"></i> <span id="picklist-queue-tab-text">챙길 대기열</span>
+          </button>
+          <button type="button" id="picklist-mode-stock-btn" class="btn-picklist-mode" onclick="setPicklistMode('stock')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:transparent; color:#64748b; transition:all 0.15s ease;">
+            <i class="fa-solid fa-boxes-stacked"></i> <span id="picklist-stock-tab-text">창고 실재고</span>
+          </button>
         </div>
+
+        <!-- 3. Active Picklist Content Area -->
+        <div id="picklist-active-container">
+          <!-- Dynamically populated by renderSimplePicklist() -->
+        </div>
+
+        <!-- Backward Compatibility Invisible Hooks -->
+        <div id="picklist-location-buttons" style="display:none;"></div>
+        <div id="picklist-standard-inventory" style="display:none;"></div>
+        <div id="picklist-standard-cart" style="display:none;"></div>
       </div>
     </section>
 
@@ -783,6 +803,11 @@
 
     <section id="tab-menu" class="tab-page">
       <div style="padding: 2px 0 20px 0;">
+        <!-- Realtime Warehouse Zone Summary Widget for Menu Tab -->
+        <div id="menu-location-summary-widget" style="margin-bottom:12px;">
+          <!-- Rendered dynamically by renderMenuLocationWidget() -->
+        </div>
+
         <div class="menu-grid" style="padding: 0;">
           <!-- 1. 매장 입고 (모든 계정 사용 가능) -->
           <a class="menu-item" id="menu-item-store-inbound" onclick="handleStoreInboundMenuClick(document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
@@ -794,13 +819,8 @@
             <span id="badge-store-inbound-lock" class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#eff6ff; color:#0058a3; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">🚚 매장 직송</span>
             <span id="badge-store-inbound" class="nav-badge" style="display:none; background:#0058a3;">0</span>
           </a>
-          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
-            <div class="menu-icon-box" style="background:#eff6ff; color:#2563eb;">
-              <i class="fa-solid fa-warehouse"></i>
-            </div>
-            <span class="menu-text">재고 조회</span>
-            <span class="menu-subtext">위치 · 수량 검색</span>
-          </a>
+
+          <!-- 2. 창고 챙기기 -->
           <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#fff1f2; color:#e11d48;">
               <i class="fa-solid fa-box-open"></i>
@@ -809,14 +829,17 @@
             <span class="menu-subtext">대기열 · 출고 처리</span>
             <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
           </a>
-          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#eef2ff; color:#4f46e5;">
-              <i class="fa-solid fa-cart-flatbed"></i>
+
+          <!-- 3. 재고 조회 -->
+          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-icon-box" style="background:#eff6ff; color:#2563eb;">
+              <i class="fa-solid fa-warehouse"></i>
             </div>
-            <span class="menu-text">오더 요청</span>
-            <span class="menu-subtext">기존 및 신규 요청 접수</span>
-            <span id="badge-order" class="nav-badge" style="display:none;">0</span>
+            <span class="menu-text">재고 조회</span>
+            <span class="menu-subtext">위치 · 수량 검색</span>
           </a>
+
+          <!-- 4. Inventory -->
           <a class="menu-item" onclick="switchTab('audit', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-icon-box" style="background:#f5f3ff; color:#7c3aed;">
               <i class="fa-solid fa-user-secret"></i>
@@ -824,6 +847,8 @@
             <span class="menu-text">Inventory</span>
             <span class="menu-subtext">실재고 등록 · 조회</span>
           </a>
+
+          <!-- 5. 송도 MFAQ -->
           <a class="menu-item" onclick="switchTab('mfaq', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#ecfdf5; color:#059669;">
               <i class="fa-solid fa-clipboard-question"></i>
@@ -832,6 +857,18 @@
             <span class="menu-subtext">자주 묻는 질문</span>
             <span id="badge-mfaq" class="nav-badge" style="display:none;">0</span>
           </a>
+
+          <!-- 6. 오더 요청 -->
+          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
+            <div class="menu-icon-box" style="background:#eef2ff; color:#4f46e5;">
+              <i class="fa-solid fa-cart-flatbed"></i>
+            </div>
+            <span class="menu-text">오더 요청</span>
+            <span class="menu-subtext">기존 및 신규 요청 접수</span>
+            <span id="badge-order" class="nav-badge" style="display:none;">0</span>
+          </a>
+
+          <!-- 7. 사용자 매뉴얼 -->
           <a class="menu-item" onclick="if(typeof openManualModal === 'function') openManualModal()" style="position:relative; border-color:#bfdbfe; background:linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);">
             <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
               <i class="fa-solid fa-book-open"></i>
@@ -840,6 +877,8 @@
             <span class="menu-subtext">슬라이드 가이드 · 사용법</span>
             <span class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#dbeafe; color:#1e40af; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">📘 가이드</span>
           </a>
+
+          <!-- 8. 업데이트 내역 -->
           <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
             <div class="menu-icon-box" style="background:#f0f9ff; color:#0284c7;">
               <i class="fa-solid fa-clock-rotate-left"></i>
@@ -864,18 +903,13 @@
             </div>
 
             <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">📦 입/출고 등록 (창고)</strong>
-              창고에 물품이 입고되거나 나갈 때 스마트 바코드로 카트에 담아 일괄 저장합니다.
-            </div>
-            
-            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🏢 재고 조회</strong>
-              13,836개 전 품목의 창고 보관 위치(B1/B2/B3)와 실시간 재고 수량을 검색합니다.
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">📋 창고 챙기기 (Pick List)</strong>
+              매장 부족 물품 오더 및 피킹 대기열을 확인하여 창고에서 물품을 준비하고 출고 완료 처리합니다.
             </div>
 
             <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🛒 오더 요청 & 📋 창고 챙기기</strong>
-              매장 부족 물품 오더 접수 및 창고 피킹 리스트를 확인하여 [챙김 완료] 출고 처리합니다.
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🏢 재고 조회</strong>
+              13,836개 전 품목의 창고 보관 위치(B1/B2/B3)와 실시간 재고 수량을 검색합니다.
             </div>
 
             <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
@@ -885,7 +919,12 @@
 
             <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
               <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">❓ 송도 MFAQ</strong>
-              송도 스토어 현장 운영 규칙 및 자주 묻는 질문(FAQ)을 키워드로 검색합니다.
+              송도 스토어 현장 운영 규칙 및 자주 묻는 질문(FAQ)을 키워드로 검색하고 신속히 공유합니다.
+            </div>
+
+            <div style="background: #f8fafc; padding: 9px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+              <strong style="color: #0f172a; font-size: 12.5px; display: block; margin-bottom: 2px;">🛒 오더 요청</strong>
+              매장에 부족한 품목 및 수량을 신규 요청 접수하여 창고 챙기기 대기열로 전달합니다.
             </div>
 
             <button type="button" onclick="if(typeof openManualModal === 'function') openManualModal()" style="margin-top: 6px; width: 100%; padding: 10px; background: #0058a3; color: #ffffff; font-weight: 800; font-size: 12.5px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,88,163,0.2);">
@@ -1194,36 +1233,46 @@
     </section>
 
     <!-- TAB 8: 송도 MFAQ -->
-    <section id="tab-mfaq" class="tab-page">
-      <div class="card-box" style="display:flex; flex-direction:column; height: 100%;">
-        <div class="card-header space-between" style="flex-wrap: wrap; gap:10px;">
-          <h2><i class="fa-solid fa-clipboard-question"></i> 송도 MFAQ</h2>
-          <div style="display:flex; gap:8px;">
-            <button type="button" class="btn-secondary" style="padding:6px 12px; font-size:13px;" onclick="refreshMfaqData()">
-              <i class="fa-solid fa-rotate-right"></i> 새로고침
-            </button>
-            <button type="button" class="btn-excel-export" style="margin-left:0; padding:6px 12px; font-size:13px;" onclick="exportMfaqToExcel()">
-              <i class="fa-solid fa-file-excel"></i> 엑셀 추출
-            </button>
-          </div>
+    <section id="tab-mfaq" class="tab-page" style="padding: 6px 8px;">
+      <!-- Header Bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:6px;">
+        <div style="font-size:16px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:6px;">
+          <i class="fa-solid fa-clipboard-question" style="color:#0058a3; font-size:17px;"></i> 송도 MFAQ
         </div>
-        
-        <div style="padding: 10px; display: flex; gap: 8px;">
-          <select id="mfaq-filter-category" class="input-control" style="width: auto;" onchange="renderMfaq()">
-            <option value="all">모든 카테고리</option>
-            <option value="질문">질문</option>
-            <option value="제품 요청">제품 요청</option>
+        <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
+          <button type="button" onclick="refreshMfaqData()" title="새로고침" style="width:30px; height:30px; min-width:30px; min-height:30px; border-radius:7px; background:#f8fafc; border:1.5px solid #cbd5e1; color:#475569; display:inline-flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; padding:0; transition:all 0.15s;">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          <button type="button" onclick="exportMfaqToExcel()" title="엑셀 추출" style="height:30px; min-height:30px; max-height:30px; padding:0 9px; border-radius:7px; background:#107c41; border:none; color:#ffffff; display:inline-flex; align-items:center; justify-content:center; gap:4px; font-size:12px; font-weight:800; white-space:nowrap; cursor:pointer; box-shadow:0 2px 4px rgba(16,124,65,0.2); transition:all 0.15s;">
+            <i class="fa-solid fa-file-excel" style="font-size:12px;"></i> 엑셀
+          </button>
+          <button type="button" onclick="openMfaqModal()" style="height:30px; min-height:30px; max-height:30px; padding:0 10px; border-radius:7px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; font-size:12px; font-weight:800; white-space:nowrap; box-shadow:0 2px 5px rgba(0,88,163,0.25); transition:all 0.15s;">
+            <i class="fa-solid fa-plus" style="font-size:11px;"></i> 등록
+          </button>
+        </div>
+      </div>
+
+      <!-- Compact Filter & Search Toolbar -->
+      <div style="display:flex; gap:5px; align-items:center; margin-bottom:8px;">
+        <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+          <select id="mfaq-filter-category" onchange="renderMfaq()" style="width:105px; height:32px; min-height:32px; padding:0 6px; font-weight:800; font-size:12px; border-radius:7px; border:1.5px solid #cbd5e1; background:#ffffff; color:#0f172a; outline:none; box-sizing:border-box;">
+            <option value="all">전체 구분</option>
+            <option value="제품 질문/요청">제품 질문/요청</option>
+            <option value="매장 질문">매장 질문</option>
           </select>
+          <button type="button" onclick="openMfaqCategoryMgrModal()" style="width:32px; height:32px; min-width:32px; min-height:32px; border-radius:7px; background:#f8fafc; border:1.5px solid #cbd5e1; color:#475569; display:inline-flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; padding:0; transition:all 0.15s;" title="카테고리 관리 (이름 변경/추가/삭제)">
+            <i class="fa-solid fa-gear"></i>
+          </button>
         </div>
-        <div style="padding: 10px;">
-          <input type="text" id="mfaq-search" class="search-control mb-15" placeholder="Search questions..." oninput="renderMfaq()">
+        <div style="position:relative; flex:1; min-width:0;">
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:9px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:11.5px;"></i>
+          <input type="text" id="mfaq-search" placeholder="품번, 제품명, HFB, 질문 검색..." oninput="renderMfaq()" style="width:100%; height:32px; min-height:32px; padding:0 8px 0 28px; border:1.5px solid #cbd5e1; border-radius:7px; font-size:12px; font-weight:600; outline:none; box-sizing:border-box; background:#ffffff; color:#0f172a;">
         </div>
-        <div id="mfaq-list-container" style="flex: 1; overflow-y: auto; padding: 10px;" class="history-list">
-          <!-- Items will be rendered here -->
-        </div>
-        <div style="padding: 10px; border-top: 1px solid #e2e8f0; text-align: center;">
-          <button class="btn-submit" style="width: 100%; border-radius: 20px; font-weight: bold; background: #0f172a; color: #fff;" onclick="openMfaqModal()">Add new question</button>
-        </div>
+      </div>
+
+      <!-- MFAQ Cards List -->
+      <div id="mfaq-list-container" class="history-list" style="flex:1; overflow-y:auto;">
+        <!-- Items rendered here -->
       </div>
     </section>
 
@@ -1352,6 +1401,7 @@
         <div class="loc-multi-select" id="bulk-loc-checkboxes" style="justify-content:flex-start; margin-bottom: 20px;">
           <label><input type="checkbox" value="B1"> B1</label>
           <label><input type="checkbox" value="B2"> B2</label>
+          <label><input type="checkbox" value="B2 램프"> B2 램프</label>
           <label><input type="checkbox" value="B3"> B3</label>
         </div>
         <div style="display:flex; gap:10px;">
@@ -1859,9 +1909,10 @@
         <p id="single-loc-artname" style="margin-bottom:15px; color:#475569; font-size:14px; font-weight:bold;"></p>
         <p style="margin-bottom:10px; color:#64748b; font-size:13px; font-weight:700;">빠른 구역 선택:</p>
         <div id="single-loc-quick-buttons" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 16px;">
-          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B1')">B1</button>
-          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2')">B2</button>
-          <button type="button" class="btn-secondary" style="flex:1; min-width:70px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B3')">B3</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B1')">B1</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2')">B2</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2 램프')">B2 램프</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B3')">B3</button>
         </div>
         <div style="border-top:1px dashed #cbd5e1; padding-top:14px; margin-top:10px;">
           <label for="single-loc-custom-input" style="display:block; font-size:12px; font-weight:bold; color:#475569; margin-bottom:6px;">구역 직접 입력:</label>
@@ -1876,26 +1927,193 @@
 
   <!-- MODAL: Add MFAQ -->
   <div id="mfaq-modal" class="modal-backdrop" onclick="closeMfaqModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-plus-circle"></i> 새 질문/요청 추가</h3>
-        <button type="button" class="close-btn" onclick="closeMfaqModal()"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 480px; width: 92%; border-radius: 16px; padding: 22px 20px;">
+      <div class="modal-header" style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 7px; margin: 0;">
+          <i class="fa-solid fa-clipboard-question" style="color: #0058a3; font-size: 18px;"></i> 새 질문 / 제품 요청 등록
+        </h3>
+        <button type="button" class="close-btn" onclick="closeMfaqModal()" style="font-size: 18px; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding: 0;">
         <form id="add-mfaq-form" onsubmit="handleAddMfaqSubmit(event)">
-          <div class="form-group">
-            <label for="mfaq-new-category">카테고리</label>
-            <select id="mfaq-new-category" class="input-control">
-              <option value="질문">질문</option>
-              <option value="제품 요청">제품 요청</option>
+          <!-- Row 1: Category -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="mfaq-new-category" style="font-weight: 800; font-size: 13.5px; color: #334155; margin-bottom: 6px; display: block;">카테고리</label>
+            <select id="mfaq-new-category" onchange="onMfaqCategoryChange(this.value)" style="width: 100%; height: 42px; line-height: 42px; padding: 0 12px; font-size: 14px; font-weight: 700; color: #0f172a; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box;">
+              <option value="제품 질문/요청">제품 질문/요청</option>
+              <option value="매장 질문">매장 질문</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="mfaq-new-question">내용</label>
-            <input type="text" id="mfaq-new-question" placeholder="질문 또는 요청 내용을 입력하세요" required class="input-control">
+
+          <!-- Product Search Section -->
+          <div id="mfaq-product-search-section" style="margin-bottom: 14px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <label style="font-size: 13px; font-weight: 800; color: #0058a3; display:flex; align-items:center; gap:5px;">
+                <i class="fa-solid fa-magnifying-glass"></i> 아티클 번호 및 제품명 검색
+              </label>
+              <span style="font-size: 11px; font-weight: 700; color: #64748b;">HFB 자동 조회</span>
+            </div>
+            
+            <div class="autocomplete-wrapper" style="position: relative;">
+              <input type="text" id="mfaq-product-search-input" placeholder="품번(8자리) 또는 제품명 검색 (예: 빌리, 70582028)" oninput="handleMfaqProductSearch(this.value)" autocomplete="off" style="width: 100%; height: 42px; padding: 0 12px; font-size: 13.5px; font-weight: 600; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box; background: #ffffff; color: #0f172a;">
+              <div id="mfaq-product-autocomplete-dropdown" class="autocomplete-dropdown" style="max-height: 200px; overflow-y: auto; z-index: 10000;"></div>
+            </div>
+
+            <!-- Selected Product Preview Card -->
+            <div id="mfaq-selected-product-card" style="display: none; margin-top: 10px; background: #ffffff; border: 1.5px solid #0058a3; border-radius: 10px; padding: 10px; box-shadow: 0 2px 6px rgba(0,88,163,0.08);">
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div id="mfaq-selected-thumb" style="flex-shrink: 0;"></div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 2px;">
+                    <span id="mfaq-selected-hfb" style="background: #0058a3; color: #ffffff; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">
+                      <i class="fa-solid fa-tag"></i> <span id="mfaq-selected-hfb-text">HFB</span>
+                    </span>
+                    <span id="mfaq-selected-artno" style="font-size: 11.5px; font-weight: bold; color: #64748b; font-family: monospace;"></span>
+                    <span id="mfaq-selected-location" style="background: #eff6ff; color: #0284c7; font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px; border: 1px solid #bae6fd;"></span>
+                  </div>
+                  <div id="mfaq-selected-artname" style="font-size: 13.5px; font-weight: 900; color: #0f172a; word-break: keep-all; line-height: 1.25;"></div>
+                </div>
+                <button type="button" onclick="clearMfaqSelectedProduct()" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" title="선택 취소">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
           </div>
-          <button type="submit" class="btn-submit" style="background: #0f172a; color: #fff;">저장</button>
+
+          <!-- Question / Request Content -->
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label for="mfaq-new-question" id="mfaq-question-label" style="font-weight: 800; font-size: 13.5px; color: #334155; margin-bottom: 6px; display: block;">상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span></label>
+            <input type="text" id="mfaq-new-question" placeholder="추가 질문이나 요청 메모를 입력하세요 (선택)" style="width: 100%; height: 42px; padding: 0 12px; font-size: 13.5px; font-weight: 600; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box; background: #ffffff; color: #0f172a;">
+          </div>
+
+          <button type="submit" style="background: #0058a3; color: #ffffff; width: 100%; height: 46px; font-size: 15px; font-weight: 800; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 3px 8px rgba(0,88,163,0.3); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s;">
+            <i class="fa-solid fa-check"></i> 저장
+          </button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Edit MFAQ Item (항목 및 카테고리 수정) -->
+  <div id="mfaq-edit-modal" class="modal-backdrop" onclick="closeMfaqEditModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 480px; width: 92%; border-radius: 16px; padding: 22px 20px;">
+      <div class="modal-header" style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 7px; margin: 0;">
+          <i class="fa-solid fa-pen-to-square" style="color: #0058a3; font-size: 18px;"></i> MFAQ 항목 수정
+        </h3>
+        <button type="button" class="close-btn" onclick="closeMfaqEditModal()" style="font-size: 18px; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <form id="edit-mfaq-form" onsubmit="handleEditMfaqSubmit(event)">
+          <input type="hidden" id="edit-mfaq-id">
+
+          <!-- Category Selection -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="edit-mfaq-category" style="font-weight: 800; font-size: 13.5px; color: #334155; margin-bottom: 6px; display: block;">카테고리</label>
+            <select id="edit-mfaq-category" onchange="onEditMfaqCategoryChange(this.value)" style="width: 100%; height: 42px; line-height: 42px; padding: 0 12px; font-size: 14px; font-weight: 700; color: #0f172a; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box;">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <!-- Product Search Section for Edit Modal -->
+          <div id="edit-mfaq-product-search-section" style="margin-bottom: 14px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <label style="font-size: 13px; font-weight: 800; color: #0058a3; display:flex; align-items:center; gap:5px;">
+                <i class="fa-solid fa-magnifying-glass"></i> 아티클 번호 및 제품명 검색
+              </label>
+              <span style="font-size: 11px; font-weight: 700; color: #64748b;">HFB 자동 조회</span>
+            </div>
+            
+            <div class="autocomplete-wrapper" style="position: relative;">
+              <input type="text" id="edit-mfaq-product-search-input" placeholder="품번(8자리) 또는 제품명 검색 (예: 빌리, 70582028)" oninput="handleEditMfaqProductSearch(this.value)" autocomplete="off" style="width: 100%; height: 42px; padding: 0 12px; font-size: 13.5px; font-weight: 600; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box; background: #ffffff; color: #0f172a;">
+              <div id="edit-mfaq-product-autocomplete-dropdown" class="autocomplete-dropdown" style="max-height: 200px; overflow-y: auto; z-index: 10000;"></div>
+            </div>
+
+            <!-- Selected Product Preview Card -->
+            <div id="edit-mfaq-selected-product-card" style="display: none; margin-top: 10px; background: #ffffff; border: 1.5px solid #0058a3; border-radius: 10px; padding: 10px; box-shadow: 0 2px 6px rgba(0,88,163,0.08);">
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div id="edit-mfaq-selected-thumb" style="flex-shrink: 0;"></div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 2px;">
+                    <span id="edit-mfaq-selected-hfb" style="background: #0058a3; color: #ffffff; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">
+                      <i class="fa-solid fa-tag"></i> <span id="edit-mfaq-selected-hfb-text">HFB</span>
+                    </span>
+                    <span id="edit-mfaq-selected-artno" style="font-size: 11.5px; font-weight: bold; color: #64748b; font-family: monospace;"></span>
+                    <span id="edit-mfaq-selected-location" style="background: #eff6ff; color: #0284c7; font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px; border: 1px solid #bae6fd;"></span>
+                  </div>
+                  <div id="edit-mfaq-selected-artname" style="font-size: 13.5px; font-weight: 900; color: #0f172a; word-break: keep-all; line-height: 1.25;"></div>
+                </div>
+                <button type="button" onclick="clearEditMfaqSelectedProduct()" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" title="선택 취소 / 제품 제거">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content / Memo -->
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label for="edit-mfaq-question" id="edit-mfaq-question-label" style="font-weight: 800; font-size: 13.5px; color: #334155; margin-bottom: 6px; display: block;">상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span></label>
+            <input type="text" id="edit-mfaq-question" placeholder="추가 질문이나 요청 메모를 입력하세요 (선택)" style="width: 100%; height: 42px; padding: 0 12px; font-size: 13.5px; font-weight: 600; border: 1.5px solid #cbd5e1; border-radius: 8px; outline: none; box-sizing: border-box; background: #ffffff; color: #0f172a;">
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button type="button" onclick="closeMfaqEditModal()" style="flex:1; height:46px; font-size:14px; font-weight:700; border-radius:10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer;">
+              취소
+            </button>
+            <button type="submit" style="flex:1.5; background: #0058a3; color: #ffffff; height: 46px; font-size: 15px; font-weight: 800; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 3px 8px rgba(0,88,163,0.3); display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="fa-solid fa-check"></i> 수정 완료
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Quick Category Change (1클릭 카테고리 퀵 변경) -->
+  <div id="mfaq-category-change-modal" class="modal-backdrop" onclick="closeMfaqCategoryChangeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 380px; width: 90%; border-radius: 16px; padding: 20px;">
+      <div class="modal-header" style="margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size: 16px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 6px; margin: 0;">
+          <i class="fa-solid fa-tags" style="color: #0058a3;"></i> 카테고리 변경
+        </h3>
+        <button type="button" class="close-btn" onclick="closeMfaqCategoryChangeModal()" style="font-size: 18px; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <div id="mfaq-change-cat-item-title" style="font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 14px; word-break: keep-all; line-height: 1.3; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;"></div>
+        <div style="font-size: 12px; font-weight: 800; color: #64748b; margin-bottom: 8px;">변경할 카테고리를 선택하세요:</div>
+        <div id="mfaq-change-cat-options" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Category Management (카테고리 목록 관리: 추가/수정/삭제) -->
+  <div id="mfaq-category-mgr-modal" class="modal-backdrop" onclick="closeMfaqCategoryMgrModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 440px; width: 92%; border-radius: 16px; padding: 22px 20px;">
+      <div class="modal-header" style="margin-bottom: 14px; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 7px; margin: 0;">
+          <i class="fa-solid fa-gear" style="color: #0058a3; font-size: 18px;"></i> MFAQ 카테고리 관리
+        </h3>
+        <button type="button" class="close-btn" onclick="closeMfaqCategoryMgrModal()" style="font-size: 18px; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <p style="font-size: 12.5px; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+          카테고리 이름을 수정하거나 새 카테고리를 추가할 수 있습니다.
+        </p>
+
+        <!-- Current Category List -->
+        <div id="mfaq-category-list-container" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px; max-height:220px; overflow-y:auto;"></div>
+
+        <!-- Add Category Form -->
+        <div style="display:flex; gap:6px; margin-bottom: 16px;">
+          <input type="text" id="mfaq-new-category-input" placeholder="새 카테고리 이름 입력..." style="flex:1; height:40px; padding:0 12px; font-size:13.5px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:8px; outline:none; box-sizing:border-box;">
+          <button type="button" onclick="addNewMfaqCategory()" style="height:40px; padding:0 14px; background:#0058a3; color:#fff; border:none; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(0,88,163,0.25);">
+            <i class="fa-solid fa-plus"></i> 추가
+          </button>
+        </div>
+
+        <button type="button" onclick="closeMfaqCategoryMgrModal()" style="width:100%; height:42px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; font-weight:800; cursor:pointer;">
+          닫기
+        </button>
       </div>
     </div>
   </div>

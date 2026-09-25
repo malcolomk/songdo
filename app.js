@@ -781,14 +781,28 @@ async function loadDataFromSupabase() {
         .order("last_updated", { ascending: false });
 
       if (!mfaqErr && mfaq) {
-        mfaqLogs = mfaq.map(row => ({
-          id: row.id,
-          category: row.category,
-          question: row.question,
-          count: row.count,
-          createdAt: row.created_at,
-          lastUpdated: row.last_updated
-        }));
+        let localData = [];
+        try {
+          const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+          if (savedMfaq) localData = JSON.parse(savedMfaq);
+        } catch(e) {}
+        const localMap = new Map(localData.map(l => [l.id, l]));
+
+        mfaqLogs = mfaq.map(row => {
+          const local = localMap.get(row.id) || {};
+          return {
+            id: row.id,
+            category: row.category,
+            question: row.question,
+            count: row.count,
+            createdAt: row.created_at || row.createdAt,
+            lastUpdated: row.last_updated || row.lastUpdated,
+            createdBy: row.created_by || row.createdBy || local.createdBy || "system",
+            history: row.history || local.history || local.tapHistory || [
+              { user: local.createdBy || "system", time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
+            ]
+          };
+        });
       } else {
         const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
         mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
@@ -979,6 +993,22 @@ function updateTypeToggle() {
     labelIn.className = "toggle-option";
     labelOut.className = "toggle-option active-out";
   }
+
+  const reqBadge = document.getElementById("reg-loc-req-badge");
+  if (reqBadge) {
+    if (selectedType === "입고") {
+      reqBadge.textContent = "(입고 시 필수)";
+      reqBadge.style.color = "#ef4444";
+    } else {
+      reqBadge.textContent = "(선택)";
+      reqBadge.style.color = "#64748b";
+    }
+  }
+
+  const artNoInput = document.getElementById("reg-artno");
+  if (artNoInput && typeof updateRegLocationGuideBanner === 'function') {
+    updateRegLocationGuideBanner(artNoInput.value.trim(), undefined, selectedType);
+  }
 }
 
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
@@ -1106,6 +1136,7 @@ function onArtNoInput(artNoValue) {
     if (artNameInput) artNameInput.value = "";
     if (stockPreview) stockPreview.textContent = "- 개";
     if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    if (typeof updateRegLocationGuideBanner === 'function') updateRegLocationGuideBanner("");
     return;
   }
 
@@ -1113,6 +1144,23 @@ function onArtNoInput(artNoValue) {
   const isFound = product && !product.isUnregistered;
   const artNameMatch = isFound ? product.artName : (typeof masterCatalogMap !== 'undefined' && masterCatalogMap ? masterCatalogMap.get(cleanNo) : "");
   const targetArtNo = isFound ? product.artNo : cleanNo;
+
+  // Auto populate location from masterCatalog if available
+  const locInput = document.getElementById("reg-location");
+  let matchedLocation = product ? product.location : null;
+  if (!matchedLocation && typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+    const mItem = masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim();
+      return mNo === targetArtNo || mNo.replace(/\D/g, '') === targetArtNo.replace(/\D/g, '');
+    });
+    if (mItem && mItem.location && mItem.location !== "미지정") {
+      matchedLocation = mItem.location;
+    }
+  }
+  if (matchedLocation && locInput && (!locInput.value.trim() || locInput.value.trim() === "미지정")) {
+    locInput.value = matchedLocation;
+    if (typeof updateRegLocationButtons === 'function') updateRegLocationButtons();
+  }
 
   if (isFound || artNameMatch) {
     if (artNameInput) artNameInput.value = artNameMatch;
@@ -1132,6 +1180,10 @@ function onArtNoInput(artNoValue) {
       stockPreview.style.color = currentStock > 0 ? "#059669" : "#64748b";
     }
     if (typeof updateRegProductThumb === 'function') updateRegProductThumb(targetArtNo, "");
+  }
+
+  if (typeof updateRegLocationGuideBanner === 'function') {
+    updateRegLocationGuideBanner(targetArtNo);
   }
 }
 
@@ -1262,9 +1314,24 @@ function handleAddRegCart(bypassUnregisteredCheck = false) {
   const rawArtNo = document.getElementById("reg-artno").value.trim();
   const artName = document.getElementById("reg-artname").value.trim();
   const qty = Number(document.getElementById("reg-qty").value);
+  const locInput = document.getElementById("reg-location");
+  const locVal = locInput ? locInput.value.trim() : "";
 
   if (!rawArtNo || !qty || qty <= 0) {
     showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
+    return;
+  }
+
+  // Mandatory Location Check for Inbound (입고)
+  if (type === "입고" && (!locVal || locVal === "미지정")) {
+    if (typeof playWarningBeep === 'function') playWarningBeep();
+    if (typeof playWarningHaptic === 'function') playWarningHaptic();
+    showToast("입고 시 보관할 창고 구역(B1, B2, B2 램프, B3)을 선택해 주세요! 📍", "warning");
+    if (locInput) {
+      locInput.style.border = "2px solid #ef4444";
+      locInput.focus();
+      setTimeout(() => { if (locInput) locInput.style.border = ""; }, 2500);
+    }
     return;
   }
 
@@ -1292,6 +1359,7 @@ function handleAddRegCart(bypassUnregisteredCheck = false) {
   document.getElementById("reg-qty").value = "";
   document.getElementById("reg-current-stock").textContent = "- 개";
   if (typeof updateRegProductThumb === 'function') updateRegProductThumb("", "");
+  if (typeof updateRegLocationGuideBanner === 'function') updateRegLocationGuideBanner("");
   document.getElementById("reg-artno").focus();
 }
 
@@ -1306,9 +1374,24 @@ function handleSingleRegSave() {
   const typeOption = document.querySelector('input[name="reg-type"]:checked');
   const type = typeOption ? typeOption.value : "입고";
   const artName = document.getElementById("reg-artname").value.trim();
+  const locInput = document.getElementById("reg-location");
+  const locVal = locInput ? locInput.value.trim() : "";
   
   if (!rawArtNo || !qty || qty <= 0) {
     showToast("아티클 번호와 수량을 올바르게 입력해주세요.", "danger");
+    return;
+  }
+
+  // Mandatory Location Check for Inbound (입고)
+  if (type === "입고" && (!locVal || locVal === "미지정")) {
+    if (typeof playWarningBeep === 'function') playWarningBeep();
+    if (typeof playWarningHaptic === 'function') playWarningHaptic();
+    showToast("입고 시 보관할 창고 구역(B1, B2, B2 램프, B3)을 선택해 주세요! 📍", "warning");
+    if (locInput) {
+      locInput.style.border = "2px solid #ef4444";
+      locInput.focus();
+      setTimeout(() => { if (locInput) locInput.style.border = ""; }, 2500);
+    }
     return;
   }
 
@@ -2800,6 +2883,50 @@ function initRealtimeSubscriptions() {
       handleRealtimeStoreInbound(payload);
     })
     .subscribe();
+
+  supabaseClient
+    .channel('public:master_catalog')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'master_catalog' }, payload => {
+      handleRealtimeMasterCatalog(payload);
+    })
+    .subscribe();
+}
+
+function handleRealtimeMasterCatalog(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload;
+  if (!newRow) return;
+  if (eventType === 'UPDATE' || eventType === 'INSERT') {
+    let cleanArtNo = String(newRow.artno || newRow.artNo || "").trim();
+    const digitsOnly = cleanArtNo.replace(/\D/g, '');
+    if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+      cleanArtNo = digitsOnly.padStart(8, '0');
+    }
+    const idx = masterCatalog.findIndex(m => m.artNo === cleanArtNo || (m.id && m.id === newRow.id));
+    if (idx !== -1) {
+      if (newRow.location) masterCatalog[idx].location = newRow.location;
+      masterCatalog[idx].updatedAt = newRow.updated_at || new Date().toISOString();
+      if (newRow.artname) masterCatalog[idx].artName = newRow.artname;
+      if (newRow.hfb) masterCatalog[idx].hfb = newRow.hfb;
+    } else {
+      masterCatalog.push({
+        id: newRow.id,
+        artNo: cleanArtNo,
+        artName: newRow.artname || "기타 품목",
+        location: newRow.location || "미지정",
+        hfb: newRow.hfb || "",
+        updatedAt: newRow.updated_at || new Date().toISOString()
+      });
+    }
+    saveMasterCatalog();
+    rebuildMasterCatalogMap();
+    invalidateStockCache();
+    try {
+      if (typeof currentTab !== 'undefined') {
+        if (currentTab === 'picklist' && typeof renderSimplePicklist === 'function') renderSimplePicklist();
+        if (currentTab === 'stock' && typeof renderStockLookup === 'function') renderStockLookup();
+      }
+    } catch (e) {}
+  }
 }
 
 function handleRealtimeStoreInbound(payload) {
@@ -2883,6 +3010,7 @@ function handleRealtimeInventory(payload) {
   try {
     if (currentTab === 'stock') renderStockLookup();
     if (currentTab === 'history') renderHistoryLogs();
+    if (currentTab === 'picklist' && typeof renderSimplePicklist === 'function') renderSimplePicklist();
   } catch (e) {}
 }
 
@@ -3038,6 +3166,9 @@ function saveMfaqLogs() {
 }
 
 function renderMfaq() {
+  if (typeof window.renderMfaq === 'function' && window.renderMfaq !== renderMfaq) {
+    return window.renderMfaq();
+  }
   const container = document.getElementById("mfaq-list-container");
   if (!container) return;
 
@@ -3045,7 +3176,11 @@ function renderMfaq() {
   const searchQuery = (document.getElementById("mfaq-search")?.value || "").toLowerCase();
 
   let filtered = mfaqLogs.filter(log => {
-    if (filterCategory !== "all" && log.category !== filterCategory) return false;
+    if (filterCategory !== "all") {
+      if (filterCategory === "제품 질문/요청" && !(log.category === "제품 질문/요청" || log.category === "제품 요청" || log.category === "제품 질문")) return false;
+      if (filterCategory === "매장 질문" && !(log.category === "매장 질문" || log.category === "일반 질문")) return false;
+      if (filterCategory !== "제품 질문/요청" && filterCategory !== "매장 질문" && log.category !== filterCategory) return false;
+    }
     if (searchQuery && !log.question.toLowerCase().includes(searchQuery)) return false;
     return true;
   });
@@ -3211,14 +3346,28 @@ async function refreshMfaqData() {
         .order("last_updated", { ascending: false });
 
       if (!mfaqErr && mfaq) {
-        mfaqLogs = mfaq.map(row => ({
-          id: row.id,
-          category: row.category,
-          question: row.question,
-          count: row.count,
-          createdAt: row.created_at,
-          lastUpdated: row.last_updated
-        }));
+        let localData = [];
+        try {
+          const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
+          if (savedMfaq) localData = JSON.parse(savedMfaq);
+        } catch(e) {}
+        const localMap = new Map(localData.map(l => [l.id, l]));
+
+        mfaqLogs = mfaq.map(row => {
+          const local = localMap.get(row.id) || {};
+          return {
+            id: row.id,
+            category: row.category,
+            question: row.question,
+            count: row.count,
+            createdAt: row.created_at || row.createdAt,
+            lastUpdated: row.last_updated || row.lastUpdated,
+            createdBy: row.created_by || row.createdBy || local.createdBy || "system",
+            history: row.history || local.history || local.tapHistory || [
+              { user: local.createdBy || "system", time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
+            ]
+          };
+        });
         saveMfaqLogs();
         updateMfaqBadge();
         renderMfaq();
@@ -3246,6 +3395,10 @@ window.toggleRegLocation = function(loc) {
       input.value = loc;
     }
     saveActiveRegLocation();
+    const artNoVal = document.getElementById("reg-artno") ? document.getElementById("reg-artno").value.trim() : "";
+    if (typeof updateRegLocationGuideBanner === 'function') {
+      updateRegLocationGuideBanner(artNoVal, input.value.trim());
+    }
   }
 };
 
@@ -3264,7 +3417,13 @@ function initRegLocation() {
     if (saved) {
       input.value = saved;
     }
-    input.addEventListener("input", saveActiveRegLocation);
+    input.addEventListener("input", () => {
+      saveActiveRegLocation();
+      const artNoVal = document.getElementById("reg-artno") ? document.getElementById("reg-artno").value.trim() : "";
+      if (typeof updateRegLocationGuideBanner === 'function') {
+        updateRegLocationGuideBanner(artNoVal, input.value.trim());
+      }
+    });
     updateRegLocationButtons();
   }
 }
@@ -3274,21 +3433,20 @@ function updateRegLocationButtons() {
   if (!input) return;
   const val = input.value.trim();
   
-  const container = input.nextElementSibling;
-  if (container && container.tagName === "DIV") {
-    const buttons = container.querySelectorAll("button");
-    buttons.forEach(btn => {
-      if (btn.innerText.trim() === val) {
-        btn.style.background = "#0058a3";
-        btn.style.color = "#ffffff";
-        btn.style.borderColor = "#0058a3";
-      } else {
-        btn.style.background = "#f1f5f9";
-        btn.style.color = "#334155";
-        btn.style.borderColor = "#cbd5e1";
-      }
-    });
-  }
+  const buttons = document.querySelectorAll(".btn-loc-choice");
+  buttons.forEach(btn => {
+    if (btn.innerText.trim() === val) {
+      btn.style.background = "#0058a3";
+      btn.style.color = "#ffffff";
+      btn.style.borderColor = "#0058a3";
+      btn.style.fontWeight = "900";
+    } else {
+      btn.style.background = "#f1f5f9";
+      btn.style.color = "#334155";
+      btn.style.borderColor = "#cbd5e1";
+      btn.style.fontWeight = "700";
+    }
+  });
 }
 
 

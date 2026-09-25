@@ -35,9 +35,9 @@ body {
   font-family: var(--font-family);
   background-color: #ffffff;
   color: var(--text-main);
-  padding-bottom: 80px;
-  line-height: 1.5;
-  max-width: 500px;
+  padding-bottom: 70px;
+  line-height: 1.4;
+  max-width: 540px;
   margin: 0 auto;
   min-height: 100vh;
   box-shadow: none;
@@ -234,8 +234,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  border-bottom: 1.5px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
   box-sizing: border-box;
   width: 100%;
 }
@@ -251,33 +251,34 @@ body {
 .logo-area {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
   min-width: 0;
 }
 
 .logo-icon {
-  font-size: 16px;
+  font-size: 18px;
   color: #0058a3;
   flex-shrink: 0;
 }
 
 .app-title {
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.3px;
-  line-height: 1.15;
+  line-height: 1.2;
   white-space: nowrap;
   color: #0f172a;
 }
 
 .app-subtitle {
-  font-size: 8px;
+  font-size: 9.5px;
   color: #64748b;
-  font-weight: 600;
+  font-weight: 700;
   display: block;
   white-space: nowrap;
-  line-height: 1.1;
+  line-height: 1.2;
+  margin-top: 1px;
 }
 
 .header-actions {
@@ -285,6 +286,104 @@ body {
   align-items: center;
   gap: 3px;
   flex-shrink: 0;
+}
+
+#btn-global-refresh {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+}
+
+.refresh-label {
+  display: none !important;
+}
+
+#btn-manual-guide, #btn-notification-bell {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+}
+
+#user-profile-badge {
+  height: 28px !important;
+  padding: 0 5px !important;
+  gap: 3px !important;
+  border-radius: 6px !important;
+}
+
+#user-profile-badge i.fa-circle-user {
+  font-size: 12px !important;
+}
+
+#current-user-name {
+  font-size: 11px !important;
+  max-width: 48px !important;
+}
+
+#user-profile-badge .role-badge {
+  font-size: 8.5px !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+}
+
+#user-profile-badge .btn-logout {
+  font-size: 12px !important;
+  padding: 1px !important;
+  margin-left: 0 !important;
+}
+
+@media (min-width: 481px) {
+  .app-header {
+    padding: 8px 12px;
+  }
+  .header-content {
+    gap: 8px;
+  }
+  .logo-area {
+    gap: 7px;
+  }
+  .logo-icon {
+    font-size: 20px;
+  }
+  .app-title {
+    font-size: 15px;
+  }
+  .app-subtitle {
+    font-size: 10px;
+  }
+  .header-actions {
+    gap: 5px;
+  }
+  #btn-global-refresh {
+    width: auto !important;
+    height: 30px !important;
+    padding: 0 8px !important;
+    border-radius: 7px !important;
+  }
+  .refresh-label {
+    display: inline !important;
+  }
+  #btn-manual-guide, #btn-notification-bell {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 7px !important;
+    font-size: 13px !important;
+  }
+  #user-profile-badge {
+    height: 30px !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+    border-radius: 7px !important;
+  }
+  #current-user-name {
+    font-size: 11.5px !important;
+    max-width: 60px !important;
+  }
 }
 
 /* Notification Bell & Center */
@@ -697,11 +796,11 @@ body {
 }
 
 .reg-compact-form .btn-loc-choice {
-  padding: 0 14px;
+  padding: 0 8px;
   font-weight: 800;
-  font-size: 13px;
-  height: 40px;
-  min-height: 40px;
+  font-size: 12px;
+  height: 38px;
+  min-height: 38px;
   border-radius: 8px;
   background: #f1f5f9;
   color: #334155;
@@ -710,7 +809,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
+}
+
+.reg-compact-form .btn-loc-choice:hover {
+  background: #e2e8f0;
+}
+
+.reg-compact-form .btn-loc-choice:active {
+  transform: scale(0.96);
 }
 
 .reg-compact-form .btn-submit-compact {

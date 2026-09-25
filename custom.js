@@ -1222,10 +1222,198 @@ window.saveBulkLocation = async function() {
   }
 };
 
+window.currentStockLocationFilter = "ALL";
+
+window.renderStockLocationDashboard = function() {
+  const container = document.getElementById("stock-location-dashboard");
+  if (!container) return;
+
+  const stockMap = buildStockMap();
+  
+  const stats = {
+    ALL: { name: "전체 구역", items: 0, totalStock: 0, icon: "fa-boxes-stacked", color: "#0058a3", bg: "#eff6ff", border: "#bfdbfe" },
+    B1: { name: "B1 구역", items: 0, totalStock: 0, icon: "fa-warehouse", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+    B2: { name: "B2 구역", items: 0, totalStock: 0, icon: "fa-warehouse", color: "#0284c7", bg: "#f0f9ff", border: "#bae6fd" },
+    "B2 램프": { name: "B2 램프", items: 0, totalStock: 0, icon: "fa-mountain-sun", color: "#4f46e5", bg: "#eef2ff", border: "#c7d2fe" },
+    B3: { name: "B3 구역", items: 0, totalStock: 0, icon: "fa-pallet", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
+    "미지정": { name: "위치 미지정", items: 0, totalStock: 0, icon: "fa-triangle-exclamation", color: "#d97706", bg: "#fffbeb", border: "#fde68a" }
+  };
+
+  stockMap.forEach(item => {
+    let cleanNo = String(item.artNo || "").trim();
+    let loc = "미지정";
+    const matchedMaster = masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim();
+      return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+    });
+    if (matchedMaster && matchedMaster.location && matchedMaster.location !== "미지정" && matchedMaster.location.trim() !== "") {
+      loc = matchedMaster.location.trim();
+    } else if (item.location && item.location !== "미지정" && item.location.trim() !== "") {
+      loc = item.location.trim();
+    }
+
+    const qty = Math.max(0, item.currentStock || 0);
+    
+    stats.ALL.items++;
+    stats.ALL.totalStock += qty;
+
+    if (loc === "미지정" || !loc) {
+      stats["미지정"].items++;
+      stats["미지정"].totalStock += qty;
+    } else if (loc.includes("B2 램프") || loc.includes("램프")) {
+      stats["B2 램프"].items++;
+      stats["B2 램프"].totalStock += qty;
+    } else if (loc.includes("B1")) {
+      stats.B1.items++;
+      stats.B1.totalStock += qty;
+    } else if (loc.includes("B2")) {
+      stats.B2.items++;
+      stats.B2.totalStock += qty;
+    } else if (loc.includes("B3")) {
+      stats.B3.items++;
+      stats.B3.totalStock += qty;
+    } else {
+      if (!stats[loc]) {
+        stats[loc] = { name: loc, items: 0, totalStock: 0, icon: "fa-location-dot", color: "#475569", bg: "#f8fafc", border: "#cbd5e1" };
+      }
+      stats[loc].items++;
+      stats[loc].totalStock += qty;
+    }
+  });
+
+  const activeKey = window.currentStockLocationFilter || "ALL";
+  const zoneKeys = ["ALL", "B1", "B2", "B2 램프", "B3", "미지정"];
+  Object.keys(stats).forEach(k => {
+    if (!zoneKeys.includes(k)) zoneKeys.push(k);
+  });
+
+  let html = `
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:12.5px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:5px;">
+          <i class="fa-solid fa-map-location-dot" style="color:#0058a3;"></i> 창고 구역별 실시간 재고 현황
+        </div>
+        <span style="font-size:10.5px; font-weight:800; color:#64748b;">원클릭 구역 필터</span>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:7px;">
+  `;
+
+  zoneKeys.forEach(k => {
+    const s = stats[k];
+    if (!s) return;
+    const isActive = (activeKey === k);
+    const isUnreg = (k === "미지정");
+    
+    html += `
+      <div onclick="filterStockByLocation('${k}')" style="cursor:pointer; padding:8px 10px; border-radius:10px; background:${isActive ? s.bg : '#ffffff'}; border:${isActive ? '2px solid ' + s.color : '1.5px solid ' + (isUnreg && s.items > 0 ? '#fde68a' : '#e2e8f0')}; box-shadow:${isActive ? '0 3px 8px rgba(0,0,0,0.08)' : '0 1px 2px rgba(0,0,0,0.02)'}; transition:all 0.15s ease; position:relative; overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+          <span style="font-size:11.5px; font-weight:900; color:${isActive ? s.color : '#0f172a'}; display:flex; align-items:center; gap:4px;">
+            <i class="fa-solid ${s.icon}" style="color:${s.color}; font-size:11px;"></i> ${s.name}
+          </span>
+          ${isActive ? `<span style="font-size:9px; font-weight:900; background:${s.color}; color:#fff; padding:1px 4px; border-radius:4px;">선택됨</span>` : ''}
+        </div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; font-size:11px; color:#64748b;">
+          <span>보유 <strong style="color:#0f172a; font-weight:800;">${s.items}</strong>종</span>
+          <span style="font-weight:900; font-size:13px; color:${isUnreg && s.totalStock > 0 ? '#d97706' : s.color};">${s.totalStock}<span style="font-size:10px; font-weight:700; color:#64748b; margin-left:1px;">개</span></span>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
+
+window.filterStockByLocation = function(locStr) {
+  window.currentStockLocationFilter = locStr;
+  if (typeof switchTab === 'function') {
+    const stockNavBtn = document.querySelector('.bottom-nav .nav-item:nth-child(2)');
+    switchTab('stock', stockNavBtn);
+  }
+  if (typeof renderStockLookup === 'function') {
+    renderStockLookup();
+  }
+};
+
+window.renderMenuLocationWidget = function() {
+  const container = document.getElementById("menu-location-summary-widget");
+  if (!container) return;
+
+  const stockMap = buildStockMap();
+  const stats = {
+    B1: { items: 0, qty: 0, color: "#2563eb", bg: "#eff6ff" },
+    B2: { items: 0, qty: 0, color: "#0284c7", bg: "#f0f9ff" },
+    "B2 램프": { items: 0, qty: 0, color: "#4f46e5", bg: "#eef2ff" },
+    B3: { items: 0, qty: 0, color: "#7c3aed", bg: "#f5f3ff" },
+    "미지정": { items: 0, qty: 0, color: "#d97706", bg: "#fffbeb" }
+  };
+
+  stockMap.forEach(item => {
+    let cleanNo = String(item.artNo || "").trim();
+    let loc = "미지정";
+    const matchedMaster = masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim();
+      return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+    });
+    if (matchedMaster && matchedMaster.location && matchedMaster.location !== "미지정" && matchedMaster.location.trim() !== "") {
+      loc = matchedMaster.location.trim();
+    } else if (item.location && item.location !== "미지정" && item.location.trim() !== "") {
+      loc = item.location.trim();
+    }
+    const qty = Math.max(0, item.currentStock || 0);
+    if (loc === "미지정" || !loc) { stats["미지정"].items++; stats["미지정"].qty += qty; }
+    else if (loc.includes("B2 램프") || loc.includes("램프")) { stats["B2 램프"].items++; stats["B2 램프"].qty += qty; }
+    else if (loc.includes("B1")) { stats.B1.items++; stats.B1.qty += qty; }
+    else if (loc.includes("B2")) { stats.B2.items++; stats.B2.qty += qty; }
+    else if (loc.includes("B3")) { stats.B3.items++; stats.B3.qty += qty; }
+  });
+
+  let html = `
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:12.5px; font-weight:900; color:#0f172a;"><i class="fa-solid fa-layer-group" style="color:#0058a3; margin-right:4px;"></i> 구역별 창고 재고 현황</span>
+        <span style="font-size:11px; font-weight:700; color:#0058a3; cursor:pointer;" onclick="filterStockByLocation('ALL')">전체 재고 보기 <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(68px, 1fr)); gap:6px;">
+        <div onclick="filterStockByLocation('B1')" style="cursor:pointer; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:6px 8px; text-align:center;">
+          <div style="font-size:11px; font-weight:900; color:#2563eb; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-warehouse" style="font-size:10px;"></i>B1</div>
+          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats.B1.qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
+        </div>
+        <div onclick="filterStockByLocation('B2')" style="cursor:pointer; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:6px 8px; text-align:center;">
+          <div style="font-size:11px; font-weight:900; color:#0284c7; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-warehouse" style="font-size:10px;"></i>B2</div>
+          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats.B2.qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
+        </div>
+        <div onclick="filterStockByLocation('B2 램프')" style="cursor:pointer; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:6px 8px; text-align:center;">
+          <div style="font-size:11px; font-weight:900; color:#4f46e5; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-mountain-sun" style="font-size:10px;"></i>B2 램프</div>
+          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats["B2 램프"].qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
+        </div>
+        <div onclick="filterStockByLocation('B3')" style="cursor:pointer; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 8px; text-align:center;">
+          <div style="font-size:11px; font-weight:900; color:#7c3aed; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-pallet" style="font-size:10px;"></i>B3</div>
+          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats.B3.qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
+        </div>
+        ${stats["미지정"].items > 0 ? `
+        <div onclick="filterStockByLocation('미지정')" style="cursor:pointer; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:6px 8px; text-align:center;" title="위치 미지정 품목">
+          <div style="font-size:11px; font-weight:900; color:#d97706; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i>미지정</div>
+          <div style="font-size:13px; font-weight:900; color:#b45309;">${stats["미지정"].items}<span style="font-size:10px; font-weight:normal; color:#92400e;">종</span></div>
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+  container.innerHTML = html;
+};
+
 const originalRenderStockLookup = window.renderStockLookup;
 window.renderStockLookup = function() {
   const container = document.getElementById("stock-cards-container");
   if (!container) return;
+
+  if (typeof renderStockLocationDashboard === "function") {
+    renderStockLocationDashboard();
+  }
 
   populateStockHFBDropdown();
 
@@ -1255,6 +1443,17 @@ window.renderStockLookup = function() {
       item.artName.toLowerCase().includes(searchQuery) ||
       (item.hfb && item.hfb.toLowerCase().includes(searchQuery))
     );
+  }
+
+  // Location filter
+  if (window.currentStockLocationFilter && window.currentStockLocationFilter !== "ALL") {
+    if (window.currentStockLocationFilter === "미지정") {
+      filteredList = filteredList.filter(item => !item.location || item.location === "미지정" || item.location.trim() === "");
+    } else if (window.currentStockLocationFilter === "B2 램프") {
+      filteredList = filteredList.filter(item => item.location && (item.location.includes("B2 램프") || item.location.includes("램프")));
+    } else {
+      filteredList = filteredList.filter(item => item.location && item.location.includes(window.currentStockLocationFilter));
+    }
   }
 
   if (currentStockStatusFilter === "good") {
@@ -1921,266 +2120,892 @@ window.switchTab = function(tabId) {
   }
 };
 
-window.currentPicklistLocation = "전체";
+// --- 1-Touch Simplified Warehouse-by-Warehouse Picklist System ---
 
-window.renderStandardLocationButtons = function() {
-  const container = document.getElementById("picklist-location-buttons");
+window.currentPicklistZone = "B1";
+window.currentPicklistMode = "queue"; // "queue" or "stock"
+window.picklistStockSearchQuery = "";
+
+function getOrderItemLocation(item) {
+  let cleanNo = String(item.artNo || item.artno || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+  let masterItem = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog.find(m => {
+    const mNo = String(m.artNo || m.artno || "").trim();
+    return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+  }) : null;
+  if (masterItem && masterItem.location && masterItem.location !== "미지정" && masterItem.location.trim() !== "") {
+    return masterItem.location.trim();
+  }
+  const stockMap = (typeof buildStockMap === "function") ? buildStockMap() : null;
+  if (stockMap) {
+    const stockEntry = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
+    if (stockEntry && stockEntry.location && stockEntry.location !== "미지정" && stockEntry.location.trim() !== "") {
+      return stockEntry.location.trim();
+    }
+  }
+  return "미지정";
+}
+
+window.getProductLatestUpdateTime = function(artNo) {
+  if (!artNo) return { text: "기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
+  let cleanNo = String(artNo).trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+  const digitsOnly = cleanNo.replace(/\D/g, '');
+
+  let latestDate = null;
+  let latestAction = "";
+  let latestUser = "";
+
+  // 1. Scan historyLogs for latest transaction of this article
+  if (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) {
+    for (let i = 0; i < historyLogs.length; i++) {
+      const log = historyLogs[i];
+      const logNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logNo.replace(/\D/g, '');
+      if (logNo === cleanNo || (digitsOnly && logDigits === digitsOnly)) {
+        const timeVal = log.created_at || log.createdAt || (log.date ? (log.time ? `${log.date}T${log.time}` : log.date) : null);
+        if (timeVal) {
+          const d = new Date(timeVal);
+          if (!isNaN(d.getTime())) {
+            if (!latestDate || d > latestDate) {
+              latestDate = d;
+              latestAction = `${log.type || '입출고'} ${log.qty || 0}개`.trim();
+              latestUser = log.user || log.worker || "";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Scan masterCatalog for latest location / catalog update timestamp
+  if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+    const mItem = masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim();
+      return mNo === cleanNo || (digitsOnly && mNo.replace(/\D/g, '') === digitsOnly);
+    });
+    if (mItem) {
+      const mTime = mItem.updatedAt || mItem.updated_at || mItem.created_at;
+      if (mTime) {
+        const md = new Date(mTime);
+        if (!isNaN(md.getTime())) {
+          if (!latestDate || md > latestDate) {
+            latestDate = md;
+            if (!latestAction) latestAction = "구역/정보 변경";
+          }
+        }
+      }
+    }
+  }
+
+  if (!latestDate) {
+    return { text: "최근 기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
+  }
+
+  const now = new Date();
+  const diffMs = now - latestDate;
+  const diffMin = Math.floor(diffMs / 60000);
+
+  const month = String(latestDate.getMonth() + 1).padStart(2, '0');
+  const day = String(latestDate.getDate()).padStart(2, '0');
+  const hours = String(latestDate.getHours()).padStart(2, '0');
+  const mins = String(latestDate.getMinutes()).padStart(2, '0');
+  const exactTime = `${month}/${day} ${hours}:${mins}`;
+
+  let relative = "";
+  if (diffMin < 1) relative = "방금 전";
+  else if (diffMin < 60) relative = `${diffMin}분 전`;
+  else if (diffMin < 1440) relative = `${Math.floor(diffMin / 60)}시간 전`;
+  else if (diffMin < 1440 * 7) relative = `${Math.floor(diffMin / 1440)}일 전`;
+
+  const displayText = relative ? `${relative} (${exactTime})` : exactTime;
+
+  return {
+    text: displayText,
+    exactTime: exactTime,
+    relative: relative,
+    raw: latestDate,
+    action: latestAction,
+    user: latestUser
+  };
+};
+
+function isLocationMatch(itemLoc, targetZone) {
+  if (targetZone === "전체") return true;
+  const loc = (itemLoc || "미지정").trim();
+  if (targetZone === "미지정") {
+    return !loc || loc === "미지정" || loc === "";
+  }
+  if (targetZone === "B2 램프") {
+    return loc.includes("B2 램프") || loc.includes("램프");
+  }
+  if (targetZone === "B2") {
+    return loc.includes("B2") && !loc.includes("램프");
+  }
+  return loc.includes(targetZone);
+}
+
+window.setPicklistZone = function(zone) {
+  window.currentPicklistZone = zone;
+  renderSimplePicklist();
+};
+
+window.setPicklistMode = function(mode) {
+  window.currentPicklistMode = mode;
+  const btnQueue = document.getElementById("picklist-mode-queue-btn");
+  const btnStock = document.getElementById("picklist-mode-stock-btn");
+  if (btnQueue && btnStock) {
+    if (mode === "queue") {
+      btnQueue.style.background = "#ffffff";
+      btnQueue.style.color = "#059669";
+      btnQueue.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+      btnStock.style.background = "transparent";
+      btnStock.style.color = "#64748b";
+      btnStock.style.boxShadow = "none";
+    } else {
+      btnStock.style.background = "#ffffff";
+      btnStock.style.color = "#2563eb";
+      btnStock.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+      btnQueue.style.background = "transparent";
+      btnQueue.style.color = "#64748b";
+      btnQueue.style.boxShadow = "none";
+    }
+  }
+  renderSimplePicklist();
+};
+
+window.renderPicklistZoneTabs = function() {
+  const container = document.getElementById("picklist-zone-tabs");
   if (!container) return;
-  
-  const stockMap = buildStockMap();
-  const locations = new Set();
-  
-  stockMap.forEach(item => {
-    if (item.location && item.location !== "미지정" && item.location.trim() !== "") {
-      const locs = item.location.split(',').map(l => l.trim());
-      locs.forEach(l => {
-        if (l) locations.add(l);
-      });
+
+  const pendingOrders = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs)) 
+    ? orderLogs.filter(item => ["출고대기", "대기", "요청", "요청됨", "승인", "수락"].includes(item.status))
+    : [];
+
+  const zoneCounts = {
+    B1: 0,
+    B2: 0,
+    "B2 램프": 0,
+    B3: 0,
+    "미지정": 0,
+    "전체": pendingOrders.length
+  };
+
+  pendingOrders.forEach(item => {
+    const loc = getOrderItemLocation(item);
+    if (loc.includes("B2 램프") || loc.includes("램프")) {
+      zoneCounts["B2 램프"]++;
+    } else if (loc.includes("B1")) {
+      zoneCounts.B1++;
+    } else if (loc.includes("B2")) {
+      zoneCounts.B2++;
+    } else if (loc.includes("B3")) {
+      zoneCounts.B3++;
+    } else {
+      zoneCounts["미지정"]++;
     }
   });
-  
-  const locArray = Array.from(locations).sort();
-  
-  let html = `<button type="button" style="padding:8px 16px; border-radius:20px; font-size:14px; font-weight:bold; white-space:nowrap; border:none; cursor:pointer; ${window.currentPicklistLocation === '전체' ? 'background:#0f172a; color:white;' : 'background:#e2e8f0; color:#475569;'}" onclick="setPicklistLocation('전체')">모든 구역</button>`;
-  locArray.forEach(loc => {
-    html += `<button type="button" style="padding:8px 16px; border-radius:20px; font-size:14px; font-weight:bold; white-space:nowrap; border:none; cursor:pointer; ${window.currentPicklistLocation === loc ? 'background:#0f172a; color:white;' : 'background:#e2e8f0; color:#475569;'}" onclick="setPicklistLocation('${loc}')">${loc}</button>`;
-  });
-  
-  container.innerHTML = html;
-  
-  renderStandardInventory();
-};
 
-window.setPicklistLocation = function(loc) {
-  window.currentPicklistLocation = loc;
-  renderStandardLocationButtons();
-};
-
-window.renderStandardInventory = function() {
-  const container = document.getElementById("picklist-standard-inventory");
-  if (!container) return;
-  
-  const selectedLocation = window.currentPicklistLocation;
-  
-  const stockMap = buildStockMap();
-  let inventory = Array.from(stockMap.values()).filter(item => item.currentStock > 0);
-  
-  if (selectedLocation !== "전체") {
-    inventory = inventory.filter(item => item.location && item.location.includes(selectedLocation));
-  }
-  
-  if (inventory.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:30px 20px; font-size:13px;"><i class="fa-solid fa-box-open" style="font-size:28px; color:#cbd5e1; margin-bottom:8px; display:block;"></i>선택한 구역에 재고가 없습니다.</div>`;
-    return;
-  }
-  
-  inventory.sort((a, b) => {
-    const locDiff = (a.location || "").localeCompare(b.location || "", "ko");
-    if (locDiff !== 0) return locDiff;
-    return a.artNo.localeCompare(b.artNo);
-  });
-  
+  const zones = ["B1", "B2", "B2 램프", "B3", "미지정", "전체"];
   let html = "";
-  inventory.forEach((item) => {
-    let cleanNo = String(item.artNo || "").trim();
-    if (cleanNo.length > 0 && cleanNo.length <= 8) {
-      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
-    }
-    const displayName = item.artName || "기타 품목";
-    const pendingQty = (typeof getPendingPickQty === 'function') ? getPendingPickQty(cleanNo) : 0;
-    const availableQty = Math.max(0, item.currentStock - pendingQty);
-    const initialInputQty = availableQty > 0 ? availableQty : item.currentStock;
+
+  zones.forEach(zone => {
+    const isActive = (window.currentPicklistZone === zone);
+    const count = zoneCounts[zone] || 0;
+    const badgeHtml = count > 0 
+      ? `<span style="display:inline-flex; align-items:center; justify-content:center; background:${isActive ? '#ef4444' : '#ef4444'}; color:#ffffff; font-size:10px; font-weight:900; padding:1px 5px; border-radius:10px; margin-left:3px; min-width:16px;">${count}</span>`
+      : '';
+
+    let zoneIcon = 'fa-warehouse';
+    if (zone === '전체') zoneIcon = 'fa-boxes-stacked';
+    else if (zone === '미지정') zoneIcon = 'fa-triangle-exclamation';
+    else if (zone === 'B2 램프') zoneIcon = 'fa-mountain-sun';
+    else if (zone === 'B3') zoneIcon = 'fa-pallet';
 
     html += `
-      <label class="picklist-stock-card" style="display:flex; flex-direction:column; padding:12px 14px; margin-bottom:10px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.04); border:1px solid #e2e8f0; cursor:pointer; transition:all 0.15s ease; gap:8px;">
-        <!-- Top Row: Checkbox, Thumbnail, Location & Title -->
-        <div style="display:flex; align-items:center; gap:10px; width:100%;">
-          <div style="display:flex; align-items:center; justify-content:center; width:22px; flex-shrink:0;">
-            <input type="checkbox" class="std-picklist-cb" data-artno="${cleanNo}" data-artname="${displayName.replace(/"/g, "&quot;")}" data-maxqty="${item.currentStock}" style="width:20px; height:20px; accent-color:#059669; cursor:pointer;">
-          </div>
-          
-          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
-
-          <div style="flex:1; min-width:0;">
-            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-              <span style="display:inline-flex; align-items:center; gap:3px; background:#f0f9ff; color:#0369a1; font-size:11px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;"><i class="fa-solid fa-map-pin"></i> ${item.location || '미지정'}</span>
-              <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
-                <i class="fa-solid fa-pen-to-square"></i> 구역 변경
-              </button>
-              <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
-            </div>
-            <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.35; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
-          </div>
-        </div>
-
-        <!-- Bottom Row: Stock & Quantity Picker -->
-        <div style="display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px dashed #f1f5f9; width:100%; margin-top:2px;">
-          <div style="font-size:12px; color:#64748b; font-weight:600;">
-            <i class="fa-solid fa-box" style="color:#059669;"></i> 현재 재고: <strong style="color:#0f172a; font-size:13px;">${item.currentStock}</strong>개
-            ${pendingQty > 0 ? `<span style="color:#b45309; font-size:11px; margin-left:4px; font-weight:700;">(대기중: ${pendingQty}개)</span>` : ''}
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation();">
-            <span style="font-size:12px; font-weight:700; color:#475569;">챙길 수량:</span>
-            <input type="number" id="std-qty-${cleanNo}" value="${initialInputQty}" min="1" max="${item.currentStock}" onclick="event.stopPropagation();" onkeyup="event.stopPropagation();" style="width:65px; padding:4px 6px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:14px; font-weight:bold; color:#0f172a; outline:none;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#cbd5e1'">
-          </div>
-        </div>
-      </label>
+      <button type="button" onclick="setPicklistZone('${zone}')" style="flex-shrink:0; padding:6px 11px; border-radius:18px; font-size:12.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; white-space:nowrap; transition:all 0.15s ease; ${isActive ? 'background:#0f172a; color:#ffffff; border:1.5px solid #0f172a; box-shadow:0 2px 5px rgba(0,0,0,0.15);' : 'background:#ffffff; color:#334155; border:1px solid #cbd5e1;'}">
+        <i class="fa-solid ${zoneIcon}" style="margin-right:4px; color:${isActive ? '#38bdf8' : (zone === '미지정' ? '#d97706' : '#0058a3')}; font-size:11.5px;"></i>
+        ${zone} ${badgeHtml}
+      </button>
     `;
   });
-  
+
   container.innerHTML = html;
-  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
 };
 
-window.addStandardToPickList = async function() {
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    showToast("Viewer(읽기 전용) 계정은 챙기기 목록을 이동할 수 없습니다.", "warning");
-    return;
-  }
-  const checkboxes = document.querySelectorAll('.std-picklist-cb:checked');
-  if (checkboxes.length === 0) {
-    showToast("이동할 품목을 선택해주세요.", "warning");
-    return;
-  }
-  
-  let addedCount = 0;
-  const todayStr = (typeof getAppLocalDateString === "function") ? getAppLocalDateString() : new Date().toISOString().split('T')[0];
-  
-  for (let cb of checkboxes) {
-    let artNo = String(cb.dataset.artno || "").replace(/\D/g, '').padStart(8, '0');
-    let artName = cb.dataset.artname;
-    const maxQty = parseInt(cb.dataset.maxqty, 10) || 1;
-    const qtyInput = document.getElementById(`std-qty-${artNo}`);
-    let qty = parseInt(qtyInput ? qtyInput.value : maxQty, 10);
-    
-    if (isNaN(qty) || qty <= 0) qty = 1;
-    if (qty > maxQty) qty = maxQty;
-    
-    const newOrder = {
-      date: todayStr,
-      artNo: artNo,
-      artName: artName,
-      qty: qty,
-      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system",
-      status: "출고대기",
-      created_at: new Date().toISOString()
-    };
-    
-    try {
-      const insertedId = await saveOrderLogs(newOrder); 
-      if (insertedId) {
-        newOrder.id = insertedId;
-      } else {
-        newOrder.id = Date.now() + Math.floor(Math.random() * 10000);
-      }
-      orderLogs.unshift(newOrder);
-      addedCount++;
-    } catch (err) {
-      console.error("Failed to add picklist item", err);
-      newOrder.id = Date.now() + Math.floor(Math.random() * 10000);
-      orderLogs.unshift(newOrder);
-      addedCount++;
-    }
-  }
-  
-  if (addedCount > 0) {
-    try {
-      localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
-    } catch(e) {}
-    
-    showToast(`${addedCount}개 품목이 챙기기 대기 목록으로 이동되었습니다.`, "success");
-    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
-    
-    checkboxes.forEach(cb => cb.checked = false);
-    if (typeof renderStandardPickList === "function") renderStandardPickList();
-    if (typeof renderStandardInventory === "function") renderStandardInventory();
-    if (typeof renderOrderLogs === "function") renderOrderLogs();
-  }
-};
-
-window.renderStandardPickList = function() {
-  const container = document.getElementById("picklist-standard-cart");
+window.renderSimplePicklist = function() {
+  const container = document.getElementById("picklist-active-container");
   if (!container) return;
+
+  renderPicklistZoneTabs();
+
+  const selectedZone = window.currentPicklistZone || "B1";
+  const pendingOrders = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs))
+    ? orderLogs.filter(item => ["출고대기", "대기", "요청", "요청됨", "승인", "수락"].includes(item.status))
+    : [];
+
+  const zoneQueueOrders = pendingOrders.filter(item => isLocationMatch(getOrderItemLocation(item), selectedZone));
   
-  const pendingPicks = orderLogs.filter(item => item.status === "출고대기" || item.status === "대기" || item.status === "요청" || item.status === "요청됨" || item.status === "승인" || item.status === "수락");
-  
+  const stockMap = (typeof buildStockMap === "function") ? buildStockMap() : new Map();
+  const zoneStockItems = Array.from(stockMap.values()).filter(item => item.currentStock > 0 && isLocationMatch(item.location, selectedZone));
+
+  // Update badge in tab menu
   const badgePicklist = document.getElementById("badge-picklist");
   if (badgePicklist) {
-    if (pendingPicks.length > 0) {
-      badgePicklist.textContent = pendingPicks.length;
+    if (pendingOrders.length > 0) {
+      badgePicklist.textContent = pendingOrders.length;
       badgePicklist.style.display = "inline-flex";
     } else {
       badgePicklist.style.display = "none";
     }
   }
-  
-  if (pendingPicks.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px 20px; color:#94a3b8; font-size:13.5px;"><i class="fa-solid fa-box-open" style="font-size:30px; color:#cbd5e1; margin-bottom:10px; display:block;"></i>현재 대기 중인 항목이 없습니다.</div>`;
+
+  // Update tab texts
+  const queueTabText = document.getElementById("picklist-queue-tab-text");
+  const stockTabText = document.getElementById("picklist-stock-tab-text");
+  if (queueTabText) queueTabText.textContent = `챙길 대기열 (${zoneQueueOrders.length}건)`;
+  if (stockTabText) stockTabText.textContent = `${selectedZone} 실재고 (${zoneStockItems.length}종)`;
+
+  if (window.currentPicklistMode === "queue") {
+    renderPicklistQueueView(container, selectedZone, zoneQueueOrders);
+  } else {
+    renderPicklistStockView(container, selectedZone, zoneStockItems);
+  }
+};
+
+function renderPicklistQueueView(container, selectedZone, items) {
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:45px 20px; background:#ffffff; border-radius:14px; border:1px dashed #cbd5e1; margin-top:4px;">
+        <div style="width:56px; height:56px; border-radius:50%; background:#f0fdf4; color:#16a34a; display:inline-flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">
+          <i class="fa-solid fa-check"></i>
+        </div>
+        <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0 0 6px 0;">[${selectedZone}] 구역에 대기 중인 오더가 없습니다!</h3>
+        <p style="font-size:12.5px; color:#64748b; margin:0 0 16px 0;">현재 ${selectedZone} 창고에서 챙겨야 할 요청 항목이 모두 완료되었습니다.</p>
+        <button type="button" class="btn-submit" onclick="setPicklistMode('stock')" style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px; font-size:13px; font-weight:800; background:#0058a3; color:white; border-radius:8px; border:none; cursor:pointer;">
+          <i class="fa-solid fa-boxes-stacked"></i> ${selectedZone} 창고 실재고에서 직접 챙기기
+        </button>
+      </div>
+    `;
     return;
   }
-  
-  let html = "";
-  pendingPicks.forEach(item => {
-    const stockMap = buildStockMap();
+
+  let html = `
+    <!-- Top Action Bar for Batch Complete -->
+    <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:12px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <div>
+        <div style="font-size:13px; font-weight:900; color:#15803d; display:flex; align-items:center; gap:5px;">
+          <i class="fa-solid fa-bolt" style="color:#16a34a;"></i> ${selectedZone} 대기 항목 ${items.length}건
+        </div>
+        <div style="font-size:11px; color:#166534; margin-top:2px;">모든 품목을 챙긴 후 한 번에 완료할 수 있습니다.</div>
+      </div>
+      <button type="button" onclick="completeAllZonePickItems('${selectedZone}')" style="background:#16a34a; color:#ffffff; font-size:12.5px; font-weight:900; border:none; padding:9px 14px; border-radius:8px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 6px rgba(22,163,74,0.3); display:inline-flex; align-items:center; gap:5px;">
+        <i class="fa-solid fa-circle-check"></i> 전체 일괄 챙김
+      </button>
+    </div>
+
+    <!-- Cards List -->
+    <div class="picklist-cards-list" style="display:flex; flex-direction:column; gap:10px;">
+  `;
+
+  items.forEach(item => {
     let cleanNo = String(item.artNo || item.artno || "").trim();
     if (cleanNo.length > 0 && cleanNo.length <= 8) {
       cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
     }
-    const stockItem = stockMap.get(cleanNo) || stockMap.get(cleanNo.replace(/\D/g, ''));
-    let location = "미지정";
-    if (stockItem && stockItem.location) location = stockItem.location;
-    const displayName = item.artName || item.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
-    
-    const pickActionsHtml = (typeof isViewerUser === 'undefined' || !isViewerUser) ? `
-      <div style="display:flex; gap:4px; margin-top:2px;">
-        <button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="modifyPickItem_custom('${item.id}')">
-          수정
-        </button>
-        <button type="button" style="background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 6px; cursor:pointer;" onclick="deletePickItem_custom('${item.id}')">
-          삭제
-        </button>
-        <button type="button" style="background:#ef4444; color:white; border:none; font-weight:bold; font-size:10px; border-radius:4px; padding:4px 8px; cursor:pointer; box-shadow:0 1px 2px rgba(239,68,68,0.2);" onclick="completePickItem_custom('${item.id}')">
-          완료
-        </button>
-      </div>
-    ` : '';
+    const location = getOrderItemLocation(item);
+    const displayName = item.artName || item.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+    const qty = parseInt(item.qty, 10) || 1;
+    const reqUser = item.user || "요청";
+    const rawReqTime = item.created_at || item.createdAt || item.date || "";
+    let reqDateStr = "-";
+    if (rawReqTime) {
+      const d = new Date(rawReqTime);
+      if (!isNaN(d.getTime())) {
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        const exact = `${month}/${day} ${hours}:${mins}`;
+        const diffMin = Math.floor((new Date() - d) / 60000);
+        if (diffMin < 1) reqDateStr = `방금 전 (${exact})`;
+        else if (diffMin < 60) reqDateStr = `${diffMin}분 전 (${exact})`;
+        else if (diffMin < 1440) reqDateStr = `${Math.floor(diffMin/60)}시간 전 (${exact})`;
+        else reqDateStr = exact;
+      } else {
+        reqDateStr = rawReqTime;
+      }
+    }
 
     html += `
-      <div class="stock-card" style="display:flex; align-items:center; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #f87171; gap:10px; position:relative; overflow:hidden;">
-        <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background-color:#ef4444;"></div>
-        
-        ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
+      <div class="stock-card-item" style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:14px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.03); display:flex; gap:10px; align-items:flex-start;">
+        <!-- Left: Product Image -->
+        <div style="flex-shrink:0;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 48) : ''}
+        </div>
 
-        <div style="flex:1; min-width:0; padding-left:2px;">
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-location-dot"></i> ${location}</span>
+        <!-- Center: Product Info -->
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="background:#ecfdf5; color:#047857; font-size:10.5px; font-weight:800; padding:2px 6px; border-radius:6px; border:1px solid #a7f3d0; display:inline-flex; align-items:center; gap:3px;">
+              <i class="fa-solid fa-location-dot"></i> ${location}
+            </span>
             <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
               <i class="fa-solid fa-pen-to-square"></i> 구역 변경
             </button>
-            <span style="font-size:12px; font-weight:bold; color:#64748b;">${cleanNo}</span>
+            <span style="font-size:11.5px; font-weight:bold; color:#64748b; font-family:monospace;">${cleanNo}</span>
           </div>
-          <div style="font-size:13.5px; font-weight:800; margin-top:3px; color:#1e293b; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">${displayName}</div>
-          <div style="font-size:10.5px; color:#94a3b8; margin-top:3px;"><i class="fa-regular fa-clock"></i> ${item.date} | 요청: ${item.user}</div>
-        </div>
-        
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
-          <div style="font-size:16px; font-weight:900; color:#ef4444;">${item.qty}<span style="font-size:11px; color:#94a3b8; font-weight:bold; margin-left:2px;">개</span></div>
-          ${pickActionsHtml}
+
+          <div style="font-size:13.5px; font-weight:900; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">
+            ${displayName}
+          </div>
+
+          <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:8px; margin-top:2px;">
+            <span><i class="fa-solid fa-user" style="color:#94a3b8; font-size:10px;"></i> ${reqUser}</span>
+            <span><i class="fa-regular fa-clock" style="color:#0058a3; font-size:10px;"></i> 요청 시각: <strong style="color:#1e293b; font-weight:800;">${reqDateStr}</strong></span>
+          </div>
+
+          <!-- Bottom Action Row: Qty Highlight & 1-Click Complete Button -->
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed #f1f5f9;">
+            <div style="display:flex; align-items:baseline; gap:3px;">
+              <span style="font-size:11px; font-weight:700; color:#64748b;">챙길 수량:</span>
+              <span style="font-size:17px; font-weight:900; color:#059669;">${qty}</span>
+              <span style="font-size:10.5px; font-weight:700; color:#64748b;">개</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+              <button type="button" onclick="modifyPickItem_custom('${item.id}')" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700; font-size:10.5px; border-radius:6px; padding:0 7px; height:28px; cursor:pointer; white-space:nowrap;" title="수량 변경">
+                수정
+              </button>
+              <button type="button" onclick="deletePickItem_custom('${item.id}')" style="background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; font-weight:700; font-size:10.5px; border-radius:6px; padding:0 7px; height:28px; cursor:pointer; white-space:nowrap;" title="삭제">
+                삭제
+              </button>
+              <button type="button" onclick="completePickItem_custom('${item.id}')" style="background:#059669; color:#ffffff; font-weight:900; font-size:12px; border:none; border-radius:8px; padding:0 11px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(5,150,105,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                <i class="fa-solid fa-check"></i> 챙김 완료
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `;
   });
+
+  html += `</div>`;
   container.innerHTML = html;
-  if (typeof loadProductThumbnails === 'function') loadProductThumbnails();
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+}
+
+function renderPicklistStockView(container, selectedZone, items) {
+  const searchQuery = (window.picklistStockSearchQuery || "").trim().toLowerCase();
+  let filteredList = items;
+  if (searchQuery) {
+    filteredList = filteredList.filter(item =>
+      item.artNo.toLowerCase().includes(searchQuery) ||
+      item.artName.toLowerCase().includes(searchQuery)
+    );
+  }
+
+  filteredList.sort((a, b) => (a.location || "").localeCompare(b.location || "", "ko") || a.artNo.localeCompare(b.artNo));
+
+  let html = `
+    <!-- Search & Bulk Pick Header -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="position:relative; flex:1;">
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:13px;"></i>
+          <input type="text" id="picklist-stock-search-input" value="${window.picklistStockSearchQuery || ''}" placeholder="${selectedZone} 구역 품번 또는 품명 검색..." oninput="onPicklistStockSearch(this.value)" style="width:100%; padding:9px 12px 9px 34px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; font-weight:700; outline:none; box-sizing:border-box;">
+        </div>
+        ${searchQuery ? `<button type="button" onclick="clearPicklistStockSearch()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#64748b; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:bold; cursor:pointer;">초기화</button>` : ''}
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-top:4px;">
+        <label style="font-size:12px; font-weight:800; color:#0058a3; cursor:pointer; display:flex; align-items:center; gap:5px; user-select:none;">
+          <input type="checkbox" id="picklist-stock-select-all" onclick="togglePicklistStockSelectAll(this.checked)" style="width:17px; height:17px; accent-color:#0058a3; cursor:pointer;">
+          전체 선택 (<span id="picklist-stock-selected-count">0</span>개)
+        </label>
+        <button type="button" id="btn-batch-stock-pick" onclick="batchDirectPickFromStock()" style="display:none; background:#2563eb; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(37,99,235,0.25);">
+          <i class="fa-solid fa-cart-flatbed"></i> 선택 항목 일괄 챙기기
+        </button>
+      </div>
+    </div>
+  `;
+
+  if (filteredList.length === 0) {
+    html += `
+      <div style="text-align:center; padding:40px 20px; background:#ffffff; border-radius:14px; border:1px dashed #cbd5e1;">
+        <i class="fa-solid fa-box-open" style="font-size:32px; color:#cbd5e1; margin-bottom:10px; display:block;"></i>
+        <p style="font-weight:700; color:#64748b; font-size:13px; margin:0;">${searchQuery ? '검색 조건에 맞는 재고 품목이 없습니다.' : selectedZone + ' 구역에 보유 재고가 없습니다.'}</p>
+      </div>
+    `;
+    container.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="picklist-cards-list" style="display:flex; flex-direction:column; gap:10px;">`;
+
+  filteredList.forEach(item => {
+    let cleanNo = String(item.artNo || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const displayName = item.artName || "기타 품목";
+    const currentStock = item.currentStock || 0;
+    const initialQty = 1;
+    const updateInfo = (typeof window.getProductLatestUpdateTime === "function")
+      ? window.getProductLatestUpdateTime(cleanNo)
+      : { text: "최근 기록 없음", action: "", user: "" };
+
+    html += `
+      <div class="stock-card-item" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.03); display:flex; gap:10px; align-items:flex-start;">
+        <!-- Left: Checkbox & Product Image -->
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0;">
+          <input type="checkbox" class="picklist-stock-cb" data-artno="${cleanNo}" data-artname="${displayName.replace(/"/g, "&quot;")}" data-maxqty="${currentStock}" onchange="updatePicklistStockSelection()" style="width:17px; height:17px; accent-color:#0058a3; cursor:pointer;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, displayName, 46) : ''}
+        </div>
+
+        <!-- Center & Right -->
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+              <span style="background:#f0f9ff; color:#0369a1; font-size:10.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;">
+                <i class="fa-solid fa-location-dot"></i> ${item.location || '미지정'}
+              </span>
+              <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
+                <i class="fa-solid fa-pen-to-square"></i> 구역 변경
+              </button>
+              <span style="font-size:11.5px; font-weight:bold; color:#64748b; font-family:monospace;">${cleanNo}</span>
+            </div>
+            <span style="font-size:11px; color:#64748b; font-weight:700;">재고 <strong style="color:#0f172a; font-size:13px; font-weight:900;">${currentStock}</strong>개</span>
+          </div>
+
+          <div style="font-size:13.5px; font-weight:900; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">
+            ${displayName}
+          </div>
+
+          <!-- Product Update Date & Time Info -->
+          <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:5px; margin-top:2px; flex-wrap:wrap; line-height:1.3;">
+            <span style="display:inline-flex; align-items:center; gap:3px;">
+              <i class="fa-regular fa-clock" style="color:#0058a3; font-size:10px;"></i>
+              <span style="color:#64748b; font-weight:700;">업데이트:</span>
+              <strong style="color:#0f172a; font-weight:800;">${updateInfo.text}</strong>
+            </span>
+            ${updateInfo.action ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="background:#f1f5f9; color:#475569; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #e2e8f0;">
+                ${updateInfo.action}${updateInfo.user ? ` (${updateInfo.user})` : ''}
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- Bottom: Pick Quantity Controls & Direct Pick Button -->
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed #f1f5f9;">
+            <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
+              <button type="button" onclick="adjustDirectPickQty('${cleanNo}', -1)" style="width:26px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:13px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center; flex-shrink:0;">-</button>
+              <input type="number" id="direct-pick-qty-${cleanNo}" value="${initialQty}" min="1" max="${currentStock}" style="width:38px; height:28px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:900; color:#0f172a; outline:none; padding:0;" onfocus="this.style.borderColor='#0058a3'" onblur="this.style.borderColor='#cbd5e1'">
+              <button type="button" onclick="adjustDirectPickQty('${cleanNo}', 1, ${currentStock})" style="width:26px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:13px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
+              <button type="button" onclick="setDirectPickQtyMax('${cleanNo}', ${currentStock})" style="font-size:10.5px; font-weight:800; background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; border-radius:4px; padding:0 6px; height:28px; line-height:28px; cursor:pointer; white-space:nowrap; flex-shrink:0;">최대</button>
+            </div>
+
+            <button type="button" onclick="handleDirectPickSubmit('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
+              <i class="fa-solid fa-bolt"></i> 바로 챙기기
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+}
+
+window.onPicklistStockSearch = function(val) {
+  window.picklistStockSearchQuery = val;
+  const container = document.getElementById("picklist-active-container");
+  if (container) {
+    const selectedZone = window.currentPicklistZone || "B1";
+    const stockMap = (typeof buildStockMap === "function") ? buildStockMap() : new Map();
+    const zoneStockItems = Array.from(stockMap.values()).filter(item => item.currentStock > 0 && isLocationMatch(item.location, selectedZone));
+    renderPicklistStockView(container, selectedZone, zoneStockItems);
+    const input = document.getElementById("picklist-stock-search-input");
+    if (input) {
+      input.focus();
+      input.setSelectionRange(val.length, val.length);
+    }
+  }
 };
+
+window.clearPicklistStockSearch = function() {
+  window.picklistStockSearchQuery = "";
+  renderSimplePicklist();
+};
+
+window.adjustDirectPickQty = function(artNo, delta, maxStock = 9999) {
+  const input = document.getElementById(`direct-pick-qty-${artNo}`);
+  if (!input) return;
+  let val = parseInt(input.value, 10) || 1;
+  val += delta;
+  if (val < 1) val = 1;
+  if (val > maxStock) val = maxStock;
+  input.value = val;
+};
+
+window.setDirectPickQtyMax = function(artNo, maxStock) {
+  const input = document.getElementById(`direct-pick-qty-${artNo}`);
+  if (input) input.value = maxStock;
+};
+
+window.handleDirectPickSubmit = async function(artNo, artName) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 출고 처리가 불가능합니다.", "danger");
+    return;
+  }
+  const input = document.getElementById(`direct-pick-qty-${artNo}`);
+  const qty = parseInt(input ? input.value : 1, 10) || 1;
+  await window.directPickFromStock(artNo, artName, qty);
+};
+
+window.directPickFromStock = async function(artNo, artName, pickQty) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 출고 처리가 불가능합니다.", "danger");
+    return;
+  }
+
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+  const name = artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+  const qty = parseInt(pickQty, 10) || 1;
+
+  if (!confirm(`'${name}' ${qty}개를 [${window.currentPicklistZone || '창고'}] 구역에서 바로 챙기셨습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료됩니다)`)) {
+    return;
+  }
+
+  try {
+    const todayStr = (typeof getAppLocalDateString === "function") 
+      ? getAppLocalDateString() 
+      : new Date().toISOString().split('T')[0];
+
+    const newLog = {
+      date: todayStr,
+      type: "출고",
+      artNo: cleanNo,
+      artName: name,
+      qty: qty,
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
+    };
+
+    if (typeof historyLogs !== "undefined") {
+      historyLogs.unshift(newLog);
+      try {
+        localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+      } catch(e) {}
+    }
+
+    if (typeof supabaseClient !== "undefined" && supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient
+          .from("inventory_logs")
+          .insert([{
+            date: newLog.date,
+            type: newLog.type,
+            artNo: newLog.artNo,
+            qty: newLog.qty,
+            user: newLog.user
+          }])
+          .select();
+        if (!error && data && data.length > 0) {
+          newLog.id = data[0].id;
+          newLog.created_at = data[0].created_at;
+          try {
+            localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+          } catch(e) {}
+        }
+      } catch (err) {
+        console.warn("Supabase direct pick insert error:", err);
+      }
+    }
+
+    if (typeof invalidateStockCache === "function") invalidateStockCache();
+    if (typeof renderStockLookup === "function") renderStockLookup();
+    if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+    renderSimplePicklist();
+
+    showToast(`✅ [${cleanNo}] ${name} ${qty}개 챙김(출고) 완료!`, "success");
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+  } catch (err) {
+    console.error("Direct pick error:", err);
+    showToast("출고 처리 중 오류가 발생했습니다: " + err.message, "danger");
+  }
+};
+
+window.updatePicklistStockSelection = function() {
+  const checkboxes = document.querySelectorAll('.picklist-stock-cb:checked');
+  const count = checkboxes.length;
+  const countSpan = document.getElementById('picklist-stock-selected-count');
+  const batchBtn = document.getElementById('btn-batch-stock-pick');
+  if (countSpan) countSpan.textContent = count;
+  if (batchBtn) {
+    batchBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+  }
+};
+
+window.togglePicklistStockSelectAll = function(isChecked) {
+  const checkboxes = document.querySelectorAll('.picklist-stock-cb');
+  checkboxes.forEach(cb => cb.checked = isChecked);
+  window.updatePicklistStockSelection();
+};
+
+window.batchDirectPickFromStock = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 출고 처리가 불가능합니다.", "danger");
+    return;
+  }
+  const checkboxes = document.querySelectorAll('.picklist-stock-cb:checked');
+  if (checkboxes.length === 0) return;
+
+  const itemsToPick = [];
+  checkboxes.forEach(cb => {
+    const artNo = cb.dataset.artno;
+    const artName = cb.dataset.artname;
+    const maxQty = parseInt(cb.dataset.maxqty, 10) || 1;
+    const input = document.getElementById(`direct-pick-qty-${artNo}`);
+    let qty = parseInt(input ? input.value : 1, 10) || 1;
+    if (qty > maxQty) qty = maxQty;
+    itemsToPick.push({ artNo, artName, qty });
+  });
+
+  if (!confirm(`선택한 ${itemsToPick.length}개 품목을 모두 챙기시겠습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료됩니다)`)) {
+    return;
+  }
+
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+
+  const dbLogs = [];
+  for (const item of itemsToPick) {
+    const newLog = {
+      date: todayStr,
+      type: "출고",
+      artNo: item.artNo,
+      artName: item.artName,
+      qty: item.qty,
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
+    };
+    if (typeof historyLogs !== "undefined") {
+      historyLogs.unshift(newLog);
+    }
+    dbLogs.push({
+      date: newLog.date,
+      type: newLog.type,
+      artNo: newLog.artNo,
+      qty: newLog.qty,
+      user: newLog.user
+    });
+  }
+
+  try {
+    localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+  } catch(e) {}
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient && dbLogs.length > 0) {
+    try {
+      await supabaseClient.from("inventory_logs").insert(dbLogs);
+    } catch(e) {
+      console.warn("Supabase batch direct pick insert error:", e);
+    }
+  }
+
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+  renderSimplePicklist();
+
+  showToast(`🎉 ${itemsToPick.length}개 품목 일괄 챙김(출고)이 완료되었습니다!`, "success");
+  if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+};
+
+window.completeAllZonePickItems = async function(zone) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 출고 완료 처리가 불가능합니다.", "danger");
+    return;
+  }
+
+  const pendingOrders = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs))
+    ? orderLogs.filter(item => ["출고대기", "대기", "요청", "요청됨", "승인", "수락"].includes(item.status))
+    : [];
+
+  const zoneItems = pendingOrders.filter(item => isLocationMatch(getOrderItemLocation(item), zone));
+  if (zoneItems.length === 0) {
+    showToast("완료 처리할 대기 품목이 없습니다.", "warning");
+    return;
+  }
+
+  if (!confirm(`[${zone}] 구역의 대기 품목 (${zoneItems.length}건)을 모두 챙김 완료(출고) 처리하시겠습니까?\n(확인 시 실시간 재고에서 즉시 차감됩니다)`)) {
+    return;
+  }
+
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+
+  const dbLogs = [];
+  const orderIdsToUpdate = [];
+
+  zoneItems.forEach(item => {
+    item.status = "출고완료";
+    if (item.id && String(item.id).indexOf('.') === -1) {
+      orderIdsToUpdate.push(item.id);
+    }
+
+    let cleanNo = String(item.artNo || item.artno || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const resolvedName = item.artName || item.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+    const pickQty = parseInt(item.qty, 10) || 1;
+
+    const newLog = {
+      date: todayStr,
+      type: "출고",
+      artNo: cleanNo,
+      artName: resolvedName,
+      qty: pickQty,
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
+    };
+
+    if (typeof historyLogs !== "undefined") {
+      historyLogs.unshift(newLog);
+    }
+
+    dbLogs.push({
+      date: newLog.date,
+      type: newLog.type,
+      artNo: newLog.artNo,
+      qty: newLog.qty,
+      user: newLog.user
+    });
+  });
+
+  try {
+    localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+    localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+  } catch(e) {}
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      if (orderIdsToUpdate.length > 0) {
+        for (const oId of orderIdsToUpdate) {
+          await supabaseClient.from('order_requests').update({ status: '출고완료' }).eq('id', oId);
+        }
+      }
+      if (dbLogs.length > 0) {
+        await supabaseClient.from('inventory_logs').insert(dbLogs);
+      }
+    } catch(err) {
+      console.warn("Supabase batch complete error:", err);
+    }
+  }
+
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+  renderSimplePicklist();
+
+  showToast(`🎉 [${zone}] 대기 항목 ${zoneItems.length}건 일괄 챙김 완료!`, "success");
+  if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+};
+
+window.modifyPickItem_custom = async function(id) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 수정이 불가능합니다.", "danger");
+    return;
+  }
+  const pickItem = orderLogs.find(log => String(log.id) === String(id));
+  if (!pickItem) return;
+
+  const currentQty = parseInt(pickItem.qty, 10) || 1;
+  const input = prompt(`[${pickItem.artName}] 챙길 수량을 수정하세요:`, currentQty);
+  if (input === null) return;
+  const newQty = parseInt(input, 10);
+  if (isNaN(newQty) || newQty <= 0) {
+    showToast("올바른 수량을 입력해주세요.", "warning");
+    return;
+  }
+
+  pickItem.qty = newQty;
+  try {
+    localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+  } catch(e) {}
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient && pickItem.id && String(pickItem.id).indexOf('.') === -1) {
+    try {
+      await supabaseClient.from('order_requests').update({ qty: newQty }).eq('id', pickItem.id);
+    } catch(e) {}
+  }
+
+  renderSimplePicklist();
+  showToast("수량이 변경되었습니다.", "success");
+};
+
+window.deletePickItem_custom = async function(id) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    showToast("Viewer(읽기 전용) 모드에서는 삭제가 불가능합니다.", "danger");
+    return;
+  }
+  const index = orderLogs.findIndex(log => String(log.id) === String(id));
+  if (index === -1) return;
+  const pickItem = orderLogs[index];
+
+  if (!confirm(`'${pickItem.artName}' (${pickItem.qty}개) 항목을 챙기기 대기 목록에서 삭제하시겠습니까?`)) {
+    return;
+  }
+
+  const orderId = pickItem.id;
+  orderLogs.splice(index, 1);
+
+  try {
+    localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+  } catch(e) {}
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient && orderId && String(orderId).indexOf('.') === -1) {
+    try {
+      await supabaseClient.from('order_requests').delete().eq('id', orderId);
+    } catch(e) {}
+  }
+
+  renderSimplePicklist();
+  showToast("대기 목록에서 삭제되었습니다.", "success");
+};
+
+// Aliases for backwards compatibility
+window.renderPickList = function() { renderSimplePicklist(); };
+window.renderStandardPickList = function() { renderSimplePicklist(); };
+window.renderStandardInventory = function() { renderSimplePicklist(); };
+window.renderStandardLocationButtons = function() { renderSimplePicklist(); };
 
 const origSwitchTabStandard = window.switchTab;
 window.switchTab = function(tabId, btnElement) {
   if (typeof origSwitchTabStandard === "function") origSwitchTabStandard(tabId, btnElement);
   
-  if (tabId === "picklist") {
-    renderStandardLocationButtons();
-    renderStandardPickList();
+  if (tabId === "picklist" || tabId === "tab-picklist") {
+    if (typeof renderStandardLocationButtons === "function") renderStandardLocationButtons();
+    if (typeof renderStandardPickList === "function") renderStandardPickList();
+  } else if (tabId === "stock" || tabId === "tab-stock") {
+    if (typeof renderStockLocationDashboard === "function") renderStockLocationDashboard();
+  } else if (tabId === "menu" || tabId === "tab-menu") {
+    if (typeof renderMenuLocationWidget === "function") renderMenuLocationWidget();
+  } else if (tabId === "register" || tabId === "tab-register") {
+    if (typeof updateRegLocationButtons === "function") updateRegLocationButtons();
+    const artNoVal = document.getElementById("reg-artno") ? document.getElementById("reg-artno").value.trim() : "";
+    if (typeof updateRegLocationGuideBanner === "function") updateRegLocationGuideBanner(artNoVal);
   }
 };
 
@@ -2209,7 +3034,7 @@ window.setSingleLocation = function(artNo) {
   // Dynamically populate location buttons
   const btnContainer = document.getElementById("single-loc-quick-buttons");
   if (btnContainer) {
-    const locSet = new Set(["B1", "B2", "B3"]);
+    const locSet = new Set(["B1", "B2", "B2 램프", "B3"]);
     if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
       masterCatalog.forEach(m => {
         if (m.location && m.location !== "미지정" && m.location.trim() !== "") {
@@ -4009,6 +4834,1379 @@ window.exportStoreInboundToExcel = async function(selectedDateOnly = false) {
   showToast(`📊 매장 입고 기록 (${dataToExport.length}건) 엑셀 추출이 완료되었습니다!`, "success");
   if (typeof playSuccessFeedback === "function") playSuccessFeedback();
 };
+
+// --- Warehouse Location Guidance & Mandatory Inbound Location Validation ---
+
+window.updateRegLocationGuideBanner = function(artNo, optLoc, optType) {
+  const banner = document.getElementById("reg-location-guide-banner");
+  if (!banner) return;
+
+  const cleanNo = artNo ? String(artNo).trim() : "";
+  if (!cleanNo) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+
+  // Determine Type (입고 or 출고)
+  let type = optType;
+  if (!type) {
+    const checkedOption = document.querySelector('input[name="reg-type"]:checked');
+    type = checkedOption ? checkedOption.value : "입고";
+  }
+
+  // Find Location
+  const locInput = document.getElementById("reg-location");
+  let currentLoc = optLoc !== undefined ? optLoc : (locInput ? locInput.value.trim() : "");
+
+  if (!currentLoc) {
+    let masterItem = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim();
+      return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
+    }) : null;
+
+    if (masterItem && masterItem.location && masterItem.location !== "미지정" && masterItem.location.trim() !== "") {
+      currentLoc = masterItem.location.trim();
+      if (locInput && !locInput.value.trim()) {
+        locInput.value = currentLoc;
+        if (typeof updateRegLocationButtons === "function") updateRegLocationButtons();
+      }
+    }
+  }
+
+  const isUnspecified = !currentLoc || currentLoc === "미지정" || currentLoc.trim() === "";
+
+  if (isUnspecified) {
+    banner.style.display = "block";
+    banner.style.background = "#fffbeb";
+    banner.style.border = "1.5px solid #fde68a";
+    banner.style.padding = "10px 12px";
+    banner.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:34px; height:34px; border-radius:8px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:12.5px; font-weight:900; color:#b45309;">⚠️ 위치 미지정 품목</span>
+            <span style="font-size:10px; font-weight:800; background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:4px;">구역 지정 필요</span>
+          </div>
+          <div style="font-size:11.5px; font-weight:700; color:#92400e; margin-top:2px;">
+            보관 구역이 설정되지 않았습니다. 입고 시 아래 구역(B1, B2, B2 램프, B3)을 선택해 주세요!
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    if (type === "출고") {
+      banner.style.display = "block";
+      banner.style.background = "#fff1f2";
+      banner.style.border = "1.5px solid #fecdd3";
+      banner.style.padding = "10px 12px";
+      banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:34px; height:34px; border-radius:8px; background:#ffe4e6; color:#e11d48; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            <i class="fa-solid fa-box-open"></i>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:13px; font-weight:900; color:#9f1239;">📍 [${currentLoc}] 구역 보관 품목</span>
+              <span style="font-size:10px; font-weight:800; background:#ffe4e6; color:#be123c; padding:1px 6px; border-radius:4px;">출고 픽업</span>
+            </div>
+            <div style="font-size:12px; font-weight:800; color:#be123c; margin-top:2px;">
+              <strong style="text-decoration:underline;">${currentLoc}</strong> 구역 선반에서 물건을 챙기세요.
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      banner.style.display = "block";
+      banner.style.background = "#eff6ff";
+      banner.style.border = "1.5px solid #bfdbfe";
+      banner.style.padding = "10px 12px";
+      banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:34px; height:34px; border-radius:8px; background:#dbeafe; color:#0284c7; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            <i class="fa-solid fa-arrow-down-to-bracket"></i>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:13px; font-weight:900; color:#0369a1;">📍 [${currentLoc}] 구역 보관 품목</span>
+              <span style="font-size:10px; font-weight:800; background:#dbeafe; color:#0058a3; padding:1px 6px; border-radius:4px;">입고 이동</span>
+            </div>
+            <div style="font-size:12px; font-weight:800; color:#0058a3; margin-top:2px;">
+              이 물건은 <strong style="text-decoration:underline;">${currentLoc}</strong> 구역으로 이동하여 보관하세요.
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+};
+
+// Bind inputs for realtime location guide sync
+document.addEventListener("DOMContentLoaded", () => {
+  const regArtNo = document.getElementById("reg-artno");
+  if (regArtNo) {
+    regArtNo.addEventListener("input", () => {
+      window.updateRegLocationGuideBanner(regArtNo.value.trim());
+    });
+  }
+  const regLoc = document.getElementById("reg-location");
+  if (regLoc) {
+    regLoc.addEventListener("input", () => {
+      if (typeof updateRegLocationButtons === "function") updateRegLocationButtons();
+      const artNoVal = regArtNo ? regArtNo.value.trim() : "";
+      window.updateRegLocationGuideBanner(artNoVal, regLoc.value.trim());
+    });
+  }
+});
+
+// ==========================================
+// 🏢 Enhanced Songdo MFAQ System (제품 검색, HFB 자동 연동, 실시간 카운트)
+// ==========================================
+
+window.selectedMfaqProduct = null;
+
+// --- MFAQ Category Management & Editing Engine ---
+window.getMfaqCategories = function() {
+  try {
+    const saved = localStorage.getItem("warehouse_mfaq_categories");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch(e) {}
+  return ["제품 질문/요청", "매장 질문"];
+};
+
+window.saveMfaqCategories = function(cats) {
+  try {
+    localStorage.setItem("warehouse_mfaq_categories", JSON.stringify(cats));
+  } catch(e) {}
+  window.updateMfaqCategoryDropdowns();
+};
+
+window.updateMfaqCategoryDropdowns = function() {
+  const cats = window.getMfaqCategories();
+
+  // 1. Filter dropdown
+  const filterEl = document.getElementById("mfaq-filter-category");
+  if (filterEl) {
+    const currentVal = filterEl.value;
+    let html = '<option value="all">전체 구분</option>';
+    cats.forEach(c => {
+      html += `<option value="${c}">${c}</option>`;
+    });
+    filterEl.innerHTML = html;
+    if (cats.includes(currentVal) || currentVal === "all") {
+      filterEl.value = currentVal;
+    } else {
+      filterEl.value = "all";
+    }
+  }
+
+  // 2. New MFAQ modal dropdown
+  const newCatEl = document.getElementById("mfaq-new-category");
+  if (newCatEl) {
+    const currentVal = newCatEl.value;
+    let html = '';
+    cats.forEach(c => {
+      html += `<option value="${c}">${c}</option>`;
+    });
+    newCatEl.innerHTML = html;
+    if (cats.includes(currentVal)) {
+      newCatEl.value = currentVal;
+    } else if (cats.length > 0) {
+      newCatEl.value = cats[0];
+    }
+  }
+
+  // 3. Edit modal dropdown
+  const editCatEl = document.getElementById("edit-mfaq-category");
+  if (editCatEl) {
+    const currentVal = editCatEl.value;
+    let html = '';
+    cats.forEach(c => {
+      html += `<option value="${c}">${c}</option>`;
+    });
+    editCatEl.innerHTML = html;
+    if (cats.includes(currentVal)) {
+      editCatEl.value = currentVal;
+    }
+  }
+};
+
+// Open Category Manager Modal
+window.openMfaqCategoryMgrModal = function() {
+  window.renderMfaqCategoryMgrList();
+  const modal = document.getElementById("mfaq-category-mgr-modal");
+  if (modal) modal.classList.add("active");
+  const input = document.getElementById("mfaq-new-category-input");
+  if (input) {
+    input.value = "";
+    setTimeout(() => input.focus(), 100);
+  }
+};
+
+window.closeMfaqCategoryMgrModal = function() {
+  const modal = document.getElementById("mfaq-category-mgr-modal");
+  if (modal) modal.classList.remove("active");
+};
+
+window.renderMfaqCategoryMgrList = function() {
+  const container = document.getElementById("mfaq-category-list-container");
+  if (!container) return;
+  const cats = window.getMfaqCategories();
+
+  container.innerHTML = cats.map((cat, idx) => {
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="width:22px; height:22px; border-radius:50%; background:#e2e8f0; color:#475569; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
+          <span style="font-size:13.5px; font-weight:800; color:#0f172a;">${cat}</span>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <button type="button" onclick="editMfaqCategoryName('${cat.replace(/'/g, "\\'")}')" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:4px 9px; font-size:12px; font-weight:700; color:#0058a3; cursor:pointer;" title="이름 수정">
+            <i class="fa-solid fa-pen"></i> 수정
+          </button>
+          ${cats.length > 1 ? `
+            <button type="button" onclick="deleteMfaqCategory('${cat.replace(/'/g, "\\'")}')" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:4px 9px; font-size:12px; font-weight:700; color:#ef4444; cursor:pointer;" title="삭제">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.addNewMfaqCategory = function() {
+  const input = document.getElementById("mfaq-new-category-input");
+  const name = (input?.value || "").trim();
+  if (!name) {
+    showToast("카테고리 이름을 입력해 주세요.", "warning");
+    return;
+  }
+  const cats = window.getMfaqCategories();
+  if (cats.includes(name)) {
+    showToast("이미 등록된 카테고리 이름입니다.", "warning");
+    return;
+  }
+  cats.push(name);
+  window.saveMfaqCategories(cats);
+  window.renderMfaqCategoryMgrList();
+  renderMfaq();
+  if (input) input.value = "";
+  showToast(`'${name}' 카테고리가 추가되었습니다!`, "success");
+};
+
+window.editMfaqCategoryName = async function(oldName) {
+  const newName = prompt(`'${oldName}' 카테고리의 새 이름을 입력하세요:`, oldName);
+  if (!newName || newName.trim() === oldName) return;
+  const cleanName = newName.trim();
+
+  let cats = window.getMfaqCategories();
+  const idx = cats.indexOf(oldName);
+  if (idx !== -1) {
+    cats[idx] = cleanName;
+    window.saveMfaqCategories(cats);
+  }
+
+  // Update existing items matching oldName
+  let countUpdated = 0;
+  (mfaqLogs || []).forEach(log => {
+    if (log.category === oldName) {
+      log.category = cleanName;
+      log.lastUpdated = new Date().toISOString();
+      countUpdated++;
+      if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        supabaseClient.from("mfaq_logs").update({ category: cleanName }).eq("id", log.id).then();
+      }
+    }
+  });
+
+  if (countUpdated > 0) saveMfaqLogs();
+  renderMfaq();
+  window.renderMfaqCategoryMgrList();
+  showToast(`카테고리 이름이 '${cleanName}'(으)로 변경되었습니다. (기존 ${countUpdated}건 항목 반영)`, "success");
+};
+
+window.deleteMfaqCategory = function(catName) {
+  const cats = window.getMfaqCategories();
+  if (cats.length <= 1) {
+    showToast("최소 1개 이상의 카테고리가 필요합니다.", "warning");
+    return;
+  }
+  if (!confirm(`'${catName}' 카테고리를 삭제하시겠습니까?`)) return;
+
+  const newCats = cats.filter(c => c !== catName);
+  window.saveMfaqCategories(newCats);
+  window.renderMfaqCategoryMgrList();
+  renderMfaq();
+  showToast(`'${catName}' 카테고리가 삭제되었습니다.`, "success");
+};
+
+// 1클릭 퀵 카테고리 변경 모달
+window.openMfaqCategoryChangeModal = function(id, event) {
+  if (event) event.stopPropagation();
+  const log = (mfaqLogs || []).find(l => l.id === id);
+  if (!log) return;
+  const p = window.parseMfaqItem(log);
+  const titleEl = document.getElementById("mfaq-change-cat-item-title");
+  const optionsDiv = document.getElementById("mfaq-change-cat-options");
+  if (titleEl) {
+    titleEl.textContent = p.hasProduct ? `${p.cleanNo} ${p.artName}` : (log.question || "-");
+  }
+
+  const cats = window.getMfaqCategories();
+  if (optionsDiv) {
+    optionsDiv.innerHTML = cats.map(cat => {
+      const isCurrent = (log.category === cat) || 
+                        (cat === "제품 질문/요청" && (log.category === "제품 요청" || log.category === "제품 질문")) ||
+                        (cat === "매장 질문" && log.category === "일반 질문");
+      const isProduct = cat.includes("제품");
+      const icon = isProduct ? 'fa-box' : 'fa-store';
+      const bg = isCurrent ? '#0058a3' : '#f8fafc';
+      const color = isCurrent ? '#ffffff' : '#0f172a';
+      const border = isCurrent ? '#0058a3' : '#cbd5e1';
+
+      return `
+        <button type="button" onclick="quickChangeMfaqCategory('${id}', '${cat.replace(/'/g, "\\'")}')" style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:${bg}; color:${color}; border:1.5px solid ${border}; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; transition:all 0.15s;">
+          <span style="display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid ${icon}"></i> ${cat}
+          </span>
+          ${isCurrent ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-chevron-right" style="font-size:11px; opacity:0.5;"></i>'}
+        </button>
+      `;
+    }).join('');
+  }
+
+  const modal = document.getElementById("mfaq-category-change-modal");
+  if (modal) modal.classList.add("active");
+};
+
+window.closeMfaqCategoryChangeModal = function() {
+  const modal = document.getElementById("mfaq-category-change-modal");
+  if (modal) modal.classList.remove("active");
+};
+
+window.quickChangeMfaqCategory = async function(id, newCat) {
+  const log = (mfaqLogs || []).find(l => l.id === id);
+  if (!log) return;
+  const oldCat = log.category;
+  if (oldCat === newCat) {
+    window.closeMfaqCategoryChangeModal();
+    return;
+  }
+
+  log.category = newCat;
+  log.lastUpdated = new Date().toISOString();
+  saveMfaqLogs();
+  renderMfaq();
+  window.closeMfaqCategoryChangeModal();
+  showToast(`카테고리가 '${newCat}'(으)로 변경되었습니다!`, "success");
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      await supabaseClient
+        .from("mfaq_logs")
+        .update({ category: newCat, last_updated: log.lastUpdated })
+        .eq("id", id);
+    } catch(e) {
+      console.warn("Update category error:", e);
+    }
+  }
+};
+
+// --- MFAQ Item Edit Modal with Product Search Support ---
+window.selectedEditMfaqProduct = null;
+
+window.onEditMfaqCategoryChange = function(category) {
+  const searchSec = document.getElementById("edit-mfaq-product-search-section");
+  const qLabel = document.getElementById("edit-mfaq-question-label");
+  const qInput = document.getElementById("edit-mfaq-question");
+
+  if (category === "매장 질문" || category === "일반 질문") {
+    if (qLabel) qLabel.innerHTML = '매장 질문 내용 <span style="color:#ef4444;">*</span>';
+    if (qInput) qInput.placeholder = "매장 관련 질문 내용을 입력하세요";
+    if (searchSec) searchSec.style.display = "none";
+  } else {
+    // "제품 질문/요청" 및 기타 제품 카테고리
+    if (qLabel) qLabel.innerHTML = '상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span>';
+    if (qInput) qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+    if (searchSec) searchSec.style.display = "block";
+  }
+};
+
+window.handleEditMfaqProductSearch = function(query) {
+  const cleanQuery = (query || "").trim().toLowerCase();
+  const dropdown = document.getElementById("edit-mfaq-product-autocomplete-dropdown");
+  if (!dropdown) return;
+
+  if (!cleanQuery) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+    return;
+  }
+
+  if (typeof masterCatalog === "undefined" || !Array.isArray(masterCatalog)) {
+    dropdown.classList.remove("active");
+    return;
+  }
+
+  const queryDigits = cleanQuery.replace(/\D/g, '');
+  const matches = masterCatalog.filter(item => {
+    const itemArtNo = String(item.artNo || "").toLowerCase();
+    const itemDigits = itemArtNo.replace(/\D/g, '');
+    const itemName = String(item.artName || "").toLowerCase();
+    const itemHfb = String(item.hfb || "").toLowerCase();
+
+    return itemName.includes(cleanQuery) ||
+           (queryDigits.length >= 2 && itemDigits.includes(queryDigits)) ||
+           itemArtNo.includes(cleanQuery) ||
+           itemHfb.includes(cleanQuery);
+  }).slice(0, 15);
+
+  if (matches.length === 0) {
+    dropdown.innerHTML = '<div style="padding:10px 12px; font-size:12px; color:#94a3b8; text-align:center;">일치하는 제품이 없습니다.</div>';
+    dropdown.classList.add("active");
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(item => {
+    let cleanNo = String(item.artNo || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const hfbBadge = item.hfb ? `<span style="background:#0058a3; color:#ffffff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px;"><i class="fa-solid fa-tag"></i> ${item.hfb}</span>` : '';
+    const locBadge = item.location && item.location !== '미지정' ? `<span style="background:#f0f9ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bae6fd;">${item.location}</span>` : '';
+
+    return `
+      <div class="autocomplete-item" onclick="selectEditMfaqProduct('${cleanNo}')" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; background:#ffffff;">
+        <div style="flex-shrink:0;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, item.artName, 40) : ''}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:2px;">
+            ${hfbBadge}
+            <span style="font-family:monospace; font-size:12px; font-weight:900; color:#0058a3;">${cleanNo}</span>
+            ${locBadge}
+          </div>
+          <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; flex-shrink:0;">
+          <i class="fa-solid fa-check"></i>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  dropdown.classList.add("active");
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+window.setEditMfaqSelectedProduct = function(artNo, artName, hfb, location) {
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+
+  window.selectedEditMfaqProduct = {
+    artNo: cleanNo,
+    artName: artName || "창고 품목",
+    hfb: hfb || "기타 HFB",
+    location: location || ""
+  };
+
+  const card = document.getElementById("edit-mfaq-selected-product-card");
+  const thumbDiv = document.getElementById("edit-mfaq-selected-thumb");
+  const hfbText = document.getElementById("edit-mfaq-selected-hfb-text");
+  const artNoSpan = document.getElementById("edit-mfaq-selected-artno");
+  const locSpan = document.getElementById("edit-mfaq-selected-location");
+  const nameDiv = document.getElementById("edit-mfaq-selected-artname");
+
+  if (card && thumbDiv && hfbText && artNoSpan && nameDiv) {
+    thumbDiv.innerHTML = typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, artName, 44) : '';
+    hfbText.textContent = hfb || "HFB";
+    artNoSpan.textContent = cleanNo;
+    nameDiv.textContent = artName || cleanNo;
+    if (locSpan) {
+      if (location && location !== '미지정') {
+        locSpan.textContent = location;
+        locSpan.style.display = "inline-block";
+      } else {
+        locSpan.style.display = "none";
+      }
+    }
+    card.style.display = "block";
+  }
+
+  const searchInput = document.getElementById("edit-mfaq-product-search-input");
+  if (searchInput) searchInput.value = `${cleanNo} (${artName})`;
+
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+window.selectEditMfaqProduct = function(artNo) {
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+
+  const matched = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog))
+    ? masterCatalog.find(m => String(m.artNo || m.artno || "").replace(/\D/g, '') === cleanNo)
+    : null;
+
+  const artName = matched ? (matched.artName || matched.artname || "") : (typeof masterCatalogMap !== "undefined" ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+  const hfb = matched ? (matched.hfb || "기타 HFB") : "기타 HFB";
+  const location = matched ? (matched.location || "") : "";
+
+  window.setEditMfaqSelectedProduct(cleanNo, artName, hfb, location);
+
+  const dropdown = document.getElementById("edit-mfaq-product-autocomplete-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+};
+
+window.clearEditMfaqSelectedProduct = function() {
+  window.selectedEditMfaqProduct = null;
+  const searchInput = document.getElementById("edit-mfaq-product-search-input");
+  if (searchInput) searchInput.value = "";
+  const card = document.getElementById("edit-mfaq-selected-product-card");
+  if (card) card.style.display = "none";
+  const dropdown = document.getElementById("edit-mfaq-product-autocomplete-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+};
+
+// MFAQ 항목 수정 모달 (카테고리 + 제품 검색 + 메모/질문 내용 동시 수정)
+window.openMfaqEditModal = function(id) {
+  const log = (mfaqLogs || []).find(l => l.id === id);
+  if (!log) return;
+  const p = window.parseMfaqItem(log);
+
+  const idEl = document.getElementById("edit-mfaq-id");
+  if (idEl) idEl.value = id;
+
+  // Populate category select
+  const catSelect = document.getElementById("edit-mfaq-category");
+  let currentCat = log.category || "제품 질문/요청";
+  if (catSelect) {
+    const cats = window.getMfaqCategories();
+    catSelect.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (cats.includes(log.category)) {
+      currentCat = log.category;
+    } else if (log.category === "제품 요청" || log.category === "제품 질문") {
+      currentCat = "제품 질문/요청";
+    } else if (log.category === "일반 질문") {
+      currentCat = "매장 질문";
+    } else {
+      currentCat = cats[0] || "제품 질문/요청";
+    }
+    catSelect.value = currentCat;
+  }
+
+  // Populate product info if item has product
+  if (p.hasProduct) {
+    window.setEditMfaqSelectedProduct(p.cleanNo, p.artName, p.hfb, p.location);
+  } else {
+    window.clearEditMfaqSelectedProduct();
+  }
+
+  // Populate question/memo input
+  const qInput = document.getElementById("edit-mfaq-question");
+  if (qInput) {
+    qInput.value = p.hasProduct ? (p.extraNote || "") : (log.question || "");
+  }
+
+  // Synchronize category mode (show/hide product search & update labels)
+  window.onEditMfaqCategoryChange(currentCat);
+
+  const modal = document.getElementById("mfaq-edit-modal");
+  if (modal) modal.classList.add("active");
+};
+
+window.closeMfaqEditModal = function() {
+  const modal = document.getElementById("mfaq-edit-modal");
+  if (modal) modal.classList.remove("active");
+  const dropdown = document.getElementById("edit-mfaq-product-autocomplete-dropdown");
+  if (dropdown) dropdown.classList.remove("active");
+};
+
+window.handleEditMfaqSubmit = async function(event) {
+  event.preventDefault();
+  const id = document.getElementById("edit-mfaq-id")?.value;
+  const newCat = document.getElementById("edit-mfaq-category")?.value;
+  const newText = document.getElementById("edit-mfaq-question")?.value.trim() || "";
+
+  const log = (mfaqLogs || []).find(l => l.id === id);
+  if (!log) return;
+
+  let newQuestion = "";
+  if (newCat === "매장 질문" || newCat === "일반 질문") {
+    if (!newText) {
+      showToast("매장 질문 내용을 입력해 주세요!", "warning");
+      return;
+    }
+    newQuestion = newText;
+    log.artNo = "";
+    log.artName = "";
+    log.hfb = "";
+  } else {
+    // 제품 카테고리
+    if (window.selectedEditMfaqProduct) {
+      const prod = window.selectedEditMfaqProduct;
+      log.artNo = prod.artNo;
+      log.artName = prod.artName;
+      log.hfb = prod.hfb;
+      newQuestion = newText ? `[${prod.artNo}] ${prod.artName} - ${newText}` : `[${prod.artNo}] ${prod.artName}`;
+    } else {
+      if (!newText) {
+        showToast("제품을 검색하여 선택하거나 내용을 입력해 주세요!", "warning");
+        return;
+      }
+      newQuestion = newText;
+    }
+  }
+
+  log.category = newCat;
+  log.question = newQuestion;
+  log.lastUpdated = new Date().toISOString();
+
+  saveMfaqLogs();
+  renderMfaq();
+  closeMfaqEditModal();
+  showToast("MFAQ 항목이 수정되었습니다!", "success");
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      await supabaseClient
+        .from("mfaq_logs")
+        .update({
+          category: log.category,
+          question: log.question,
+          last_updated: log.lastUpdated
+        })
+        .eq("id", id);
+    } catch(e) {
+      console.warn("Update MFAQ item error:", e);
+    }
+  }
+};
+
+// Dismiss MFAQ autocomplete dropdowns on outside click (capture phase works through modal stopPropagation)
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#edit-mfaq-product-search-section")) {
+    const editDrop = document.getElementById("edit-mfaq-product-autocomplete-dropdown");
+    if (editDrop) editDrop.classList.remove("active");
+  }
+  if (!e.target.closest("#mfaq-product-search-section")) {
+    const addDrop = document.getElementById("mfaq-product-autocomplete-dropdown");
+    if (addDrop) addDrop.classList.remove("active");
+  }
+}, true);
+
+// Parse MFAQ item into product information and extra note
+window.parseMfaqItem = function(log) {
+  let artNo = log.artNo || "";
+  let artName = log.artName || "";
+  let hfb = log.hfb || "";
+  let rawQuestion = String(log.question || "").trim();
+  let extraNote = "";
+  let location = "";
+
+  // 1. Try to extract [artNo] from question string (e.g. "[10456789] BILLY 책장 - 재고 문의" or "[104.567.89]")
+  const bracketMatch = rawQuestion.match(/\[([\d\.\s]{6,12})\]/);
+  if (bracketMatch) {
+    if (!artNo) artNo = bracketMatch[1].replace(/\D/g, '');
+    let rest = rawQuestion.slice(bracketMatch[0].length).trim();
+    if (rest.startsWith("-") || rest.startsWith(":")) rest = rest.slice(1).trim();
+    extraNote = rest;
+  } else {
+    // 2. Try to find standalone 8-digit number
+    const numMatch = rawQuestion.match(/\b(\d{8})\b/);
+    if (numMatch) {
+      if (!artNo) artNo = numMatch[1];
+      extraNote = rawQuestion.replace(numMatch[0], '').trim();
+    } else {
+      extraNote = rawQuestion;
+    }
+  }
+
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+
+  // 3. Match against masterCatalog
+  if (cleanNo && typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+    const matched = masterCatalog.find(m => {
+      const mNo = String(m.artNo || m.artno || "").trim().replace(/\D/g, '');
+      return mNo === cleanNo;
+    });
+    if (matched) {
+      if (!artName) artName = matched.artName || matched.artname || "";
+      if (!hfb) hfb = matched.hfb || "";
+      location = matched.location || "";
+    }
+  }
+
+  // 4. Try masterCatalogMap for product name
+  if (cleanNo && !artName && typeof masterCatalogMap !== "undefined" && masterCatalogMap) {
+    artName = masterCatalogMap.get(cleanNo) || "";
+  }
+
+  // Deduplicate: If extraNote starts with or repeats artName, clean it up
+  if (extraNote && artName) {
+    let cleanNote = extraNote.trim();
+    if (cleanNote.toLowerCase().startsWith(artName.trim().toLowerCase())) {
+      cleanNote = cleanNote.slice(artName.trim().length).trim();
+      if (cleanNote.startsWith("-") || cleanNote.startsWith(":")) {
+        cleanNote = cleanNote.slice(1).trim();
+      }
+    }
+    extraNote = cleanNote;
+  }
+
+  // If extraNote just repeats the artNo, clear it
+  if (extraNote && cleanNo && extraNote.replace(/\D/g, '') === cleanNo) {
+    extraNote = "";
+  }
+
+  return {
+    cleanNo,
+    artName: artName || (cleanNo ? "창고 품목" : ""),
+    hfb: hfb || (cleanNo ? "기타 HFB" : ""),
+    location,
+    extraNote,
+    hasProduct: !!cleanNo,
+    fullQuestion: rawQuestion
+  };
+};
+
+window.openMfaqModal = function() {
+  window.selectedMfaqProduct = null;
+  const searchInput = document.getElementById("mfaq-product-search-input");
+  if (searchInput) searchInput.value = "";
+  const card = document.getElementById("mfaq-selected-product-card");
+  if (card) card.style.display = "none";
+  const dropdown = document.getElementById("mfaq-product-autocomplete-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+  const qInput = document.getElementById("mfaq-new-question");
+  if (qInput) {
+    qInput.value = "";
+    qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+  }
+  const catSelect = document.getElementById("mfaq-new-category");
+  if (catSelect) {
+    catSelect.value = "제품 질문/요청";
+  }
+  window.onMfaqCategoryChange("제품 질문/요청");
+  
+  const modal = document.getElementById("mfaq-modal");
+  if (modal) modal.classList.add("active");
+
+  setTimeout(() => {
+    if (searchInput) searchInput.focus();
+  }, 100);
+};
+
+window.closeMfaqModal = function() {
+  const modal = document.getElementById("mfaq-modal");
+  if (modal) modal.classList.remove("active");
+  const dropdown = document.getElementById("mfaq-product-autocomplete-dropdown");
+  if (dropdown) dropdown.classList.remove("active");
+};
+
+window.onMfaqCategoryChange = function(category) {
+  const searchSec = document.getElementById("mfaq-product-search-section");
+  const qLabel = document.getElementById("mfaq-question-label");
+  const qInput = document.getElementById("mfaq-new-question");
+
+  if (category === "매장 질문" || category === "일반 질문") {
+    if (qLabel) qLabel.innerHTML = '매장 질문 내용 <span style="color:#ef4444;">*</span>';
+    if (qInput) qInput.placeholder = "매장 운영 관련 질문 내용을 입력하세요";
+    if (searchSec) searchSec.style.display = "none";
+    window.clearMfaqSelectedProduct();
+  } else {
+    // "제품 질문/요청"
+    if (qLabel) qLabel.innerHTML = '상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span>';
+    if (qInput) qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+    if (searchSec) searchSec.style.display = "block";
+  }
+};
+
+window.handleMfaqProductSearch = function(query) {
+  const cleanQuery = (query || "").trim().toLowerCase();
+  const dropdown = document.getElementById("mfaq-product-autocomplete-dropdown");
+  if (!dropdown) return;
+
+  if (!cleanQuery) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+    return;
+  }
+
+  if (typeof masterCatalog === "undefined" || !Array.isArray(masterCatalog)) {
+    dropdown.classList.remove("active");
+    return;
+  }
+
+  const queryDigits = cleanQuery.replace(/\D/g, '');
+  const matches = masterCatalog.filter(item => {
+    const itemArtNo = String(item.artNo || "").toLowerCase();
+    const itemDigits = itemArtNo.replace(/\D/g, '');
+    const itemName = String(item.artName || "").toLowerCase();
+    const itemHfb = String(item.hfb || "").toLowerCase();
+
+    return itemName.includes(cleanQuery) ||
+           (queryDigits.length >= 2 && itemDigits.includes(queryDigits)) ||
+           itemArtNo.includes(cleanQuery) ||
+           itemHfb.includes(cleanQuery);
+  }).slice(0, 15);
+
+  if (matches.length === 0) {
+    dropdown.innerHTML = '<div style="padding:10px 12px; font-size:12px; color:#94a3b8; text-align:center;">일치하는 제품이 없습니다.</div>';
+    dropdown.classList.add("active");
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(item => {
+    let cleanNo = String(item.artNo || "").trim();
+    if (cleanNo.length > 0 && cleanNo.length <= 8) {
+      cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+    }
+    const hfbBadge = item.hfb ? `<span style="background:#0058a3; color:#ffffff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:2px;"><i class="fa-solid fa-tag"></i> ${item.hfb}</span>` : '';
+    const locBadge = item.location && item.location !== '미지정' ? `<span style="background:#f0f9ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bae6fd;">${item.location}</span>` : '';
+
+    return `
+      <div class="autocomplete-item" onclick="selectMfaqProduct('${cleanNo}')" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; background:#ffffff;">
+        <div style="flex-shrink:0;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, item.artName, 40) : ''}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:2px;">
+            ${hfbBadge}
+            <span style="font-family:monospace; font-size:12px; font-weight:900; color:#0058a3;">${cleanNo}</span>
+            ${locBadge}
+          </div>
+          <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:#eff6ff; border:1px solid #bfdbfe; color:#0058a3; flex-shrink:0;">
+          <i class="fa-solid fa-check"></i>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  dropdown.classList.add("active");
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+window.selectMfaqProduct = function(artNo) {
+  let cleanNo = String(artNo || "").trim();
+  if (cleanNo.length > 0 && cleanNo.length <= 8) {
+    cleanNo = cleanNo.replace(/\D/g, '').padStart(8, '0');
+  }
+
+  const matched = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog))
+    ? masterCatalog.find(m => String(m.artNo || m.artno || "").replace(/\D/g, '') === cleanNo)
+    : null;
+
+  const artName = matched ? (matched.artName || matched.artname || "") : (typeof masterCatalogMap !== "undefined" ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
+  const hfb = matched ? (matched.hfb || "기타 HFB") : "기타 HFB";
+  const location = matched ? (matched.location || "") : "";
+
+  window.selectedMfaqProduct = {
+    artNo: cleanNo,
+    artName: artName,
+    hfb: hfb,
+    location: location
+  };
+
+  const dropdown = document.getElementById("mfaq-product-autocomplete-dropdown");
+  if (dropdown) {
+    dropdown.classList.remove("active");
+    dropdown.innerHTML = "";
+  }
+
+  const searchInput = document.getElementById("mfaq-product-search-input");
+  if (searchInput) searchInput.value = `${cleanNo} (${artName})`;
+
+  const card = document.getElementById("mfaq-selected-product-card");
+  const thumbDiv = document.getElementById("mfaq-selected-thumb");
+  const hfbText = document.getElementById("mfaq-selected-hfb-text");
+  const artNoSpan = document.getElementById("mfaq-selected-artno");
+  const locSpan = document.getElementById("mfaq-selected-location");
+  const nameDiv = document.getElementById("mfaq-selected-artname");
+
+  if (card && thumbDiv && hfbText && artNoSpan && nameDiv) {
+    thumbDiv.innerHTML = typeof getProductThumbHtml === 'function' ? getProductThumbHtml(cleanNo, artName, 44) : '';
+    hfbText.textContent = hfb;
+    artNoSpan.textContent = cleanNo;
+    nameDiv.textContent = artName;
+    if (locSpan) {
+      if (location && location !== '미지정') {
+        locSpan.textContent = location;
+        locSpan.style.display = "inline-block";
+      } else {
+        locSpan.style.display = "none";
+      }
+    }
+    card.style.display = "block";
+  }
+
+  const qInput = document.getElementById("mfaq-new-question");
+  if (qInput && !qInput.value) {
+    qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+  }
+};
+
+window.clearMfaqSelectedProduct = function() {
+  window.selectedMfaqProduct = null;
+  const searchInput = document.getElementById("mfaq-product-search-input");
+  if (searchInput) searchInput.value = "";
+  const card = document.getElementById("mfaq-selected-product-card");
+  if (card) card.style.display = "none";
+  const qInput = document.getElementById("mfaq-new-question");
+  if (qInput) qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+};
+
+window.formatMfaqTime = function(timeStr) {
+  if (!timeStr) return "-";
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return timeStr;
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hours}:${mins}`;
+};
+
+window.toggleMfaqHistory = function(id) {
+  const box = document.getElementById(`mfaq-history-box-${id}`);
+  const chevron = document.getElementById(`mfaq-history-chevron-${id}`);
+  if (!box) return;
+  if (box.style.display === "none" || !box.style.display) {
+    box.style.display = "block";
+    if (chevron) chevron.style.transform = "rotate(180deg)";
+  } else {
+    box.style.display = "none";
+    if (chevron) chevron.style.transform = "rotate(0deg)";
+  }
+};
+
+window.handleAddMfaqSubmit = async function(event) {
+  event.preventDefault();
+  const category = document.getElementById("mfaq-new-category") ? document.getElementById("mfaq-new-category").value : "제품 질문/요청";
+  const extraText = document.getElementById("mfaq-new-question") ? document.getElementById("mfaq-new-question").value.trim() : "";
+  const activeUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'system';
+  const now = new Date().toISOString();
+
+  let artNo = "";
+  let artName = "";
+  let hfb = "";
+  let questionFormatted = "";
+
+  if (window.selectedMfaqProduct) {
+    artNo = window.selectedMfaqProduct.artNo;
+    artName = window.selectedMfaqProduct.artName;
+    hfb = window.selectedMfaqProduct.hfb;
+    questionFormatted = extraText ? `[${artNo}] ${artName} - ${extraText}` : `[${artNo}] ${artName}`;
+  } else if (extraText) {
+    // Try to detect article number from typed text
+    const numMatch = extraText.match(/\b(\d{8})\b/);
+    if (numMatch && typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
+      const matched = masterCatalog.find(m => String(m.artNo || "").replace(/\D/g, '') === numMatch[1]);
+      if (matched) {
+        artNo = matched.artNo;
+        artName = matched.artName;
+        hfb = matched.hfb || "기타 HFB";
+        const note = extraText.replace(numMatch[0], '').trim();
+        questionFormatted = note ? `[${artNo}] ${artName} - ${note}` : `[${artNo}] ${artName}`;
+      } else {
+        questionFormatted = extraText;
+      }
+    } else {
+      questionFormatted = extraText;
+    }
+  } else {
+    showToast(category === "매장 질문" ? "매장 질문 내용을 입력해 주세요!" : "제품을 선택하거나 상세 내용을 입력해 주세요!", "warning");
+    return;
+  }
+
+  const existing = mfaqLogs.find(l => l.question === questionFormatted && l.category === category);
+  if (existing) {
+    existing.count = (existing.count || 0) + 1;
+    existing.lastUpdated = now;
+    if (artNo && !existing.artNo) existing.artNo = artNo;
+    if (artName && !existing.artName) existing.artName = artName;
+    if (hfb && !existing.hfb) existing.hfb = hfb;
+    if (!existing.history) {
+      existing.history = [{ user: existing.createdBy || 'system', time: existing.createdAt || now, type: 'create', label: '최초 등록' }];
+    }
+    existing.history.push({
+      user: activeUser,
+      time: now,
+      type: 'tap',
+      label: `+1 탭 (${existing.count}번째)`
+    });
+
+    showToast(`이미 등록된 항목입니다. ${activeUser}님의 탭으로 질문 횟수가 +1 (${existing.count}건) 증가했습니다!`, "success");
+
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      try {
+        await supabaseClient
+          .from("mfaq_logs")
+          .update({ count: existing.count, last_updated: existing.lastUpdated })
+          .eq("id", existing.id);
+      } catch (e) {
+        console.warn("MFAQ update Supabase error:", e);
+      }
+    }
+  } else {
+    const newLog = {
+      id: "mfaq_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+      category: category,
+      question: questionFormatted,
+      artNo: artNo,
+      artName: artName,
+      hfb: hfb,
+      count: 1,
+      createdBy: activeUser,
+      history: [
+        { user: activeUser, time: now, type: 'create', label: '최초 등록' }
+      ],
+      createdAt: now,
+      lastUpdated: now
+    };
+    mfaqLogs.unshift(newLog);
+    showToast(`새 MFAQ 항목이 등록되었습니다! (등록자: ${activeUser})`, "success");
+
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      try {
+        await supabaseClient
+          .from("mfaq_logs")
+          .insert([{
+            id: newLog.id,
+            category: newLog.category,
+            question: newLog.question,
+            count: newLog.count,
+            created_at: newLog.createdAt,
+            last_updated: newLog.lastUpdated
+          }]);
+      } catch (e) {
+        console.warn("MFAQ insert Supabase error:", e);
+      }
+    }
+  }
+
+  saveMfaqLogs();
+  updateMfaqBadge();
+  closeMfaqModal();
+  renderMfaq();
+};
+
+window.renderMfaq = function() {
+  const container = document.getElementById("mfaq-list-container");
+  if (!container) return;
+
+  const filterCategory = document.getElementById("mfaq-filter-category")?.value || "all";
+  const searchQuery = (document.getElementById("mfaq-search")?.value || "").trim().toLowerCase();
+
+  let filtered = (mfaqLogs || []).map(log => {
+    const parsed = window.parseMfaqItem(log);
+    let history = log.history || log.tapHistory || [];
+    if (!history || history.length === 0) {
+      history = [{
+        user: log.createdBy || log.user || "system",
+        time: log.createdAt || log.lastUpdated || new Date().toISOString(),
+        type: "create",
+        label: "최초 등록"
+      }];
+    }
+    return { ...log, _parsed: parsed, _history: history };
+  });
+
+  if (filterCategory !== "all") {
+    if (filterCategory === "제품 질문/요청") {
+      filtered = filtered.filter(item => 
+        item.category === "제품 질문/요청" || item.category === "제품 요청" || item.category === "제품 질문" || item.category === "제품 문의"
+      );
+    } else if (filterCategory === "매장 질문") {
+      filtered = filtered.filter(item => 
+        item.category === "매장 질문" || item.category === "일반 질문"
+      );
+    } else {
+      filtered = filtered.filter(item => item.category === filterCategory);
+    }
+  }
+
+  if (searchQuery) {
+    const queryDigits = searchQuery.replace(/\D/g, '');
+    filtered = filtered.filter(item => {
+      const p = item._parsed;
+      const qText = String(item.question || "").toLowerCase();
+      const pName = String(p.artName || "").toLowerCase();
+      const pHfb = String(p.hfb || "").toLowerCase();
+      const pLoc = String(p.location || "").toLowerCase();
+      const pArtNo = String(p.cleanNo || "").toLowerCase();
+      const creator = String(item.createdBy || "").toLowerCase();
+      const historyUsers = item._history.map(h => String(h.user || "").toLowerCase()).join(" ");
+
+      return qText.includes(searchQuery) ||
+             pName.includes(searchQuery) ||
+             pHfb.includes(searchQuery) ||
+             pLoc.includes(searchQuery) ||
+             creator.includes(searchQuery) ||
+             historyUsers.includes(searchQuery) ||
+             (queryDigits.length >= 2 && pArtNo.includes(queryDigits)) ||
+             pArtNo.includes(searchQuery);
+    });
+  }
+
+  filtered.sort((a, b) => {
+    if ((b.count || 1) !== (a.count || 1)) return (b.count || 1) - (a.count || 1);
+    return new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:45px 20px; background:#ffffff; border-radius:14px; border:1px dashed #cbd5e1; margin-top:10px;">
+        <i class="fa-solid fa-clipboard-question" style="font-size:32px; color:#cbd5e1; margin-bottom:10px; display:block;"></i>
+        <h4 style="font-size:14px; font-weight:800; color:#0f172a; margin:0 0 4px 0;">등록된 MFAQ 항목이 없습니다.</h4>
+        <p style="font-size:12px; color:#64748b; margin:0;">${searchQuery ? '검색어에 일치하는 질문이나 제품, 작성자가 없습니다.' : '하단의 [+ 새 질문 / 제품 요청 등록] 버튼을 눌러 첫 항목을 등록해보세요!'}</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `<div class="mfaq-cards-list" style="display:flex; flex-direction:column; gap:10px;">`;
+
+  filtered.forEach((item, idx) => {
+    const p = item._parsed;
+    const historyList = item._history || [];
+    const creatorUser = item.createdBy || (historyList[0] ? historyList[0].user : "system");
+    
+    // Find last tap action
+    const tapActions = historyList.filter(h => h.type === 'tap');
+    const lastTap = tapActions.length > 0 ? tapActions[tapActions.length - 1] : null;
+
+    const timeAgo = Math.floor((new Date() - new Date(item.lastUpdated || item.createdAt || Date.now())) / 60000);
+    const timeStr = timeAgo < 1 ? '방금 전' : timeAgo < 60 ? `${timeAgo}분 전` : timeAgo < 1440 ? `${Math.floor(timeAgo/60)}시간 전` : `${Math.floor(timeAgo/1440)}일 전`;
+
+    let catBg = "#f1f5f9";
+    let catColor = "#475569";
+    let catBorder = "#cbd5e1";
+    let displayCategory = item.category || "매장 질문";
+
+    if (item.category === "제품 질문/요청" || item.category === "제품 요청" || item.category === "제품 질문" || item.category === "제품 문의") {
+      catBg = "#eff6ff"; catColor = "#1d4ed8"; catBorder = "#bfdbfe";
+      displayCategory = "제품 질문/요청";
+    } else if (item.category === "매장 질문" || item.category === "일반 질문") {
+      catBg = "#fef3c7"; catColor = "#b45309"; catBorder = "#fde68a";
+      displayCategory = "매장 질문";
+    }
+
+    html += `
+      <div class="stock-card-item mfaq-card-item" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.03); display:flex; gap:10px; align-items:flex-start;">
+        <!-- Left: Product Image (46px) or Store Icon -->
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0;">
+          ${p.hasProduct 
+            ? (typeof getProductThumbHtml === 'function' ? getProductThumbHtml(p.cleanNo, p.artName, 46) : '')
+            : `<div style="width:46px; height:46px; border-radius:8px; background:#eff6ff; color:#0058a3; display:flex; align-items:center; justify-content:center; font-size:20px; border:1px solid #bfdbfe;"><i class="fa-solid fa-store"></i></div>`
+          }
+        </div>
+
+        <!-- Center & Right -->
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <!-- Top Row: Badges & Creator Info -->
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+              <span onclick="openMfaqCategoryChangeModal('${item.id}', event)" style="background:${catBg}; color:${catColor}; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:4px; border:1px solid ${catBorder}; cursor:pointer; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;" title="클릭하여 카테고리 변경">
+                ${displayCategory} <i class="fa-solid fa-caret-down" style="font-size:8px; opacity:0.8;"></i>
+              </span>
+              ${p.hasProduct && p.hfb ? `
+                <span style="background:#0058a3; color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 5px; border-radius:4px;">
+                  ${p.hfb}
+                </span>
+              ` : ''}
+              ${p.hasProduct && p.cleanNo ? `
+                <span style="font-size:11.5px; font-weight:bold; color:#64748b; font-family:monospace;">${p.cleanNo}</span>
+              ` : ''}
+            </div>
+            <span style="font-size:11px; color:#64748b; font-weight:700; white-space:nowrap;">
+              ${creatorUser} · ${timeStr}
+            </span>
+          </div>
+
+          <!-- Title / Main Text -->
+          <div style="font-size:13.5px; font-weight:900; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">
+            ${p.hasProduct ? p.artName : item.question}
+          </div>
+          ${p.hasProduct && p.extraNote ? `
+            <div style="font-size:12px; color:#475569; margin-top:1px; line-height:1.25;">
+              <i class="fa-regular fa-comment-dots" style="color:#0058a3; font-size:10px;"></i> ${p.extraNote}
+            </div>
+          ` : ''}
+
+          <!-- Bottom Row: Controls with dashed top border -->
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed #f1f5f9;">
+            <!-- Left: History Button & Last Tap -->
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+              <button type="button" onclick="toggleMfaqHistory('${item.id}')" style="background:#f8fafc; border:1px solid #cbd5e1; color:#334155; font-size:11px; font-weight:800; padding:0 8px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; height:28px;" title="탭 및 등록 내역 보기">
+                <i class="fa-solid fa-clock-rotate-left" style="color:#0058a3;"></i> 히스토리 ${historyList.length}건
+                <i id="mfaq-history-chevron-${item.id}" class="fa-solid fa-caret-down" style="font-size:9px; transition:transform 0.2s ease;"></i>
+              </button>
+              ${lastTap ? `
+                <span style="font-size:11px; color:#16a34a; font-weight:800; white-space:nowrap;">
+                  최근: +${lastTap.user}
+                </span>
+              ` : ''}
+            </div>
+
+            <!-- Right: +1 Tap Button & Edit & Delete -->
+            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+              <button type="button" onclick="incrementMfaqCount('${item.id}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;" title="탭하여 건수 +1">
+                <i class="fa-solid fa-bolt"></i> +1 탭 <span style="opacity:0.6;">|</span> <strong style="font-size:13px; font-weight:900;">${item.count || 1}</strong>
+              </button>
+              <button type="button" onclick="openMfaqEditModal('${item.id}')" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:12px; cursor:pointer; color:#475569; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="수정">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+              <button type="button" onclick="deleteMfaqItem('${item.id}')" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:12px; cursor:pointer; color:#94a3b8; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onmouseover="this.style.color='#ef4444'; this.style.borderColor='#fca5a5'; this.style.background='#fef2f2';" onmouseout="this.style.color='#94a3b8'; this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" title="삭제">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Collapsible Timeline Box -->
+          <div id="mfaq-history-box-${item.id}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-size:11px;">
+            <div style="font-weight:900; color:#0f172a; margin-bottom:6px; display:flex; justify-content:space-between; font-size:11px;">
+              <span><i class="fa-solid fa-timeline" style="color:#0058a3;"></i> 질문 등록 및 +1 탭 상세 히스토리</span>
+              <span style="color:#64748b;">총 ${historyList.length}건</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;">
+              ${historyList.map(h => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; background:#ffffff; border:1px solid #e2e8f0; border-radius:5px;">
+                  <span style="font-weight:700; color:#0f172a;">${h.type === 'create' ? '📝 최초 등록' : '👆 +1 탭'}: ${h.user || 'system'}</span>
+                  <span style="color:#94a3b8; font-size:10px; font-family:monospace;">${window.formatMfaqTime(h.time)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+};
+
+window.incrementMfaqCount = async function(id) {
+  const log = mfaqLogs.find(l => l.id === id);
+  if (log) {
+    const activeUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'system';
+    const now = new Date().toISOString();
+
+    log.count = (log.count || 1) + 1;
+    log.lastUpdated = now;
+
+    if (!log.history) {
+      log.history = [{ user: log.createdBy || 'system', time: log.createdAt || now, type: 'create', label: '최초 등록' }];
+    }
+    log.history.push({
+      user: activeUser,
+      time: now,
+      type: 'tap',
+      label: `+1 탭 (${log.count}번째)`
+    });
+
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      try {
+        await supabaseClient
+          .from("mfaq_logs")
+          .update({ count: log.count, last_updated: log.lastUpdated })
+          .eq("id", id);
+      } catch (e) {
+        console.warn("MFAQ update count error:", e);
+      }
+    }
+
+    saveMfaqLogs();
+    renderMfaq();
+    showToast(`질문 건수가 +1 증가했습니다! (탭 작업자: ${activeUser}, 현재 ${log.count}건)`, "success");
+  }
+};
+
+window.deleteMfaqItem = async function(id) {
+  if (!confirm("이 MFAQ 항목을 삭제하시겠습니까?")) return;
+  mfaqLogs = mfaqLogs.filter(l => l.id !== id);
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      await supabaseClient.from("mfaq_logs").delete().eq("id", id);
+    } catch (e) {
+      console.warn("Delete MFAQ error:", e);
+    }
+  }
+  saveMfaqLogs();
+  updateMfaqBadge();
+  renderMfaq();
+  showToast("MFAQ 항목이 삭제되었습니다.", "success");
+};
+
+window.exportMfaqToExcel = function() {
+  if (typeof XLSX === "undefined") {
+    showToast("엑셀 라이브러리를 불러오지 못했습니다.", "danger");
+    return;
+  }
+  if (!mfaqLogs || mfaqLogs.length === 0) {
+    showToast("추출할 MFAQ 데이터가 없습니다.", "danger");
+    return;
+  }
+  const exportData = mfaqLogs.map(log => {
+    const p = window.parseMfaqItem(log);
+    const history = log.history || log.tapHistory || [];
+    const creator = log.createdBy || (history[0] ? history[0].user : "system");
+    const lastTap = history.filter(h => h.type === 'tap').pop();
+    const historyText = history.map(h => `${h.user || 'system'}(${h.type === 'create' ? '등록' : '+1탭'} ${window.formatMfaqTime(h.time)})`).join(" > ");
+
+    let cat = log.category || "매장 질문";
+    if (cat === "제품 요청" || cat === "제품 질문" || cat === "제품 문의") cat = "제품 질문/요청";
+    else if (cat === "일반 질문") cat = "매장 질문";
+
+    return {
+      "카테고리": cat,
+      "아티클 번호": p.cleanNo || "-",
+      "제품명": p.artName || "-",
+      "HFB (부서/구역)": p.hfb || "-",
+      "보관 구역": p.location || "-",
+      "질문/요청 상세": p.extraNote || log.question || "-",
+      "전체 질문 내용": log.question,
+      "누적 건수": log.count || 1,
+      "등록자 (작성자)": creator,
+      "최근 탭한 사람": lastTap ? `${lastTap.user} (${window.formatMfaqTime(lastTap.time)})` : "-",
+      "전체 탭 히스토리": historyText || "-",
+      "등록 일시": log.createdAt || "-",
+      "마지막 업데이트": log.lastUpdated || "-"
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Songdo_MFAQ");
+  XLSX.writeFile(wb, `Songdo_MFAQ_${new Date().toISOString().split("T")[0]}.xlsx`);
+  showToast("MFAQ 엑셀 파일이 성공적으로 다운로드되었습니다. 📊", "success");
+};
+
 
 
 
