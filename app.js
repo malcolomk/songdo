@@ -1009,6 +1009,9 @@ function updateTypeToggle() {
   if (artNoInput && typeof updateRegLocationGuideBanner === 'function') {
     updateRegLocationGuideBanner(artNoInput.value.trim(), undefined, selectedType);
   }
+  if (typeof window.updateRegStockPreview === 'function') {
+    window.updateRegStockPreview();
+  }
 }
 
 // --- LIVE AUTOCOMPLETE SEARCH LOGIC ---
@@ -1185,6 +1188,9 @@ function onArtNoInput(artNoValue) {
   if (typeof updateRegLocationGuideBanner === 'function') {
     updateRegLocationGuideBanner(targetArtNo);
   }
+  if (typeof window.updateRegStockPreview === 'function') {
+    window.updateRegStockPreview();
+  }
 }
 
 function getPendingPickQty(artNo) {
@@ -1303,7 +1309,7 @@ let regCartList = [];
 let pendingRegUnregistered = null;
 
 // --- REG CART LOGIC ---
-function handleAddRegCart(bypassUnregisteredCheck = false) {
+async function handleAddRegCart(bypassUnregisteredCheck = false, bypassNegativeStockCheck = false) {
   if (typeof isViewerUser !== 'undefined' && isViewerUser) {
     showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
     return;
@@ -1347,6 +1353,12 @@ function handleAddRegCart(bypassUnregisteredCheck = false) {
     return;
   }
 
+  // Negative stock warning check for outbound (출고)
+  if (!bypassNegativeStockCheck && type === "출고" && typeof window.checkNegativeStock === "function") {
+    const ok = await window.checkNegativeStock(finalArtNo, artName || (product ? product.artName : ""), qty);
+    if (!ok) return;
+  }
+
   const resolvedName = (product && !product.isUnregistered && product.artName)
     ? product.artName
     : (artName || "기타 품목");
@@ -1362,8 +1374,9 @@ function handleAddRegCart(bypassUnregisteredCheck = false) {
   if (typeof updateRegLocationGuideBanner === 'function') updateRegLocationGuideBanner("");
   document.getElementById("reg-artno").focus();
 }
+window.handleAddRegCart = handleAddRegCart;
 
-function handleSingleRegSave() {
+async function handleSingleRegSave() {
   if (typeof isViewerUser !== 'undefined' && isViewerUser) {
     showToast("Viewer(읽기 전용) 계정은 입출고를 등록할 수 없습니다.", "warning");
     return;
@@ -1405,10 +1418,17 @@ function handleSingleRegSave() {
     openRegUnregisteredModal(finalArtNo, artName, qty, type, date, true);
     return;
   }
+
+  // Negative stock warning check for outbound (출고)
+  if (type === "출고" && typeof window.checkNegativeStock === "function") {
+    const ok = await window.checkNegativeStock(finalArtNo, artName || (product ? product.artName : ""), qty);
+    if (!ok) return;
+  }
   
-  handleAddRegCart(true);
+  await handleAddRegCart(true, true);
   processRegCart();
 }
+window.handleSingleRegSave = handleSingleRegSave;
 
 // Unregistered Article Modal Handlers for Register Tab
 window.openRegUnregisteredModal = function(artNo, currentArtName, qty, type, date, isSingleSave = false) {
@@ -1433,11 +1453,17 @@ window.closeRegUnregisteredModal = function() {
   }
 };
 
-window.confirmAddRegUnregisteredProduct = function() {
+window.confirmAddRegUnregisteredProduct = async function() {
   if (!pendingRegUnregistered) return;
   const { artNo, qty, type, date, isSingleSave } = pendingRegUnregistered;
   const customNameInput = document.getElementById("reg-unreg-modal-artname");
   const customName = (customNameInput && customNameInput.value.trim()) ? customNameInput.value.trim() : "미등록 품목";
+
+  // Negative stock warning check if type is 출고
+  if (type === "출고" && typeof window.checkNegativeStock === "function") {
+    const ok = await window.checkNegativeStock(artNo, customName, qty);
+    if (!ok) return;
+  }
 
   regCartList.push({ date, type, artNo, artName: customName, qty });
   renderRegCart();

@@ -2773,6 +2773,11 @@ window.directPickFromStock = async function(artNo, artName, pickQty) {
   const name = artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목";
   const qty = parseInt(pickQty, 10) || 1;
 
+  if (typeof window.checkNegativeStock === "function") {
+    const ok = await window.checkNegativeStock(cleanNo, name, qty);
+    if (!ok) return;
+  }
+
   if (!confirm(`'${name}' ${qty}개를 [${window.currentPicklistZone || '창고'}] 구역에서 바로 챙기셨습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료됩니다)`)) {
     return;
   }
@@ -6496,6 +6501,237 @@ window.exportMfaqToExcel = function() {
   XLSX.writeFile(wb, `Songdo_MFAQ_${new Date().toISOString().split("T")[0]}.xlsx`);
   showToast("MFAQ 엑셀 파일이 성공적으로 다운로드되었습니다. 📊", "success");
 };
+
+// ==========================================================================
+// --- Negative Stock Warning Engine (입출고 등록 시 마이너스 발생 경고 모달 시스템) ---
+// ==========================================================================
+
+let pendingNegativeStockResolver = null;
+
+window.getArtCurrentStock = function(artNo) {
+  if (!artNo) return 0;
+  let cleanNo = String(artNo).trim();
+  const digitsOnly = cleanNo.replace(/\D/g, '');
+  const paddedNo = (digitsOnly.length > 0 && digitsOnly.length <= 8) ? digitsOnly.padStart(8, '0') : cleanNo;
+
+  let currentStock = 0;
+  let found = false;
+
+  if (typeof buildStockMap === 'function') {
+    const stockMap = buildStockMap();
+    let entry = stockMap.get(cleanNo) || stockMap.get(paddedNo) || stockMap.get(digitsOnly);
+    if (!entry && digitsOnly) {
+      for (let [key, val] of stockMap.entries()) {
+        const kDigits = String(key).replace(/\D/g, '');
+        if (kDigits && kDigits === digitsOnly) {
+          entry = val;
+          break;
+        }
+      }
+    }
+    if (entry && typeof entry.currentStock === 'number') {
+      currentStock = entry.currentStock;
+      found = true;
+    }
+  }
+
+  if (!found && typeof getItemStock === 'function') {
+    currentStock = getItemStock(cleanNo) || getItemStock(paddedNo) || getItemStock(digitsOnly) || 0;
+  }
+
+  // Deduct/Add pending quantities from regCartList if any
+  if (typeof regCartList !== 'undefined' && Array.isArray(regCartList)) {
+    regCartList.forEach(item => {
+      const itemClean = String(item.artNo || "").trim();
+      const itemDigits = itemClean.replace(/\D/g, '');
+      const itemPadded = (itemDigits.length > 0 && itemDigits.length <= 8) ? itemDigits.padStart(8, '0') : itemClean;
+      if (itemClean === cleanNo || itemClean === paddedNo || (itemDigits && itemDigits === digitsOnly) || itemPadded === paddedNo) {
+        if (item.type === '출고') {
+          currentStock -= (Number(item.qty) || 0);
+        } else if (item.type === '입고') {
+          currentStock += (Number(item.qty) || 0);
+        }
+      }
+    });
+  }
+
+  return currentStock;
+};
+
+window.closeNegativeStockModal = function() {
+  const modal = document.getElementById("negative-stock-modal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.classList.remove("active");
+  }
+  if (pendingNegativeStockResolver) {
+    pendingNegativeStockResolver(false);
+    pendingNegativeStockResolver = null;
+  }
+};
+
+window.checkNegativeStock = function(artNo, artName, outQty) {
+  return new Promise((resolve) => {
+    const qty = parseInt(outQty, 10) || 0;
+    if (qty <= 0) {
+      resolve(true);
+      return;
+    }
+
+    const currentStock = window.getArtCurrentStock(artNo);
+    const afterStock = currentStock - qty;
+
+    // Only warn if projected stock is negative (< 0)
+    if (afterStock >= 0) {
+      resolve(true);
+      return;
+    }
+
+    // Play warning sound & haptic
+    if (typeof playWarningBeep === "function") playWarningBeep();
+    if (typeof playWarningHaptic === "function") playWarningHaptic();
+
+    // Format article number & name
+    let cleanNo = String(artNo || "").trim();
+    const digitsOnly = cleanNo.replace(/\D/g, '');
+    if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+      cleanNo = digitsOnly.padStart(8, '0');
+    }
+    const displayName = artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "아티클 품목";
+
+    const modal = document.getElementById("negative-stock-modal");
+    const thumbEl = document.getElementById("neg-warn-thumb");
+    const artNoEl = document.getElementById("neg-warn-artno");
+    const artNameEl = document.getElementById("neg-warn-artname");
+    const currentEl = document.getElementById("neg-warn-current");
+    const qtyEl = document.getElementById("neg-warn-qty");
+    const afterEl = document.getElementById("neg-warn-after");
+    const cancelBtn = document.getElementById("btn-neg-warn-cancel");
+    const confirmBtn = document.getElementById("btn-neg-warn-confirm");
+
+    if (artNoEl) artNoEl.textContent = cleanNo;
+    if (artNameEl) artNameEl.textContent = displayName;
+    if (currentEl) currentEl.textContent = `${currentStock}개`;
+    if (qtyEl) qtyEl.textContent = `-${qty}개`;
+    if (afterEl) afterEl.textContent = `${afterStock}개 (마이너스)`;
+
+    if (thumbEl) {
+      if (typeof getProductThumbHtml === "function") {
+        thumbEl.innerHTML = getProductThumbHtml(cleanNo, displayName, 44);
+      } else {
+        thumbEl.innerHTML = `<i class="fa-solid fa-box" style="font-size:24px; color:#cbd5e1;"></i>`;
+      }
+    }
+
+    if (typeof loadProductThumbnails === "function") {
+      setTimeout(() => loadProductThumbnails(), 50);
+    }
+
+    pendingNegativeStockResolver = resolve;
+
+    if (cancelBtn) {
+      cancelBtn.onclick = function() {
+        window.closeNegativeStockModal();
+        const qtyInput = document.getElementById("reg-qty");
+        if (qtyInput) {
+          qtyInput.focus();
+          qtyInput.select();
+        }
+      };
+    }
+
+    if (confirmBtn) {
+      confirmBtn.onclick = function() {
+        if (modal) {
+          modal.style.display = "none";
+          modal.classList.remove("active");
+        }
+        if (pendingNegativeStockResolver) {
+          pendingNegativeStockResolver(true);
+          pendingNegativeStockResolver = null;
+        }
+      };
+    }
+
+    if (modal) {
+      modal.style.display = "flex";
+      modal.classList.add("active");
+    }
+  });
+};
+
+window.updateRegStockPreview = function() {
+  const stockPreview = document.getElementById("reg-current-stock");
+  if (!stockPreview) return;
+  const artNoInput = document.getElementById("reg-artno");
+  const rawArtNo = artNoInput ? artNoInput.value.trim() : "";
+  if (!rawArtNo) {
+    stockPreview.textContent = "- 개";
+    stockPreview.style.color = "#64748b";
+    return;
+  }
+
+  const currentStock = window.getArtCurrentStock(rawArtNo);
+  const typeOption = document.querySelector('input[name="reg-type"]:checked');
+  const type = typeOption ? typeOption.value : "입고";
+  const qtyInput = document.getElementById("reg-qty");
+  const qty = qtyInput ? (parseInt(qtyInput.value, 10) || 0) : 0;
+
+  if (qty > 0) {
+    if (type === "출고") {
+      const afterStock = currentStock - qty;
+      if (afterStock < 0) {
+        stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#e11d48; font-weight:900;">→ ${afterStock}개 ⚠️</span>`;
+        stockPreview.style.color = "#e11d48";
+      } else {
+        stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#059669; font-weight:900;">→ ${afterStock}개</span>`;
+        stockPreview.style.color = "#059669";
+      }
+    } else {
+      const afterStock = currentStock + qty;
+      stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#0058a3; font-weight:900;">→ ${afterStock}개</span>`;
+      stockPreview.style.color = "#0058a3";
+    }
+  } else {
+    stockPreview.textContent = `${currentStock} 개`;
+    stockPreview.style.color = currentStock > 0 ? "#059669" : (currentStock < 0 ? "#e11d48" : "#64748b");
+  }
+};
+
+function initRegStockPreviewListeners() {
+  const qtyInput = document.getElementById("reg-qty");
+  if (qtyInput && !qtyInput.dataset.previewBound) {
+    qtyInput.dataset.previewBound = "true";
+    qtyInput.addEventListener("input", () => {
+      if (typeof window.updateRegStockPreview === "function") window.updateRegStockPreview();
+    });
+  }
+  const typeRadios = document.querySelectorAll('input[name="reg-type"]');
+  typeRadios.forEach(radio => {
+    if (!radio.dataset.previewBound) {
+      radio.dataset.previewBound = "true";
+      radio.addEventListener("change", () => {
+        if (typeof window.updateRegStockPreview === "function") window.updateRegStockPreview();
+      });
+    }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const modal = document.getElementById("negative-stock-modal");
+      if (modal && (modal.classList.contains("active") || modal.style.display === "flex")) {
+        window.closeNegativeStockModal();
+      }
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initRegStockPreviewListeners);
+} else {
+  initRegStockPreviewListeners();
+}
+
 
 
 

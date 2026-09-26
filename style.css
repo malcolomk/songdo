@@ -3237,5 +3237,17 @@ body { overflow-behavior-y: none; }
   transform: translateY(1px);
 }
 
+/* Negative Stock Warning Modal */
+#negative-stock-modal {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+#negative-stock-modal.active {
+  display: flex !important;
+}
+
 
 
