@@ -1972,7 +1972,7 @@ function populateStockHFBDropdown() {
 function filterByStockStatus(status) {
   currentStockStatusFilter = status;
   
-  const statusChips = ["all", "good", "low", "out"];
+  const statusChips = ["all", "good", "low", "out", "negative"];
   statusChips.forEach(st => {
     const chip = document.getElementById(`chip-status-${st}`);
     if (chip) {
@@ -2046,7 +2046,9 @@ function renderStockLookup() {
   } else if (currentStockStatusFilter === "low") {
     filteredList = filteredList.filter(item => item.currentStock > 0 && item.currentStock <= 5);
   } else if (currentStockStatusFilter === "out") {
-    filteredList = filteredList.filter(item => item.currentStock <= 0);
+    filteredList = filteredList.filter(item => item.currentStock === 0);
+  } else if (currentStockStatusFilter === "negative") {
+    filteredList = filteredList.filter(item => item.currentStock < 0);
   }
 
   if (currentStockHFBFilter && currentStockHFBFilter !== "ALL") {
@@ -2057,6 +2059,13 @@ function renderStockLookup() {
   filteredList.sort((a, b) => {
     if (currentStockSort === "stock-desc") return b.currentStock - a.currentStock;
     if (currentStockSort === "stock-asc") return a.currentStock - b.currentStock;
+    if (currentStockSort === "negative-first") {
+      const aNeg = a.currentStock < 0;
+      const bNeg = b.currentStock < 0;
+      if (aNeg && !bNeg) return -1;
+      if (!aNeg && bNeg) return 1;
+      return a.currentStock - b.currentStock;
+    }
     if (currentStockSort === "name-asc") return a.artName.localeCompare(b.artName, "ko");
     if (currentStockSort === "artno-asc") return a.artNo.localeCompare(b.artNo);
     return 0;
@@ -2081,32 +2090,72 @@ function renderStockLookup() {
   const maxStockRef = Math.max(...stockList.map(item => item.currentStock), 10);
 
   let html = visibleList.map(item => {
-    const isOut = item.currentStock <= 0;
+    const isNegative = item.currentStock < 0;
+    const isOut = item.currentStock === 0;
     const isLow = item.currentStock > 0 && item.currentStock <= 5;
     
-    const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-    const statusText = isOut ? "품절" : isLow ? "부족" : "안전";
-    const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
+    const cardClass = isNegative ? "simple-stock-card negative" : isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
+    const statusText = isNegative ? "마이너스" : isOut ? "품절" : isLow ? "부족" : "안전";
+    const statusClass = isNegative ? "status-negative" : isOut ? "status-out" : isLow ? "status-low" : "status-good";
+
+    const updateInfo = (typeof window.getProductLatestUpdateTime === "function")
+      ? window.getProductLatestUpdateTime(item.artNo)
+      : { text: "최근 기록 없음", exactTime: "-", relative: "", action: "", user: "" };
 
     return `
-      <div class="${cardClass}">
-        <div class="ssc-left">
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <span class="ssc-artno">${item.artNo}</span>
-            <div class="ssc-quick-btns">
-              <button type="button" class="btn-sm btn-quick-in" onclick="quickActionRegister('${item.artNo}', '입고')">입고</button>
-              <button type="button" class="btn-sm btn-quick-out" onclick="quickActionRegister('${item.artNo}', '출고')">출고</button>
-              <button type="button" class="btn-sm btn-quick-order" onclick="quickActionOrder('${item.artNo}')">오더</button>
+      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px; border-radius:10px; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0;">
+          <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="if(typeof updateBulkSelection==='function') updateBulkSelection()" style="width:16px; height:16px; accent-color:#0058a3; cursor:pointer;">
+          ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 44) : ''}
+        </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              ${item.hfb ? `<span style="background:#eff6ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${item.hfb}</span>` : ''}
+              <span class="ssc-artno" style="font-size:12px; font-weight:800; color:#334155; font-family:monospace;">${item.artNo}</span>
+            </div>
+            <span class="ssc-status ${statusClass}" style="font-size:10px; padding:1.5px 6px; border-radius:10px; font-weight:800; ${isNegative ? 'background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff;' : ''}">${statusText}</span>
+          </div>
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:6px;">
+            <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word; flex:1;">
+              ${item.artName}
+            </div>
+            <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; flex-shrink:0; text-align:right;">
+              <span class="ssc-num" style="font-size:19px; font-weight:900; line-height:1; color:${isNegative ? '#9333ea' : isOut ? '#ef4444' : isLow ? '#d97706' : '#0f172a'};">${item.currentStock}</span>
+              <span class="ssc-unit" style="font-size:11px; color:#64748b; font-weight:700;">개</span>
             </div>
           </div>
-          <span class="ssc-name">${item.artName}</span>
-          <span class="ssc-hfb">${item.hfb || 'HFB'}</span>
-        </div>
-        <div class="ssc-right">
-          <span class="ssc-status ${statusClass}">${statusText}</span>
-          <div class="ssc-qty">
-            <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}">${item.currentStock}</span>
-            <span class="ssc-unit">개</span>
+          <div style="font-size:10.5px; color:#64748b; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.25;">
+            <span style="display:inline-flex; align-items:center; gap:3px; white-space:nowrap;">
+              <i class="fa-regular fa-clock" style="color:#0058a3; font-size:9.5px;"></i>
+              <span style="color:#64748b; font-weight:700; white-space:nowrap;">업데이트:</span>
+              <strong style="color:#334155; font-weight:700; white-space:nowrap;">${updateInfo.text}</strong>
+            </span>
+            ${updateInfo.user ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;">
+                <i class="fa-solid fa-user" style="color:#64748b; font-size:8px;"></i>
+                <strong style="color:#0f172a;">${updateInfo.user}</strong>
+              </span>
+            ` : ''}
+            ${updateInfo.action ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="background:#f1f5f9; color:#475569; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;">
+                ${updateInfo.action}
+              </span>
+            ` : ''}
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; margin-top:2px;">
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span style="background:#f8fafc; color:#475569; font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; border:1px solid #e2e8f0;">
+                <i class="fa-solid fa-location-dot" style="color:#0058a3; font-size:9px;"></i> 구역: ${item.location || '미지정'}
+              </span>
+              <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:2px 5px; border-radius:4px; cursor:pointer;" onclick="if(typeof setSingleLocation==='function') setSingleLocation('${item.artNo}')">구역 변경</button>
+            </div>
+            <div class="ssc-quick-btns" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+              <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+              <button type="button" class="btn-sm btn-quick-out" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2115,9 +2164,9 @@ function renderStockLookup() {
 
   if (filteredList.length > stockDisplayLimit) {
     html += `
-      <button type="button" class="btn-secondary" style="width:100%; margin-top:10px; padding:12px; font-weight:700;" onclick="loadMoreStockItems()">
-        더보기 (${stockDisplayLimit} / ${filteredList.length}개)
-      </button>
+      <div style="text-align:center; margin:16px 0 20px 0; display:flex; justify-content:center;">
+        <button type="button" class="btn-load-more-simple" onclick="loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
+      </div>
     `;
   }
 
@@ -3195,26 +3244,45 @@ function renderMfaq() {
     return;
   }
 
-  container.innerHTML = filtered.map((log, index) => {
-    const timeAgo = Math.floor((new Date() - new Date(log.lastUpdated)) / 60000);
-    const timeStr = timeAgo < 60 ? `${timeAgo}분 전` : timeAgo < 1440 ? `${Math.floor(timeAgo/60)}시간 전` : `${Math.floor(timeAgo/1440)}일 전`;
-    
-    return `
-      <div style="display:flex; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:8px;">
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:50px; cursor:pointer;" onclick="incrementMfaqCount('${log.id}')">
-          <i class="fa-solid fa-plus" style="color:#64748b; margin-bottom:4px;"></i>
-          <span style="font-size:18px; font-weight:bold; color:#0f172a;">${log.count}</span>
-        </div>
-        <div style="flex:1; padding-left:12px; border-left:1px solid #e2e8f0;">
-          <div style="font-weight:bold; color:#1e293b; margin-bottom:4px;">${log.question}</div>
-          <div style="font-size:12px; color:#64748b;">
-            <span style="display:inline-block; padding:2px 6px; background:#f1f5f9; border-radius:4px; margin-right:6px;">${log.category}</span>
-            마지막 업데이트: ${timeStr}
+  container.innerHTML = `
+    <div class="mfaq-cards-list" style="background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
+      ${filtered.map((log, index) => {
+        const timeAgo = Math.floor((new Date() - new Date(log.lastUpdated || Date.now())) / 60000);
+        const timeStr = timeAgo < 60 ? `${timeAgo}분 전` : timeAgo < 1440 ? `${Math.floor(timeAgo/60)}시간 전` : `${Math.floor(timeAgo/1440)}일 전`;
+        const isLast = index === filtered.length - 1;
+        const cleanNo = log.artNo ? String(log.artNo).replace(/\D/g, '') : '';
+        const typeInfo = typeof window.extractMfaqTypeBadge === 'function' ? window.extractMfaqTypeBadge(log.question, log.question) : { badge: null, remainingNote: '' };
+        return `
+          <div class="mfaq-row-item" style="border-bottom:${isLast ? 'none' : '1px solid #f1f5f9'};">
+            <div style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px;">
+              <div onclick="incrementMfaqCount('${log.id}')" style="display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-width:38px; cursor:pointer; flex-shrink:0; user-select:none; padding:2px 3px; border-radius:6px;" title="탭하여 건수 +1">
+                <span style="font-size:14px; font-weight:700; color:#475569; line-height:1;">+</span>
+                <span style="font-size:16px; font-weight:800; color:#0f172a; line-height:1.15; margin-top:1px;">${log.count || 1}</span>
+                ${typeInfo.badge ? `
+                  <span style="font-size:8.5px; font-weight:800; background:${typeInfo.badge.bg}; color:${typeInfo.badge.color}; border:1px solid ${typeInfo.badge.border}; border-radius:4px; padding:1.5px 3px; white-space:nowrap; margin-top:4px; line-height:1.1; text-align:center; display:inline-flex; align-items:center; gap:2px; letter-spacing:-0.4px;">
+                    <i class="fa-solid ${typeInfo.badge.icon}" style="font-size:7.5px;"></i>${typeInfo.badge.label}
+                  </span>
+                ` : ''}
+              </div>
+              ${cleanNo && typeof getProductThumbHtml === 'function' ? `
+                <div style="display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;">
+                  ${getProductThumbHtml(cleanNo, log.artName || log.question, 40)}
+                </div>
+              ` : ''}
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;">
+                <div style="font-size:13.5px; font-weight:800; color:#0f172a; line-height:1.35; word-break:keep-all; overflow-wrap:break-word;">${log.question}</div>
+                <div style="font-size:11px; color:#64748b; margin-top:1px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                  <span>Last: <strong style="color:#475569; font-weight:700;">${timeStr}</strong></span>
+                  <span style="margin-left:2px; background:#f1f5f9; padding:1px 5px; border-radius:3px;">${log.category || '매장 질문'}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    `;
-  }).join("");
+        `;
+      }).join("")}
+    </div>
+  `;
+  if (typeof loadProductThumbnails === "function") loadProductThumbnails();
 }
 
 function openMfaqModal() {

@@ -1406,6 +1406,28 @@ window.renderMenuLocationWidget = function() {
   container.innerHTML = html;
 };
 
+window.filterByStockStatus = function(status) {
+  currentStockStatusFilter = status;
+  
+  const statusChips = ["all", "good", "low", "out", "negative"];
+  statusChips.forEach(st => {
+    const chip = document.getElementById(`chip-status-${st}`);
+    if (chip) {
+      if (st === status) chip.classList.add("active");
+      else chip.classList.remove("active");
+    }
+  });
+
+  if (typeof RENDER_LIMIT !== 'undefined') {
+    stockDisplayLimit = RENDER_LIMIT;
+  } else {
+    stockDisplayLimit = 20;
+  }
+  if (typeof renderStockLookup === "function") {
+    renderStockLookup();
+  }
+};
+
 const originalRenderStockLookup = window.renderStockLookup;
 window.renderStockLookup = function() {
   const container = document.getElementById("stock-cards-container");
@@ -1461,7 +1483,9 @@ window.renderStockLookup = function() {
   } else if (currentStockStatusFilter === "low") {
     filteredList = filteredList.filter(item => item.currentStock > 0 && item.currentStock <= 5);
   } else if (currentStockStatusFilter === "out") {
-    filteredList = filteredList.filter(item => item.currentStock <= 0);
+    filteredList = filteredList.filter(item => item.currentStock === 0);
+  } else if (currentStockStatusFilter === "negative") {
+    filteredList = filteredList.filter(item => item.currentStock < 0);
   }
 
   if (currentStockHFBFilter && currentStockHFBFilter !== "ALL") {
@@ -1471,6 +1495,13 @@ window.renderStockLookup = function() {
   filteredList.sort((a, b) => {
     if (currentStockSort === "stock-desc") return b.currentStock - a.currentStock;
     if (currentStockSort === "stock-asc") return a.currentStock - b.currentStock;
+    if (currentStockSort === "negative-first") {
+      const aNeg = a.currentStock < 0;
+      const bNeg = b.currentStock < 0;
+      if (aNeg && !bNeg) return -1;
+      if (!aNeg && bNeg) return 1;
+      return a.currentStock - b.currentStock;
+    }
     if (currentStockSort === "name-asc") return a.artName.localeCompare(b.artName, "ko");
     if (currentStockSort === "artno-asc") return a.artNo.localeCompare(b.artNo);
     if (currentStockSort === "loc-asc") return (a.location || "").localeCompare(b.location || "", "ko");
@@ -1495,54 +1526,81 @@ window.renderStockLookup = function() {
   const visibleList = filteredList.slice(0, stockDisplayLimit);
 
   let html = visibleList.map(item => {
-    const isOut = item.currentStock <= 0;
+    const isNegative = item.currentStock < 0;
+    const isOut = item.currentStock === 0;
     const isLow = item.currentStock > 0 && item.currentStock <= 5;
     
-    const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-    const statusText = isOut ? "품절" : isLow ? "부족" : "안전";
-    const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
+    const cardClass = isNegative ? "simple-stock-card negative" : isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
+    const statusText = isNegative ? "마이너스" : isOut ? "품절" : isLow ? "부족" : "안전";
+    const statusClass = isNegative ? "status-negative" : isOut ? "status-out" : isLow ? "status-low" : "status-good";
+
+    const updateInfo = (typeof window.getProductLatestUpdateTime === "function")
+      ? window.getProductLatestUpdateTime(item.artNo)
+      : { text: "최근 기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
 
     return `
-      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="display:flex; align-items:flex-start; padding:12px 14px; gap:12px; border-radius:14px; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;">
+      <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px; border-radius:10px; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;">
         <!-- Left: Checkbox & Product Image -->
-        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0;">
-          <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="updateBulkSelection()" style="width:17px; height:17px; accent-color:#0058a3; cursor:pointer;">
-          ${getProductThumbHtml(item.artNo, item.artName, 54)}
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0;">
+          <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="updateBulkSelection()" style="width:16px; height:16px; accent-color:#0058a3; cursor:pointer;">
+          ${getProductThumbHtml(item.artNo, item.artName, 44)}
         </div>
 
         <!-- Center & Main Details -->
-        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;">
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
           <!-- Top Line: HFB + ArtNo + Status Badge -->
           <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
             <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
               ${item.hfb ? `<span style="background:#eff6ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${item.hfb}</span>` : ''}
-              <span class="ssc-artno" style="font-size:12.5px; font-weight:800; color:#334155; font-family:monospace;">${item.artNo}</span>
+              <span class="ssc-artno" style="font-size:12px; font-weight:800; color:#334155; font-family:monospace;">${item.artNo}</span>
             </div>
-            <span class="ssc-status ${statusClass}" style="font-size:10.5px; padding:2px 7px; border-radius:12px; font-weight:800; background:${isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'}; color:${isOut ? '#b91c1c' : isLow ? '#b45309' : '#15803d'}; border:1px solid ${isOut ? '#fca5a5' : isLow ? '#fde68a' : '#bbf7d0'}; flex-shrink:0;">${statusText}</span>
+            <span class="ssc-status ${statusClass}" style="font-size:10px; padding:1.5px 6px; border-radius:10px; font-weight:800; ${isNegative ? 'background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff;' : `background:${isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'}; color:${isOut ? '#b91c1c' : isLow ? '#b45309' : '#15803d'}; border:1px solid ${isOut ? '#fca5a5' : isLow ? '#fde68a' : '#bbf7d0'};`} flex-shrink:0;">${statusText}</span>
           </div>
 
           <!-- Product Name & Stock Quantity -->
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
-            <div style="font-size:13.5px; font-weight:800; color:#0f172a; line-height:1.35; word-break:break-all;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:6px;">
+            <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word; flex:1;">
               ${item.artName}${(item.artName.includes("알 수 없") || item.artName.includes("품목명 없") || item.artName.includes("신규") || item.artName.includes("기타") || item.artName === "") ? `<button type="button" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; flex-shrink:0; margin-left:4px;" onclick="openEditItemNameModal('${item.artNo}', '${item.artName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i> 이름 수정</button>` : ""}
             </div>
             <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; flex-shrink:0; text-align:right;">
-              <span class="ssc-num" style="font-size:18px; font-weight:900; color:${isOut ? '#ef4444' : isLow ? '#d97706' : '#0f172a'};">${item.currentStock}</span>
-              <span class="ssc-unit" style="font-size:11.5px; color:#64748b; font-weight:700;">개</span>
+              <span class="ssc-num" style="font-size:19px; font-weight:900; line-height:1; color:${isNegative ? '#9333ea' : isOut ? '#ef4444' : isLow ? '#d97706' : '#0f172a'};">${item.currentStock}</span>
+              <span class="ssc-unit" style="font-size:11px; color:#64748b; font-weight:700;">개</span>
             </div>
+          </div>
+
+          <!-- Product Update Date & Time & User ID Info -->
+          <div style="font-size:10.5px; color:#64748b; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.25;">
+            <span style="display:inline-flex; align-items:center; gap:3px; white-space:nowrap;">
+              <i class="fa-regular fa-clock" style="color:#0058a3; font-size:9.5px;"></i>
+              <span style="color:#64748b; font-weight:700; white-space:nowrap;">업데이트:</span>
+              <strong style="color:#334155; font-weight:700; white-space:nowrap;">${updateInfo.text}</strong>
+            </span>
+            ${updateInfo.user ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;" title="작업자 ID">
+                <i class="fa-solid fa-user" style="color:#64748b; font-size:8px;"></i>
+                <strong style="color:#0f172a;">${updateInfo.user}</strong>
+              </span>
+            ` : ''}
+            ${updateInfo.action ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="background:#f1f5f9; color:#475569; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;">
+                ${updateInfo.action}
+              </span>
+            ` : ''}
           </div>
 
           <!-- Bottom Line: Location & Quick In/Out Action Buttons -->
           <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; margin-top:2px;">
-            <div style="display:flex; align-items:center; gap:5px;">
-              <span style="background:#f8fafc; color:#475569; font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; border:1px solid #e2e8f0;">
-                <i class="fa-solid fa-location-dot" style="color:#0058a3; font-size:10px;"></i> 구역: ${item.location}
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span style="background:#f8fafc; color:#475569; font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; border:1px solid #e2e8f0;">
+                <i class="fa-solid fa-location-dot" style="color:#0058a3; font-size:9px;"></i> 구역: ${item.location}
               </span>
-              <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:2px 6px; border-radius:6px; cursor:pointer;" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
+              <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:2px 5px; border-radius:4px; cursor:pointer;" onclick="setSingleLocation('${item.artNo}')">구역 변경</button>
             </div>
-            <div class="ssc-quick-btns" style="display:flex; gap:5px;">
-              <button type="button" class="btn-sm btn-quick-in" style="padding:4px 9px; font-size:11px; font-weight:800; border-radius:6px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer;" onclick="quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
-              <button type="button" class="btn-sm btn-quick-out" style="padding:4px 9px; font-size:11px; font-weight:800; border-radius:6px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer;" onclick="quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+            <div class="ssc-quick-btns" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+              <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+              <button type="button" class="btn-sm btn-quick-out" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="quickActionRegister('${item.artNo}', '출고')">- 출고</button>
             </div>
           </div>
         </div>
@@ -1552,8 +1610,8 @@ window.renderStockLookup = function() {
 
   if (filteredList.length > stockDisplayLimit) {
     html += `
-      <div style="text-align: center; margin-top: 15px;">
-        <button type="button" class="btn-secondary" onclick="loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
+      <div style="text-align:center; margin:16px 0 20px 0; display:flex; justify-content:center;">
+        <button type="button" class="btn-load-more-simple" onclick="loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
       </div>
     `;
   }
@@ -2174,7 +2232,7 @@ window.getProductLatestUpdateTime = function(artNo) {
             if (!latestDate || d > latestDate) {
               latestDate = d;
               latestAction = `${log.type || '입출고'} ${log.qty || 0}개`.trim();
-              latestUser = log.user || log.worker || "";
+              latestUser = log.user || log.worker || log.userName || log.user_id || "";
             }
           }
         }
@@ -2182,7 +2240,29 @@ window.getProductLatestUpdateTime = function(artNo) {
     }
   }
 
-  // 2. Scan masterCatalog for latest location / catalog update timestamp
+  // 2. Scan storeInboundLogs for latest store inbound transaction
+  if (typeof storeInboundLogs !== "undefined" && Array.isArray(storeInboundLogs)) {
+    for (let i = 0; i < storeInboundLogs.length; i++) {
+      const log = storeInboundLogs[i];
+      const logNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logNo.replace(/\D/g, '');
+      if (logNo === cleanNo || (digitsOnly && logDigits === digitsOnly)) {
+        const timeVal = log.created_at || log.createdAt || (log.date ? (log.time ? `${log.date}T${log.time}` : log.date) : null);
+        if (timeVal) {
+          const d = new Date(timeVal);
+          if (!isNaN(d.getTime())) {
+            if (!latestDate || d > latestDate) {
+              latestDate = d;
+              latestAction = `매장입고 ${log.qty || 0}개`.trim();
+              latestUser = log.user || log.worker || log.userName || log.user_id || "";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Scan masterCatalog for latest location / catalog update timestamp
   if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
     const mItem = masterCatalog.find(m => {
       const mNo = String(m.artNo || m.artno || "").trim();
@@ -2195,7 +2275,10 @@ window.getProductLatestUpdateTime = function(artNo) {
         if (!isNaN(md.getTime())) {
           if (!latestDate || md > latestDate) {
             latestDate = md;
-            if (!latestAction) latestAction = "구역/정보 변경";
+            latestAction = "구역/정보 변경";
+            if (mItem.updatedBy || mItem.updated_by || mItem.user || mItem.worker) {
+              latestUser = mItem.updatedBy || mItem.updated_by || mItem.user || mItem.worker;
+            }
           }
         }
       }
@@ -2593,10 +2676,17 @@ function renderPicklistStockView(container, selectedZone, items) {
               <span style="color:#64748b; font-weight:700;">업데이트:</span>
               <strong style="color:#0f172a; font-weight:800;">${updateInfo.text}</strong>
             </span>
+            ${updateInfo.user ? `
+              <span style="color:#cbd5e1;">·</span>
+              <span style="display:inline-flex; align-items:center; gap:3px; background:#f8fafc; color:#334155; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #e2e8f0;" title="작업자 ID">
+                <i class="fa-solid fa-user" style="color:#64748b; font-size:9.5px;"></i>
+                <strong style="color:#0f172a; font-weight:800;">${updateInfo.user}</strong>
+              </span>
+            ` : ''}
             ${updateInfo.action ? `
               <span style="color:#cbd5e1;">·</span>
               <span style="background:#f1f5f9; color:#475569; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #e2e8f0;">
-                ${updateInfo.action}${updateInfo.user ? ` (${updateInfo.user})` : ''}
+                ${updateInfo.action}
               </span>
             ` : ''}
           </div>
@@ -2698,7 +2788,8 @@ window.directPickFromStock = async function(artNo, artName, pickQty) {
       artNo: cleanNo,
       artName: name,
       qty: qty,
-      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system",
+      created_at: new Date().toISOString()
     };
 
     if (typeof historyLogs !== "undefined") {
@@ -2797,7 +2888,8 @@ window.batchDirectPickFromStock = async function() {
       artNo: item.artNo,
       artName: item.artName,
       qty: item.qty,
-      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system"
+      user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system",
+      created_at: new Date().toISOString()
     };
     if (typeof historyLogs !== "undefined") {
       historyLogs.unshift(newLog);
@@ -3034,15 +3126,8 @@ window.setSingleLocation = function(artNo) {
   // Dynamically populate location buttons
   const btnContainer = document.getElementById("single-loc-quick-buttons");
   if (btnContainer) {
-    const locSet = new Set(["B1", "B2", "B2 램프", "B3"]);
-    if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
-      masterCatalog.forEach(m => {
-        if (m.location && m.location !== "미지정" && m.location.trim() !== "") {
-          m.location.split(',').map(l => l.trim()).forEach(l => { if (l) locSet.add(l); });
-        }
-      });
-    }
-    const locList = Array.from(locSet).sort();
+    // 빠른 구역 선택은 표준 창고 구역(B1, B2, B2 램프, B3)만 표시 (매장 제외)
+    const locList = ["B1", "B2", "B2 램프", "B3"];
     let btnHtml = "";
     locList.forEach(loc => {
       const isCurrent = (currentLoc === loc);
@@ -3095,12 +3180,17 @@ window.saveSingleLocation = async function(locStr) {
     return mNo === cleanNo || mNo.replace(/\D/g, '') === cleanNo.replace(/\D/g, '');
   }) : null;
   
+  const nowIso = new Date().toISOString();
+  const workerUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '관리자';
+
   if (masterItem) {
     masterItem.location = targetLoc;
     masterItem.artNo = cleanNo;
+    masterItem.updatedAt = nowIso;
+    masterItem.updatedBy = workerUser;
   } else {
     const fallbackName = ((typeof masterCatalogMap !== 'undefined' && masterCatalogMap) ? masterCatalogMap.get(cleanNo) : "") || "기타 품목";
-    masterItem = { artNo: cleanNo, artName: fallbackName, location: targetLoc, hfb: "기본 HFB" };
+    masterItem = { artNo: cleanNo, artName: fallbackName, location: targetLoc, hfb: "기본 HFB", updatedAt: nowIso, updatedBy: workerUser };
     if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) {
       masterCatalog.push(masterItem);
     }
@@ -3634,11 +3724,15 @@ window.saveEditItemName = async function() {
   }
   
   // 1. Update Master Catalog
+  const nowIso = new Date().toISOString();
+  const workerUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '관리자';
   let masterItem = masterCatalog.find(m => m.artNo === artNo);
   if (masterItem) {
     masterItem.artName = newName;
+    masterItem.updatedAt = nowIso;
+    masterItem.updatedBy = workerUser;
   } else {
-    masterItem = { artNo: artNo, artName: newName, location: "미지정", hfb: "기본 HFB" };
+    masterItem = { artNo: artNo, artName: newName, location: "미지정", hfb: "기본 HFB", updatedAt: nowIso, updatedBy: workerUser };
     masterCatalog.push(masterItem);
   }
   
@@ -4027,7 +4121,7 @@ function resolveMasterProduct(query) {
       artNo: found.artNo || targetArtNo,
       artName: found.artName || "매장 입고 품목",
       hfb: found.hfb || "일반",
-      location: found.location || "매장",
+      location: found.location || "미지정",
       isUnregistered: false
     };
   }
@@ -4037,7 +4131,7 @@ function resolveMasterProduct(query) {
     artNo: targetArtNo || rawStr,
     artName: "미등록 신규 품목",
     hfb: "일반",
-    location: "매장",
+    location: "미지정",
     isUnregistered: true
   };
 }
@@ -5221,9 +5315,41 @@ window.quickChangeMfaqCategory = async function(id, newCat) {
 
 // --- MFAQ Item Edit Modal with Product Search Support ---
 window.selectedEditMfaqProduct = null;
+window.selectedEditMfaqType = null;
+
+window.selectEditMfaqType = function(type) {
+  if (window.selectedEditMfaqType === type) {
+    window.selectedEditMfaqType = null;
+  } else {
+    window.selectedEditMfaqType = type;
+  }
+  window.updateEditMfaqTypeButtons();
+};
+
+window.updateEditMfaqTypeButtons = function() {
+  const current = window.selectedEditMfaqType;
+  const btnStock = document.getElementById("btn-edit-mfaq-type-stock");
+  const btnLoc = document.getElementById("btn-edit-mfaq-type-loc");
+  const btnNew = document.getElementById("btn-edit-mfaq-type-new");
+  const badge = document.getElementById("edit-mfaq-selected-type-badge");
+
+  if (btnStock) btnStock.classList.toggle("active", current === "재고 문의");
+  if (btnLoc) btnLoc.classList.toggle("active", current === "위치 문의");
+  if (btnNew) btnNew.classList.toggle("active", current === "새아티클 요청");
+
+  if (badge) {
+    if (current) {
+      badge.textContent = `선택: ${current}`;
+      badge.style.display = "inline-block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+};
 
 window.onEditMfaqCategoryChange = function(category) {
   const searchSec = document.getElementById("edit-mfaq-product-search-section");
+  const typeSec = document.getElementById("edit-mfaq-type-buttons-group");
   const qLabel = document.getElementById("edit-mfaq-question-label");
   const qInput = document.getElementById("edit-mfaq-question");
 
@@ -5231,11 +5357,13 @@ window.onEditMfaqCategoryChange = function(category) {
     if (qLabel) qLabel.innerHTML = '매장 질문 내용 <span style="color:#ef4444;">*</span>';
     if (qInput) qInput.placeholder = "매장 관련 질문 내용을 입력하세요";
     if (searchSec) searchSec.style.display = "none";
+    if (typeSec) typeSec.style.display = "none";
   } else {
     // "제품 질문/요청" 및 기타 제품 카테고리
     if (qLabel) qLabel.innerHTML = '상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span>';
     if (qInput) qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
     if (searchSec) searchSec.style.display = "block";
+    if (typeSec) typeSec.style.display = "block";
   }
 };
 
@@ -5418,10 +5546,29 @@ window.openMfaqEditModal = function(id) {
     window.clearEditMfaqSelectedProduct();
   }
 
+  // Detect and pre-select type button in edit modal
+  let initialType = null;
+  let rawNote = p.extraNote || "";
+  if (rawNote.includes("재고 문의") || rawNote.includes("재고문의")) {
+    initialType = "재고 문의";
+    rawNote = rawNote.replace(/\[?재고\s*문의\]?/, '').trim();
+    if (rawNote.startsWith("-") || rawNote.startsWith(":")) rawNote = rawNote.slice(1).trim();
+  } else if (rawNote.includes("위치 문의") || rawNote.includes("위치문의")) {
+    initialType = "위치 문의";
+    rawNote = rawNote.replace(/\[?위치\s*문의\]?/, '').trim();
+    if (rawNote.startsWith("-") || rawNote.startsWith(":")) rawNote = rawNote.slice(1).trim();
+  } else if (rawNote.includes("새아티클 요청") || rawNote.includes("새 아티클 요청")) {
+    initialType = "새아티클 요청";
+    rawNote = rawNote.replace(/\[?새\s*아티클\s*요청\]?/, '').trim();
+    if (rawNote.startsWith("-") || rawNote.startsWith(":")) rawNote = rawNote.slice(1).trim();
+  }
+  window.selectedEditMfaqType = initialType;
+  window.updateEditMfaqTypeButtons();
+
   // Populate question/memo input
   const qInput = document.getElementById("edit-mfaq-question");
   if (qInput) {
-    qInput.value = p.hasProduct ? (p.extraNote || "") : (log.question || "");
+    qInput.value = p.hasProduct ? rawNote : (log.question || "");
   }
 
   // Synchronize category mode (show/hide product search & update labels)
@@ -5459,18 +5606,28 @@ window.handleEditMfaqSubmit = async function(event) {
     log.hfb = "";
   } else {
     // 제품 카테고리
+    const selectedType = window.selectedEditMfaqType || "";
+    let finalMemo = newText;
+    if (selectedType && newText) {
+      if (!newText.startsWith(`[${selectedType}]`) && !newText.startsWith(selectedType)) {
+        finalMemo = `[${selectedType}] ${newText}`;
+      }
+    } else if (selectedType) {
+      finalMemo = selectedType;
+    }
+
     if (window.selectedEditMfaqProduct) {
       const prod = window.selectedEditMfaqProduct;
       log.artNo = prod.artNo;
       log.artName = prod.artName;
       log.hfb = prod.hfb;
-      newQuestion = newText ? `[${prod.artNo}] ${prod.artName} - ${newText}` : `[${prod.artNo}] ${prod.artName}`;
+      newQuestion = finalMemo ? `[${prod.artNo}] ${prod.artName} - ${finalMemo}` : `[${prod.artNo}] ${prod.artName}`;
     } else {
-      if (!newText) {
+      if (!finalMemo) {
         showToast("제품을 검색하여 선택하거나 내용을 입력해 주세요!", "warning");
         return;
       }
-      newQuestion = newText;
+      newQuestion = finalMemo;
     }
   }
 
@@ -5528,9 +5685,13 @@ window.parseMfaqItem = function(log) {
     if (rest.startsWith("-") || rest.startsWith(":")) rest = rest.slice(1).trim();
     extraNote = rest;
   } else {
-    // 2. Try to find standalone 8-digit number
+    // 2. Try to find standalone 8-digit number or dotted number (e.g. 102.890.86 or 10289086)
+    const dotMatch = rawQuestion.match(/\b(\d{3}[\.\-\s]\d{3}[\.\-\s]\d{2})\b/);
     const numMatch = rawQuestion.match(/\b(\d{8})\b/);
-    if (numMatch) {
+    if (dotMatch) {
+      if (!artNo) artNo = dotMatch[1].replace(/\D/g, '');
+      extraNote = rawQuestion.replace(dotMatch[0], '').trim();
+    } else if (numMatch) {
       if (!artNo) artNo = numMatch[1];
       extraNote = rawQuestion.replace(numMatch[0], '').trim();
     } else {
@@ -5589,8 +5750,55 @@ window.parseMfaqItem = function(log) {
   };
 };
 
+window.selectedMfaqType = null;
+
+window.selectMfaqType = function(type) {
+  if (window.selectedMfaqType === type) {
+    window.selectedMfaqType = null;
+  } else {
+    window.selectedMfaqType = type;
+  }
+  window.updateMfaqTypeButtons();
+};
+
+window.updateMfaqTypeButtons = function() {
+  const current = window.selectedMfaqType;
+  const btnStock = document.getElementById("btn-mfaq-type-stock");
+  const btnLoc = document.getElementById("btn-mfaq-type-loc");
+  const btnNew = document.getElementById("btn-mfaq-type-new");
+  const badge = document.getElementById("mfaq-selected-type-badge");
+  const qInput = document.getElementById("mfaq-new-question");
+
+  if (btnStock) btnStock.classList.toggle("active", current === "재고 문의");
+  if (btnLoc) btnLoc.classList.toggle("active", current === "위치 문의");
+  if (btnNew) btnNew.classList.toggle("active", current === "새아티클 요청");
+
+  if (badge) {
+    if (current) {
+      badge.textContent = `선택: ${current}`;
+      badge.style.display = "inline-block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  if (qInput && !qInput.value) {
+    if (current === "재고 문의") {
+      qInput.placeholder = "추가 메모 (예: 매장 진열분 확인 등) 입력 (선택)";
+    } else if (current === "위치 문의") {
+      qInput.placeholder = "추가 메모 (예: B2 선반 위치 확인 등) 입력 (선택)";
+    } else if (current === "새아티클 요청") {
+      qInput.placeholder = "추가 메모 (예: 신규 진열 요청 등) 입력 (선택)";
+    } else {
+      qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
+    }
+  }
+};
+
 window.openMfaqModal = function() {
   window.selectedMfaqProduct = null;
+  window.selectedMfaqType = null;
+  window.updateMfaqTypeButtons();
   const searchInput = document.getElementById("mfaq-product-search-input");
   if (searchInput) searchInput.value = "";
   const card = document.getElementById("mfaq-selected-product-card");
@@ -5628,6 +5836,7 @@ window.closeMfaqModal = function() {
 
 window.onMfaqCategoryChange = function(category) {
   const searchSec = document.getElementById("mfaq-product-search-section");
+  const typeSec = document.getElementById("mfaq-type-buttons-group");
   const qLabel = document.getElementById("mfaq-question-label");
   const qInput = document.getElementById("mfaq-new-question");
 
@@ -5635,12 +5844,14 @@ window.onMfaqCategoryChange = function(category) {
     if (qLabel) qLabel.innerHTML = '매장 질문 내용 <span style="color:#ef4444;">*</span>';
     if (qInput) qInput.placeholder = "매장 운영 관련 질문 내용을 입력하세요";
     if (searchSec) searchSec.style.display = "none";
+    if (typeSec) typeSec.style.display = "none";
     window.clearMfaqSelectedProduct();
   } else {
     // "제품 질문/요청"
     if (qLabel) qLabel.innerHTML = '상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span>';
     if (qInput) qInput.placeholder = "추가 질문이나 요청 메모를 입력하세요 (선택)";
     if (searchSec) searchSec.style.display = "block";
+    if (typeSec) typeSec.style.display = "block";
   }
 };
 
@@ -5807,9 +6018,23 @@ window.toggleMfaqHistory = function(id) {
 window.handleAddMfaqSubmit = async function(event) {
   event.preventDefault();
   const category = document.getElementById("mfaq-new-category") ? document.getElementById("mfaq-new-category").value : "제품 질문/요청";
-  const extraText = document.getElementById("mfaq-new-question") ? document.getElementById("mfaq-new-question").value.trim() : "";
+  const memoText = document.getElementById("mfaq-new-question") ? document.getElementById("mfaq-new-question").value.trim() : "";
+  const selectedType = (category === "제품 질문/요청") ? (window.selectedMfaqType || "") : "";
   const activeUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'system';
   const now = new Date().toISOString();
+
+  let extraText = "";
+  if (selectedType && memoText) {
+    if (memoText.startsWith(`[${selectedType}]`) || memoText.startsWith(selectedType)) {
+      extraText = memoText;
+    } else {
+      extraText = `[${selectedType}] ${memoText}`;
+    }
+  } else if (selectedType) {
+    extraText = selectedType;
+  } else {
+    extraText = memoText;
+  }
 
   let artNo = "";
   let artName = "";
@@ -5839,7 +6064,7 @@ window.handleAddMfaqSubmit = async function(event) {
       questionFormatted = extraText;
     }
   } else {
-    showToast(category === "매장 질문" ? "매장 질문 내용을 입력해 주세요!" : "제품을 선택하거나 상세 내용을 입력해 주세요!", "warning");
+    showToast(category === "매장 질문" ? "매장 질문 내용을 입력해 주세요!" : "제품을 선택하거나 문의 유형/내용을 입력해 주세요!", "warning");
     return;
   }
 
@@ -5913,6 +6138,71 @@ window.handleAddMfaqSubmit = async function(event) {
   updateMfaqBadge();
   closeMfaqModal();
   renderMfaq();
+};
+
+window.extractMfaqTypeBadge = function(extraNote, question) {
+  const noteStr = (extraNote || "").trim();
+  const qStr = (question || "").trim();
+  const text = (noteStr + " " + qStr).toLowerCase();
+
+  let type = null;
+  let label = "";
+  let bg = "";
+  let color = "";
+  let border = "";
+  let icon = "";
+
+  if (text.includes("재고 문의") || text.includes("재고문의")) {
+    type = "stock";
+    label = "재고문의";
+    bg = "#eff6ff";
+    color = "#0284c7";
+    border = "#bae6fd";
+    icon = "fa-boxes-stacked";
+  } else if (text.includes("위치 문의") || text.includes("위치문의")) {
+    type = "location";
+    label = "위치문의";
+    bg = "#f0fdf4";
+    color = "#16a34a";
+    border = "#bbf7d0";
+    icon = "fa-location-dot";
+  } else if (text.includes("새아티클") || text.includes("새 아티클")) {
+    type = "new_art";
+    label = "새아티클";
+    bg = "#fef3c7";
+    color = "#d97706";
+    border = "#fde68a";
+    icon = "fa-plus-circle";
+  }
+
+  let cleanNote = noteStr;
+  if (type === "stock") {
+    cleanNote = cleanNote.replace(/\[?재고\s*문의\]?/g, '').trim();
+  } else if (type === "location") {
+    cleanNote = cleanNote.replace(/\[?위치\s*문의\]?/g, '').trim();
+  } else if (type === "new_art") {
+    cleanNote = cleanNote.replace(/\[?새\s*아티클\s*요청\]?/g, '').replace(/\[?새\s*아티클\]?/g, '').trim();
+  }
+  if (cleanNote.startsWith("-") || cleanNote.startsWith(":") || cleanNote.startsWith("/")) {
+    cleanNote = cleanNote.slice(1).trim();
+  }
+
+  return {
+    badge: type ? { type, label, bg, color, border, icon } : null,
+    remainingNote: cleanNote
+  };
+};
+
+window.renderMfaqNoteHtml = function(extraNote) {
+  if (!extraNote) return "";
+  const info = window.extractMfaqTypeBadge ? window.extractMfaqTypeBadge(extraNote, "") : null;
+  const note = info ? info.remainingNote : extraNote.trim();
+  if (!note) return "";
+  return `
+    <span style="font-size:11px; color:#475569; display:inline-flex; align-items:center; gap:3px;">
+      <i class="fa-regular fa-comment-dots" style="color:#0058a3; font-size:9.5px;"></i> ${note}
+    </span>
+  `;
 };
 
 window.renderMfaq = function() {
@@ -5989,7 +6279,7 @@ window.renderMfaq = function() {
     return;
   }
 
-  let html = `<div class="mfaq-cards-list" style="display:flex; flex-direction:column; gap:10px;">`;
+  let html = `<div class="mfaq-cards-list" style="background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.02);">`;
 
   filtered.forEach((item, idx) => {
     const p = item._parsed;
@@ -6016,91 +6306,91 @@ window.renderMfaq = function() {
       displayCategory = "매장 질문";
     }
 
+    const typeInfo = window.extractMfaqTypeBadge ? window.extractMfaqTypeBadge(p.extraNote, item.question) : { badge: null, remainingNote: p.extraNote };
+
+    const isLast = idx === filtered.length - 1;
+
     html += `
-      <div class="stock-card-item mfaq-card-item" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.03); display:flex; gap:10px; align-items:flex-start;">
-        <!-- Left: Product Image (46px) or Store Icon -->
-        <div style="display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0;">
-          ${p.hasProduct 
-            ? (typeof getProductThumbHtml === 'function' ? getProductThumbHtml(p.cleanNo, p.artName, 46) : '')
-            : `<div style="width:46px; height:46px; border-radius:8px; background:#eff6ff; color:#0058a3; display:flex; align-items:center; justify-content:center; font-size:20px; border:1px solid #bfdbfe;"><i class="fa-solid fa-store"></i></div>`
-          }
-        </div>
-
-        <!-- Center & Right -->
-        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
-          <!-- Top Row: Badges & Creator Info -->
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-              <span onclick="openMfaqCategoryChangeModal('${item.id}', event)" style="background:${catBg}; color:${catColor}; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:4px; border:1px solid ${catBorder}; cursor:pointer; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;" title="클릭하여 카테고리 변경">
-                ${displayCategory} <i class="fa-solid fa-caret-down" style="font-size:8px; opacity:0.8;"></i>
+      <div class="mfaq-row-item" style="border-bottom:${isLast ? 'none' : '1px solid #f1f5f9'}; transition:background 0.12s ease;">
+        <div style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px;">
+          <!-- Left 1: + and Count (Direct Tap Button) & Inquiry Type Badge Underneath -->
+          <div onclick="incrementMfaqCount('${item.id}')" style="display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-width:38px; cursor:pointer; flex-shrink:0; user-select:none; padding:2px 3px; border-radius:6px; transition:background 0.15s ease, transform 0.1s ease;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'" title="탭하여 건수 +1">
+            <span style="font-size:14px; font-weight:700; color:#475569; line-height:1;">+</span>
+            <span style="font-size:16px; font-weight:800; color:#0f172a; line-height:1.15; margin-top:1px;">${item.count || 1}</span>
+            ${typeInfo.badge ? `
+              <span style="font-size:8.5px; font-weight:800; background:${typeInfo.badge.bg}; color:${typeInfo.badge.color}; border:1px solid ${typeInfo.badge.border}; border-radius:4px; padding:1.5px 3px; white-space:nowrap; margin-top:4px; line-height:1.1; text-align:center; display:inline-flex; align-items:center; gap:2px; letter-spacing:-0.4px;">
+                <i class="fa-solid ${typeInfo.badge.icon}" style="font-size:7.5px;"></i>${typeInfo.badge.label}
               </span>
-              ${p.hasProduct && p.hfb ? `
-                <span style="background:#0058a3; color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 5px; border-radius:4px;">
-                  ${p.hfb}
-                </span>
-              ` : ''}
-              ${p.hasProduct && p.cleanNo ? `
-                <span style="font-size:11.5px; font-weight:bold; color:#64748b; font-family:monospace;">${p.cleanNo}</span>
-              ` : ''}
-            </div>
-            <span style="font-size:11px; color:#64748b; font-weight:700; white-space:nowrap;">
-              ${creatorUser} · ${timeStr}
-            </span>
+            ` : ''}
           </div>
 
-          <!-- Title / Main Text -->
-          <div style="font-size:13.5px; font-weight:900; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">
-            ${p.hasProduct ? p.artName : item.question}
-          </div>
-          ${p.hasProduct && p.extraNote ? `
-            <div style="font-size:12px; color:#475569; margin-top:1px; line-height:1.25;">
-              <i class="fa-regular fa-comment-dots" style="color:#0058a3; font-size:10px;"></i> ${p.extraNote}
+          <!-- Left 2: Article Photo (제품 질문/요청 아티클 사진) -->
+          ${p.hasProduct ? `
+            <div style="display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;">
+              ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(p.cleanNo, p.artName, 40) : ''}
             </div>
           ` : ''}
 
-          <!-- Bottom Row: Controls with dashed top border -->
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed #f1f5f9;">
-            <!-- Left: History Button & Last Tap -->
-            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
-              <button type="button" onclick="toggleMfaqHistory('${item.id}')" style="background:#f8fafc; border:1px solid #cbd5e1; color:#334155; font-size:11px; font-weight:800; padding:0 8px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; height:28px;" title="탭 및 등록 내역 보기">
-                <i class="fa-solid fa-clock-rotate-left" style="color:#0058a3;"></i> 히스토리 ${historyList.length}건
-                <i id="mfaq-history-chevron-${item.id}" class="fa-solid fa-caret-down" style="font-size:9px; transition:transform 0.2s ease;"></i>
-              </button>
-              ${lastTap ? `
-                <span style="font-size:11px; color:#16a34a; font-weight:800; white-space:nowrap;">
-                  최근: +${lastTap.user}
-                </span>
-              ` : ''}
+          <!-- Center/Main Content -->
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;">
+            <!-- Title Row (Spans full available width!) -->
+            <div style="font-size:13.5px; font-weight:800; color:#0f172a; line-height:1.35; word-break:keep-all; overflow-wrap:break-word;">
+              <span>${p.hasProduct ? p.artName : item.question}</span>
             </div>
 
-            <!-- Right: +1 Tap Button & Edit & Delete -->
-            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-              <button type="button" onclick="incrementMfaqCount('${item.id}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;" title="탭하여 건수 +1">
-                <i class="fa-solid fa-bolt"></i> +1 탭 <span style="opacity:0.6;">|</span> <strong style="font-size:13px; font-weight:900;">${item.count || 1}</strong>
-              </button>
-              <button type="button" onclick="openMfaqEditModal('${item.id}')" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:12px; cursor:pointer; color:#475569; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="수정">
-                <i class="fa-solid fa-pen-to-square"></i>
-              </button>
-              <button type="button" onclick="deleteMfaqItem('${item.id}')" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:12px; cursor:pointer; color:#94a3b8; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onmouseover="this.style.color='#ef4444'; this.style.borderColor='#fca5a5'; this.style.background='#fef2f2';" onmouseout="this.style.color='#94a3b8'; this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" title="삭제">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
+            <!-- Product Details (cleanNo, HFB, Note) -->
+            ${p.hasProduct ? `
+              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:11px; line-height:1.2;">
+                ${p.cleanNo ? `<span style="font-family:monospace; color:#64748b; font-weight:700; white-space:nowrap;">${p.cleanNo}</span>` : ''}
+                ${p.hfb ? `<span style="background:#0058a3; color:#ffffff; font-size:9px; font-weight:800; padding:1px 4px; border-radius:3px; white-space:nowrap;">${p.hfb}</span>` : ''}
+                ${typeInfo.remainingNote ? `
+                  <span style="color:#475569; font-size:11px; display:inline-flex; align-items:center; gap:3px;">
+                    <i class="fa-regular fa-comment-dots" style="color:#0058a3; font-size:9.5px;"></i> ${typeInfo.remainingNote}
+                  </span>
+                ` : ''}
+              </div>
+            ` : ''}
+
+            <!-- Subtitle & Action Buttons Row -->
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; margin-top:1px;">
+              <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0; line-height:1.2;">
+                <span>Last: <strong style="color:#475569; font-weight:700;">${timeStr}</strong></span>
+                <span style="color:#cbd5e1;">·</span>
+                <span style="white-space:nowrap;">${creatorUser}</span>
+                ${lastTap ? `<span style="color:#16a34a; font-weight:700; font-size:10.5px; white-space:nowrap;">(+${lastTap.user})</span>` : ''}
+                <span onclick="openMfaqCategoryChangeModal('${item.id}', event)" style="background:${catBg}; color:${catColor}; font-size:9.5px; font-weight:700; padding:1px 4px; border-radius:3px; border:1px solid ${catBorder}; cursor:pointer; white-space:nowrap;" title="카테고리 변경">${displayCategory}</span>
+              </div>
+
+              <!-- Right Actions (History, Edit, Delete) -->
+              <div style="display:flex; align-items:center; gap:1px; flex-shrink:0;">
+                <button type="button" onclick="toggleMfaqHistory('${item.id}')" style="background:transparent; border:none; color:#94a3b8; height:24px; min-width:24px; padding:0 3px; border-radius:4px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; justify-content:center; gap:2px; transition:all 0.15s;" onmouseover="this.style.color='#0058a3'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';" title="히스토리">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                  ${historyList.length > 1 ? `<span style="font-size:10px; font-weight:700;">${historyList.length}</span>` : ''}
+                </button>
+                <button type="button" onclick="openMfaqEditModal('${item.id}')" style="background:transparent; border:none; color:#94a3b8; width:22px; height:24px; border-radius:4px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; justify-content:center; padding:0; transition:all 0.15s;" onmouseover="this.style.color='#0058a3'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';" title="수정">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button type="button" onclick="deleteMfaqItem('${item.id}')" style="background:transparent; border:none; color:#cbd5e1; width:22px; height:24px; border-radius:4px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; justify-content:center; padding:0; transition:all 0.15s;" onmouseover="this.style.color='#ef4444'; this.style.background='#fef2f2';" onmouseout="this.style.color='#cbd5e1'; this.style.background='transparent';" title="삭제">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Collapsible Timeline Box -->
-          <div id="mfaq-history-box-${item.id}" style="display:none; margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-size:11px;">
-            <div style="font-weight:900; color:#0f172a; margin-bottom:6px; display:flex; justify-content:space-between; font-size:11px;">
-              <span><i class="fa-solid fa-timeline" style="color:#0058a3;"></i> 질문 등록 및 +1 탭 상세 히스토리</span>
-              <span style="color:#64748b;">총 ${historyList.length}건</span>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;">
-              ${historyList.map(h => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; background:#ffffff; border:1px solid #e2e8f0; border-radius:5px;">
-                  <span style="font-weight:700; color:#0f172a;">${h.type === 'create' ? '📝 최초 등록' : '👆 +1 탭'}: ${h.user || 'system'}</span>
-                  <span style="color:#94a3b8; font-size:10px; font-family:monospace;">${window.formatMfaqTime(h.time)}</span>
-                </div>
-              `).join('')}
-            </div>
+        <!-- Collapsible Timeline Box -->
+        <div id="mfaq-history-box-${item.id}" style="display:none; margin:0 10px 10px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-size:11px;">
+          <div style="font-weight:800; color:#0f172a; margin-bottom:6px; display:flex; justify-content:space-between; font-size:11px;">
+            <span><i class="fa-solid fa-timeline" style="color:#0058a3;"></i> 질문 등록 및 +1 탭 상세 히스토리</span>
+            <span style="color:#64748b;">총 ${historyList.length}건</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;">
+            ${historyList.map(h => `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; background:#ffffff; border:1px solid #e2e8f0; border-radius:5px;">
+                <span style="font-weight:700; color:#0f172a;">${h.type === 'create' ? '📝 최초 등록' : '👆 +1 탭'}: ${h.user || 'system'}</span>
+                <span style="color:#94a3b8; font-size:10px; font-family:monospace;">${window.formatMfaqTime(h.time)}</span>
+              </div>
+            `).join('')}
           </div>
         </div>
       </div>

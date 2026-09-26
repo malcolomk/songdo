@@ -16,7 +16,7 @@
   <!-- HTML5 QR & Barcode Scanner -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
-  <link rel="stylesheet" href="style.css?v=2.2.0">
+  <link rel="stylesheet" href="style.css?v=2.2.2">
   <style>
   .selected-card {
     border: 3px solid #4f46e5 !important;
@@ -400,6 +400,9 @@
           <button type="button" class="chip-btn chip-out" id="chip-status-out" onclick="filterByStockStatus('out')">
             🔴 품절
           </button>
+          <button type="button" class="chip-btn chip-negative" id="chip-status-negative" onclick="filterByStockStatus('negative')">
+            🟣 마이너스
+          </button>
         </div>
 
         <div class="toolbar-controls">
@@ -410,6 +413,7 @@
           <select id="stock-sort-select" class="toolbar-select" onchange="onStockFilterChange()">
             <option value="stock-desc">재고 많은순</option>
             <option value="stock-asc">재고 적은순</option>
+            <option value="negative-first">마이너스 우선</option>
             <option value="name-asc">품목 이름순</option>
             <option value="artno-asc">아티클 번호순</option>
             <option value="loc-asc">창고 구역순</option>
@@ -1980,6 +1984,27 @@
             </div>
           </div>
 
+          <!-- Quick Inquiry Type Buttons (재고 문의 / 위치 문의 / 새아티클 요청) -->
+          <div id="mfaq-type-buttons-group" class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 800; font-size: 13px; color: #334155; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display:flex; align-items:center; gap:5px;">
+                <i class="fa-solid fa-tags" style="color:#0058a3;"></i> 문의 / 요청 유형 <span style="font-size:11px; font-weight:normal; color:#64748b;">(빠른 선택)</span>
+              </span>
+              <span id="mfaq-selected-type-badge" style="display:none; font-size:11px; font-weight:800; color:#0058a3; background:#eff6ff; padding:1px 6px; border-radius:4px; border:1px solid #bfdbfe;"></span>
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <button type="button" class="btn-mfaq-type" id="btn-mfaq-type-stock" onclick="selectMfaqType('재고 문의')">
+                <i class="fa-solid fa-boxes-stacked"></i> 재고 문의
+              </button>
+              <button type="button" class="btn-mfaq-type" id="btn-mfaq-type-loc" onclick="selectMfaqType('위치 문의')">
+                <i class="fa-solid fa-location-dot"></i> 위치 문의
+              </button>
+              <button type="button" class="btn-mfaq-type" id="btn-mfaq-type-new" onclick="selectMfaqType('새아티클 요청')">
+                <i class="fa-solid fa-plus-circle"></i> 새아티클 요청
+              </button>
+            </div>
+          </div>
+
           <!-- Question / Request Content -->
           <div class="form-group" style="margin-bottom: 18px;">
             <label for="mfaq-new-question" id="mfaq-question-label" style="font-weight: 800; font-size: 13.5px; color: #334155; margin-bottom: 6px; display: block;">상세 메모 / 추가 내용 <span style="font-size:11.5px; font-weight:normal; color:#64748b;">(선택)</span></label>
@@ -2047,6 +2072,27 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Quick Inquiry Type Buttons for Edit Modal -->
+          <div id="edit-mfaq-type-buttons-group" class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 800; font-size: 13px; color: #334155; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display:flex; align-items:center; gap:5px;">
+                <i class="fa-solid fa-tags" style="color:#0058a3;"></i> 문의 / 요청 유형 <span style="font-size:11px; font-weight:normal; color:#64748b;">(빠른 선택)</span>
+              </span>
+              <span id="edit-mfaq-selected-type-badge" style="display:none; font-size:11px; font-weight:800; color:#0058a3; background:#eff6ff; padding:1px 6px; border-radius:4px; border:1px solid #bfdbfe;"></span>
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <button type="button" class="btn-mfaq-type" id="btn-edit-mfaq-type-stock" onclick="selectEditMfaqType('재고 문의')">
+                <i class="fa-solid fa-boxes-stacked"></i> 재고 문의
+              </button>
+              <button type="button" class="btn-mfaq-type" id="btn-edit-mfaq-type-loc" onclick="selectEditMfaqType('위치 문의')">
+                <i class="fa-solid fa-location-dot"></i> 위치 문의
+              </button>
+              <button type="button" class="btn-mfaq-type" id="btn-edit-mfaq-type-new" onclick="selectEditMfaqType('새아티클 요청')">
+                <i class="fa-solid fa-plus-circle"></i> 새아티클 요청
+              </button>
             </div>
           </div>
 
@@ -2296,9 +2342,9 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="audit.js?v=1.7.69"></script>
-  <script src="app.js?v=1.7.69"></script>
-  <script src="custom.js?v=1.7.69"></script>
+  <script src="audit.js?v=1.7.71"></script>
+  <script src="app.js?v=1.7.71"></script>
+  <script src="custom.js?v=1.7.71"></script>
   
   <script>
     // Premium Wait List Override & Features
@@ -2782,13 +2828,26 @@
         );
       }
 
+      // Location filter
+      if (window.currentStockLocationFilter && window.currentStockLocationFilter !== "ALL") {
+        if (window.currentStockLocationFilter === "미지정") {
+          filteredList = filteredList.filter(item => !item.location || item.location === "미지정" || item.location.trim() === "");
+        } else if (window.currentStockLocationFilter === "B2 램프") {
+          filteredList = filteredList.filter(item => item.location && (item.location.includes("B2 램프") || item.location.includes("램프")));
+        } else {
+          filteredList = filteredList.filter(item => item.location && item.location.includes(window.currentStockLocationFilter));
+        }
+      }
+
       if (typeof currentStockStatusFilter !== "undefined") {
         if (currentStockStatusFilter === "good") {
           filteredList = filteredList.filter(item => item.currentStock > 5);
         } else if (currentStockStatusFilter === "low") {
           filteredList = filteredList.filter(item => item.currentStock > 0 && item.currentStock <= 5);
         } else if (currentStockStatusFilter === "out") {
-          filteredList = filteredList.filter(item => item.currentStock <= 0);
+          filteredList = filteredList.filter(item => item.currentStock === 0);
+        } else if (currentStockStatusFilter === "negative") {
+          filteredList = filteredList.filter(item => item.currentStock < 0);
         }
       }
 
@@ -2800,6 +2859,13 @@
         filteredList.sort((a, b) => {
           if (currentStockSort === "stock-desc") return b.currentStock - a.currentStock;
           if (currentStockSort === "stock-asc") return a.currentStock - b.currentStock;
+          if (currentStockSort === "negative-first") {
+            const aNeg = a.currentStock < 0;
+            const bNeg = b.currentStock < 0;
+            if (aNeg && !bNeg) return -1;
+            if (!aNeg && bNeg) return 1;
+            return a.currentStock - b.currentStock;
+          }
           if (currentStockSort === "name-asc") return a.artName.localeCompare(b.artName, "ko");
           if (currentStockSort === "artno-asc") return a.artNo.localeCompare(b.artNo);
           if (currentStockSort === "loc-asc") return (a.location || "").localeCompare(b.location || "", "ko");
@@ -2826,12 +2892,17 @@
       const visibleList = filteredList.slice(0, limit);
 
       let html = visibleList.map(item => {
-        const isOut = item.currentStock <= 0;
+        const isNegative = item.currentStock < 0;
+        const isOut = item.currentStock === 0;
         const isLow = item.currentStock > 0 && item.currentStock <= 5;
         
-        const cardClass = isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
-        const statusText = isOut ? "품절" : isLow ? "부족" : "안전";
-        const statusClass = isOut ? "status-out" : isLow ? "status-low" : "status-good";
+        const cardClass = isNegative ? "simple-stock-card negative" : isOut ? "simple-stock-card out" : isLow ? "simple-stock-card low" : "simple-stock-card";
+        const statusText = isNegative ? "마이너스" : isOut ? "품절" : isLow ? "부족" : "안전";
+        const statusClass = isNegative ? "status-negative" : isOut ? "status-out" : isLow ? "status-low" : "status-good";
+
+        const updateInfo = (typeof window.getProductLatestUpdateTime === "function")
+          ? window.getProductLatestUpdateTime(item.artNo)
+          : { text: "최근 기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
 
         // Only show edit button to Admin and ONLY if name contains "알 수 없음", "신규", or "기타"
         const isUnknown = item.artName.includes("알 수 없") || item.artName.includes("신규") || item.artName.includes("기타");
@@ -2839,51 +2910,69 @@
         const editBtnHtml = (isAdmin && isUnknown) ? `<button type="button" onclick="editArticleName('${item.artNo}', '${item.artName}')" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; margin-left:6px;"><i class="fa-solid fa-pen"></i> 수정</button>` : '';
 
         return `
-          <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="position:relative; display:flex; align-items:stretch; padding:12px; gap:12px; border-radius:12px; background:#fff; border:1px solid #e2e8f0; margin-bottom:10px;">
-            <!-- Checkbox -->
-            <div style="position:absolute; top:8px; left:8px; z-index:2;">
-              <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="if(typeof updateBulkSelection==='function') updateBulkSelection()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
+          <div class="${cardClass} stock-card-item" data-artno="${item.artNo}" style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px; border-radius:10px; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,0.02); transition:all 0.15s ease;">
+            <!-- Left: Checkbox & Product Image -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0;">
+              <input type="checkbox" class="stock-checkbox" value="${item.artNo}" onchange="if(typeof updateBulkSelection==='function') updateBulkSelection()" style="width:16px; height:16px; accent-color:#0058a3; cursor:pointer;">
+              ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 44) : ''}
             </div>
 
-            <!-- Left: Product Image -->
-            <div style="display:flex; align-items:center; justify-content:center; padding-left:18px; flex-shrink:0;">
-              ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, item.artName, 68) : ''}
-            </div>
-
-            <!-- Center: Info & Bottom Action Buttons -->
-            <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-              <!-- Line 1: HFB & ArtNo -->
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                ${item.hfb ? `<span style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px;">${item.hfb}</span>` : ''}
-                <span class="ssc-artno" style="font-size:13px; font-weight:800; color:#334155;">${item.artNo}</span>
+            <!-- Center & Main Details -->
+            <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+              <!-- Line 1: HFB + ArtNo + Status Badge -->
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                  ${item.hfb ? `<span style="background:#eff6ff; color:#0284c7; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${item.hfb}</span>` : ''}
+                  <span class="ssc-artno" style="font-size:12px; font-weight:800; color:#334155; font-family:monospace;">${item.artNo}</span>
+                </div>
+                <span class="ssc-status ${statusClass}" style="font-size:10px; padding:1.5px 6px; border-radius:10px; font-weight:800; ${isNegative ? 'background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff;' : `background:${isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'}; color:${isOut ? '#b91c1c' : isLow ? '#b45309' : '#15803d'}; border:1px solid ${isOut ? '#fca5a5' : isLow ? '#fde68a' : '#bbf7d0'};`} flex-shrink:0;">${statusText}</span>
               </div>
 
-              <!-- Line 2: Product Name -->
-              <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:break-all;">
-                ${item.artName} ${editBtnHtml}
+              <!-- Line 2: Product Name & Stock Quantity -->
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:6px;">
+                <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word; flex:1;">
+                  ${item.artName} ${editBtnHtml}
+                </div>
+                <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; flex-shrink:0; text-align:right;">
+                  <span class="ssc-num" style="font-size:19px; font-weight:900; line-height:1; color:${isNegative ? '#9333ea' : isOut ? '#ef4444' : isLow ? '#d97706' : '#0f172a'};">${item.currentStock}</span>
+                  <span class="ssc-unit" style="font-size:11px; color:#64748b; font-weight:700;">개</span>
+                </div>
               </div>
 
-              <!-- Line 3: Location / Zone -->
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                <span style="background:#f8fafc; color:#64748b; font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1;">
-                  <i class="fa-solid fa-map-pin"></i> 구역: ${item.location}
+              <!-- Line 3: Update Date & Time Info -->
+              <div style="font-size:10.5px; color:#64748b; display:flex; align-items:center; gap:4px; flex-wrap:wrap; line-height:1.25;">
+                <span style="display:inline-flex; align-items:center; gap:3px; white-space:nowrap;">
+                  <i class="fa-regular fa-clock" style="color:#0058a3; font-size:9.5px;"></i>
+                  <span style="color:#64748b; font-weight:700; white-space:nowrap;">업데이트:</span>
+                  <strong style="color:#334155; font-weight:700; white-space:nowrap;">${updateInfo.text}</strong>
                 </span>
-                <button type="button" style="background:#e0f2fe; color:#0284c7; border:none; font-size:10px; font-weight:800; padding:3px 6px; border-radius:4px; cursor:pointer;" onclick="if(typeof setSingleLocation==='function') setSingleLocation('${item.artNo}')">구역 변경</button>
+                ${updateInfo.user ? `
+                  <span style="color:#cbd5e1;">·</span>
+                  <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;" title="작업자 ID">
+                    <i class="fa-solid fa-user" style="color:#64748b; font-size:8px;"></i>
+                    <strong style="color:#0f172a;">${updateInfo.user}</strong>
+                  </span>
+                ` : ''}
+                ${updateInfo.action ? `
+                  <span style="color:#cbd5e1;">·</span>
+                  <span style="background:#f1f5f9; color:#475569; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;">
+                    ${updateInfo.action}
+                  </span>
+                ` : ''}
               </div>
 
-              <!-- Line 4: Quick Action Buttons at the bottom -->
-              <div class="ssc-quick-btns" style="display:flex; gap:8px; margin-top:4px;">
-                <button type="button" class="btn-sm btn-quick-in" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">입고</button>
-                <button type="button" class="btn-sm btn-quick-out" style="flex:1; padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '출고')">출고</button>
-              </div>
-            </div>
-
-            <!-- Right: Status Badge & Stock Qty -->
-            <div class="ssc-right" style="display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:8px; min-width:50px; flex-shrink:0;">
-              <span class="ssc-status ${statusClass}" style="font-size:11px; padding:2px 6px; border-radius:4px; font-weight:700;">${statusText}</span>
-              <div class="ssc-qty" style="display:flex; align-items:baseline; gap:2px; margin-top:4px;">
-                <span class="ssc-num ${isOut ? 'text-danger' : isLow ? 'text-warning' : 'text-primary'}" style="font-size:20px; font-weight:900;">${item.currentStock}</span>
-                <span class="ssc-unit" style="font-size:12px; color:#64748b; font-weight:700;">개</span>
+              <!-- Line 4: Location & Quick In/Out Buttons -->
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; margin-top:2px;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span style="background:#f8fafc; color:#475569; font-weight:700; font-size:10.5px; padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; border:1px solid #e2e8f0;">
+                    <i class="fa-solid fa-location-dot" style="color:#0058a3; font-size:9px;"></i> 구역: ${item.location}
+                  </span>
+                  <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:2px 5px; border-radius:4px; cursor:pointer;" onclick="if(typeof setSingleLocation==='function') setSingleLocation('${item.artNo}')">구역 변경</button>
+                </div>
+                <div class="ssc-quick-btns" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                  <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+                  <button type="button" class="btn-sm btn-quick-out" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+                </div>
               </div>
             </div>
           </div>
@@ -2892,8 +2981,8 @@
 
       if (filteredList.length > limit) {
         html += `
-          <div style="text-align: center; margin-top: 15px;">
-            <button type="button" class="btn-secondary" onclick="if(typeof loadMoreStockItems==='function') loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
+          <div style="text-align:center; margin:16px 0 20px 0; display:flex; justify-content:center;">
+            <button type="button" class="btn-load-more-simple" onclick="if(typeof loadMoreStockItems==='function') loadMoreStockItems()">더 보기 <i class="fa-solid fa-chevron-down"></i></button>
           </div>
         `;
       }

@@ -1431,6 +1431,7 @@ body {
 .chip-btn.chip-out.active { background-color: #dc2626; border-color: #dc2626; }
 .chip-btn.chip-store.active { background-color: #2563eb !important; border-color: #2563eb !important; color: #ffffff !important; }
 .chip-btn.chip-wh.active { background-color: #7c3aed !important; border-color: #7c3aed !important; color: #ffffff !important; }
+.chip-btn.chip-negative.active { background-color: #7e22ce !important; border-color: #7e22ce !important; color: #ffffff !important; }
 
 
 .toolbar-controls {
@@ -1528,6 +1529,12 @@ body {
 .simple-stock-card.out {
   background: linear-gradient(90deg, #fffafa 0%, #ffffff 10%);
   border-left: 3px solid #ef4444;
+  padding-left: 17px;
+}
+
+.simple-stock-card.negative {
+  background: linear-gradient(90deg, #faf5ff 0%, #ffffff 10%);
+  border-left: 3px solid #9333ea;
   padding-left: 17px;
 }
 
@@ -1637,6 +1644,8 @@ body {
 .status-good { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 .status-low { background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 .status-out { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.status-negative { background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+.text-purple { color: #9333ea !important; }
 
 .ssc-qty {
   display: flex;
@@ -3078,6 +3087,154 @@ body { overflow-behavior-y: none; }
 .store-saved-item:hover {
   border-color: #bfdbfe;
   box-shadow: 0 2px 6px rgba(0, 88, 163, 0.08);
+}
+
+/* MFAQ Inquiry Type Buttons (재고 문의 / 위치 문의 / 새아티클 요청) */
+.btn-mfaq-type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  background: #f8fafc;
+  color: #334155;
+  border: 1.5px solid #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.btn-mfaq-type i {
+  font-size: 12px;
+  color: #0058a3;
+  transition: all 0.15s ease;
+}
+
+.btn-mfaq-type:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-mfaq-type:active {
+  transform: scale(0.97);
+}
+
+.btn-mfaq-type.active {
+  background: #0058a3 !important;
+  color: #ffffff !important;
+  border-color: #0058a3 !important;
+  font-weight: 900 !important;
+  box-shadow: 0 2px 6px rgba(0, 88, 163, 0.25);
+}
+
+.btn-mfaq-type.active i {
+  color: #ffffff !important;
+}
+
+/* Quick In/Out Buttons in Stock Cards */
+.ssc-quick-btns {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+}
+
+.btn-quick-in,
+.btn-quick-out {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  height: 24px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.btn-quick-in {
+  background: #f0fdf4 !important;
+  color: #166534 !important;
+  border: 1px solid #bbf7d0 !important;
+}
+
+.btn-quick-in:hover {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+
+.btn-quick-in:active {
+  transform: scale(0.95);
+}
+
+.btn-quick-out {
+  background: #fff1f2 !important;
+  color: #9f1239 !important;
+  border: 1px solid #fecdd3 !important;
+}
+
+.btn-quick-out:hover {
+  background: #ffe4e6 !important;
+  border-color: #fda4af !important;
+}
+
+.btn-quick-out:active {
+  transform: scale(0.95);
+}
+
+/* Simple Load More Button */
+.btn-load-more-simple {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 8px 24px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 20px !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.15s ease !important;
+  line-height: 1.2 !important;
+  min-height: unset !important;
+  user-select: none;
+}
+
+.btn-load-more-simple:hover {
+  background: #f8fafc !important;
+  color: #0058a3 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 6px rgba(0, 88, 163, 0.1) !important;
+}
+
+.btn-load-more-simple:active {
+  transform: scale(0.97);
+  background: #f1f5f9 !important;
+}
+
+.btn-load-more-simple i {
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.btn-load-more-simple:hover i {
+  transform: translateY(1px);
 }
 
 
