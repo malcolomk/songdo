@@ -196,7 +196,8 @@ function saveUserPasswords() {
 }
 
 function checkLoginSession() {
-  const sessionUser = currentUser; // Only use memory, NOT localStorage
+  const savedUser = localStorage.getItem("warehouse_current_user") || sessionStorage.getItem("warehouse_current_user");
+  const sessionUser = currentUser || savedUser;
   const loginOverlay = document.getElementById("login-overlay");
   const userBadge = document.getElementById("user-profile-badge");
   const userNameElem = document.getElementById("current-user-name");
@@ -211,6 +212,11 @@ function checkLoginSession() {
 
   if (sessionUser && ALLOWED_USER_IDS.some(id => id.toLowerCase() === sessionUser.toLowerCase())) {
     currentUser = sessionUser;
+    window.currentUser = sessionUser;
+    try {
+      localStorage.setItem("warehouse_current_user", sessionUser);
+      localStorage.setItem("warehouse_saved_login_id", sessionUser);
+    } catch(e) {}
     isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === sessionUser.toLowerCase());
     window.isAdminUser = isAdminUser;
     isViewerUser = (sessionUser.toLowerCase() === "viewer");
@@ -276,6 +282,7 @@ function checkLoginSession() {
     } catch (e) { console.error(e); }
   } else {
     currentUser = null;
+    window.currentUser = null;
     isAdminUser = false;
     isViewerUser = false;
     document.body.classList.remove("is-viewer-mode");
@@ -290,6 +297,12 @@ function checkLoginSession() {
       loginOverlay.style.pointerEvents = "auto";
     }
     if (userBadge) userBadge.style.display = "none";
+
+    const savedId = localStorage.getItem("warehouse_saved_login_id") || localStorage.getItem("warehouse_current_user");
+    const loginIdElem = document.getElementById("login-id");
+    if (savedId && loginIdElem && !loginIdElem.value) {
+      loginIdElem.value = savedId;
+    }
   }
 }
 
@@ -324,6 +337,11 @@ function handleLoginSubmit(e) {
   }
 
   currentUser = matchedId;
+  window.currentUser = matchedId;
+  try {
+    localStorage.setItem("warehouse_current_user", matchedId);
+    localStorage.setItem("warehouse_saved_login_id", matchedId);
+  } catch(e) {}
   isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === matchedId.toLowerCase());
   window.isAdminUser = isAdminUser;
   isViewerUser = (matchedId.toLowerCase() === "viewer");
@@ -363,6 +381,10 @@ function handleLoginSubmit(e) {
 
 function handleLogout() {
   currentUser = null;
+  window.currentUser = null;
+  try {
+    localStorage.removeItem("warehouse_current_user");
+  } catch(e) {}
   isAdminUser = false;
   isViewerUser = false;
   document.body.classList.remove("is-viewer-mode");
@@ -639,20 +661,35 @@ async function loadDataFromSupabase() {
       }
 
       if (catalog && catalog.length > 0) {
-        masterCatalog = catalog.map(row => {
+        const catalogMap = new Map();
+        catalog.forEach(row => {
           let cleanArtNo = String(row.artno || row.artNo || "").trim();
           const digitsOnly = cleanArtNo.replace(/\D/g, '');
           if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
             cleanArtNo = digitsOnly.padStart(8, '0');
           }
-          return {
-            hfb: row.hfb ? String(row.hfb).trim() : "",
+          let cleanHfb = row.hfb ? String(row.hfb).trim() : "";
+          if (/^\d$/.test(cleanHfb)) {
+            cleanHfb = "0" + cleanHfb;
+          }
+          const item = {
+            hfb: cleanHfb,
             artNo: cleanArtNo,
             artName: row.artname || row.artName || "",
             location: row.location || "미지정",
             id: row.id
           };
+          if (!catalogMap.has(cleanArtNo)) {
+            catalogMap.set(cleanArtNo, item);
+          } else {
+            const existing = catalogMap.get(cleanArtNo);
+            if ((!existing.hfb || (existing.hfb.length === 1 && item.hfb.length === 2)) ||
+                (existing.location === "미지정" && item.location && item.location !== "미지정")) {
+              catalogMap.set(cleanArtNo, item);
+            }
+          }
         });
+        masterCatalog = Array.from(catalogMap.values());
       } else {
         const savedCatalog = localStorage.getItem("warehouse_master_catalog");
         masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
@@ -790,19 +827,40 @@ async function loadDataFromSupabase() {
 
         mfaqLogs = mfaq.map(row => {
           const local = localMap.get(row.id) || {};
+          let metaUser = "";
+          let metaTap = "";
+          if (row.question) {
+            const byMatch = String(row.question).match(/<!--by:([^>|]+)(?:\|tap:([^>]+))?-->/);
+            if (byMatch) {
+              metaUser = byMatch[1].trim();
+              if (byMatch[2]) metaTap = byMatch[2].trim();
+            }
+          }
+          const authorUser = (row.created_by && row.created_by !== 'system')
+            || (row.createdBy && row.createdBy !== 'system')
+            || metaUser
+            || (local.createdBy && local.createdBy !== 'system' ? local.createdBy : "jipar5");
+          let history = row.history || local.history || local.tapHistory;
+          if (!history || history.length === 0) {
+            history = [
+              { user: authorUser, time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
+            ];
+            if (metaTap) {
+              history.push({ user: metaTap, time: row.last_updated || new Date().toISOString(), type: "tap", label: "+1 탭" });
+            }
+          }
           return {
             id: row.id,
             category: row.category,
-            question: row.question,
+            question: String(row.question || "").replace(/<!--by:.*?-->/g, '').trim(),
             count: row.count,
             createdAt: row.created_at || row.createdAt,
             lastUpdated: row.last_updated || row.lastUpdated,
-            createdBy: row.created_by || row.createdBy || local.createdBy || "system",
-            history: row.history || local.history || local.tapHistory || [
-              { user: local.createdBy || "system", time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
-            ]
+            createdBy: authorUser,
+            history: history
           };
         });
+        saveMfaqLogs();
       } else {
         const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
         mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
@@ -820,6 +878,9 @@ async function loadDataFromSupabase() {
   rebuildMasterCatalogMap();
   invalidateStockCache();
   updateMfaqBadge();
+  if (typeof window.checkAndAutoCleanNegativeStock === 'function') {
+    window.checkAndAutoCleanNegativeStock();
+  }
 }
 
 function saveMasterCatalog() {
@@ -1998,7 +2059,7 @@ function populateStockHFBDropdown() {
 function filterByStockStatus(status) {
   currentStockStatusFilter = status;
   
-  const statusChips = ["all", "good", "low", "out", "negative"];
+  const statusChips = ["all", "good", "low", "out"];
   statusChips.forEach(st => {
     const chip = document.getElementById(`chip-status-${st}`);
     if (chip) {
@@ -2364,6 +2425,17 @@ function selectItemForRegister(artNo) {
 }
 
 function quickActionRegister(artNo, type) {
+  const currentStock = (typeof window.getArtCurrentStock === 'function') 
+    ? window.getArtCurrentStock(artNo) 
+    : (typeof getItemStock === 'function' ? getItemStock(artNo) : 0);
+
+  if (type === '출고' && currentStock <= 0) {
+    if (typeof playWarningBeep === 'function') playWarningBeep();
+    if (typeof playWarningHaptic === 'function') playWarningHaptic();
+    showToast(`⚠️ [${artNo}] 입고가 안 잡힌 아티클(재고 0개)입니다. [입고]를 먼저 등록해 주세요!`, "warning", 4500);
+    type = '입고';
+  }
+
   const regArtNoElem = document.getElementById("reg-artno");
   if (regArtNoElem) regArtNoElem.value = artNo;
   
@@ -3030,24 +3102,54 @@ function handleRealtimeStoreInbound(payload) {
 function handleRealtimeMfaq(payload) {
   const { eventType, new: newRow, old: oldRow } = payload;
   if (eventType === 'INSERT') {
+    let metaUser = "";
+    let metaTap = "";
+    if (newRow.question) {
+      const byMatch = String(newRow.question).match(/<!--by:([^>|]+)(?:\|tap:([^>]+))?-->/);
+      if (byMatch) {
+        metaUser = byMatch[1].trim();
+        if (byMatch[2]) metaTap = byMatch[2].trim();
+      }
+    }
+    const cleanQ = String(newRow.question || "").replace(/<!--by:.*?-->/g, '').trim();
+    const authorUser = metaUser || "jipar5";
+    const history = [
+      { user: authorUser, time: newRow.created_at || new Date().toISOString(), type: "create", label: "최초 등록" }
+    ];
+    if (metaTap) {
+      history.push({ user: metaTap, time: newRow.last_updated || new Date().toISOString(), type: "tap", label: "+1 탭" });
+    }
     const exists = mfaqLogs.find(l => l.id === newRow.id);
     if (!exists) {
-      mfaqLogs.push({
+      mfaqLogs.unshift({
         id: newRow.id,
         category: newRow.category,
-        question: newRow.question,
+        question: cleanQ,
         count: newRow.count,
         createdAt: newRow.created_at,
-        lastUpdated: newRow.last_updated
+        lastUpdated: newRow.last_updated,
+        createdBy: authorUser,
+        history: history
       });
     }
   } else if (eventType === 'UPDATE') {
     const idx = mfaqLogs.findIndex(l => l.id === newRow.id);
     if (idx !== -1) {
+      let metaTap = "";
+      if (newRow.question) {
+        const byMatch = String(newRow.question).match(/<!--by:([^>|]+)(?:\|tap:([^>]+))?-->/);
+        if (byMatch && byMatch[2]) metaTap = byMatch[2].trim();
+      }
+      const existingHistory = mfaqLogs[idx].history || [];
+      if (metaTap && !existingHistory.some(h => h.user === metaTap && Math.abs(new Date(h.time) - new Date(newRow.last_updated)) < 2000)) {
+        existingHistory.push({ user: metaTap, time: newRow.last_updated || new Date().toISOString(), type: "tap", label: "+1 탭" });
+      }
       mfaqLogs[idx] = {
         ...mfaqLogs[idx],
+        question: String(newRow.question || mfaqLogs[idx].question).replace(/<!--by:.*?-->/g, '').trim(),
         count: newRow.count,
-        lastUpdated: newRow.last_updated
+        lastUpdated: newRow.last_updated,
+        history: existingHistory
       };
     }
   } else if (eventType === 'DELETE') {
@@ -3449,17 +3551,37 @@ async function refreshMfaqData() {
 
         mfaqLogs = mfaq.map(row => {
           const local = localMap.get(row.id) || {};
+          let metaUser = "";
+          let metaTap = "";
+          if (row.question) {
+            const byMatch = String(row.question).match(/<!--by:([^>|]+)(?:\|tap:([^>]+))?-->/);
+            if (byMatch) {
+              metaUser = byMatch[1].trim();
+              if (byMatch[2]) metaTap = byMatch[2].trim();
+            }
+          }
+          const authorUser = (row.created_by && row.created_by !== 'system')
+            || (row.createdBy && row.createdBy !== 'system')
+            || metaUser
+            || (local.createdBy && local.createdBy !== 'system' ? local.createdBy : "jipar5");
+          let history = row.history || local.history || local.tapHistory;
+          if (!history || history.length === 0) {
+            history = [
+              { user: authorUser, time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
+            ];
+            if (metaTap) {
+              history.push({ user: metaTap, time: row.last_updated || new Date().toISOString(), type: "tap", label: "+1 탭" });
+            }
+          }
           return {
             id: row.id,
             category: row.category,
-            question: row.question,
+            question: String(row.question || "").replace(/<!--by:.*?-->/g, '').trim(),
             count: row.count,
             createdAt: row.created_at || row.createdAt,
             lastUpdated: row.last_updated || row.lastUpdated,
-            createdBy: row.created_by || row.createdBy || local.createdBy || "system",
-            history: row.history || local.history || local.tapHistory || [
-              { user: local.createdBy || "system", time: row.created_at || row.createdAt || new Date().toISOString(), type: "create", label: "최초 등록" }
-            ]
+            createdBy: authorUser,
+            history: history
           };
         });
         saveMfaqLogs();

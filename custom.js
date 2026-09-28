@@ -650,11 +650,25 @@ window.handleAutocompleteInput = function(query, target = "register") {
   }
 
   const catalog = typeof masterCatalog !== 'undefined' ? masterCatalog : [];
-  const matches = catalog.filter(item => 
+  const rawMatches = catalog.filter(item => 
     item.artNo.toLowerCase().includes(cleanQuery) ||
     item.artName.toLowerCase().includes(cleanQuery) ||
     (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
-  ).slice(0, 10);
+  );
+
+  const seenArtNos = new Set();
+  const matches = [];
+  for (const item of rawMatches) {
+    let cleanNo = String(item.artNo).replace(/\D/g, '');
+    if (cleanNo.length > 0 && cleanNo.length <= 8) cleanNo = cleanNo.padStart(8, '0');
+    if (!seenArtNos.has(cleanNo)) {
+      seenArtNos.add(cleanNo);
+      let hfb = item.hfb ? String(item.hfb).trim() : '';
+      if (/^\d$/.test(hfb)) hfb = '0' + hfb;
+      matches.push({ ...item, artNo: cleanNo, hfb });
+    }
+    if (matches.length >= 10) break;
+  }
 
   if (matches.length === 0 || !dropdown) {
     if (dropdown) dropdown.classList.remove("active");
@@ -694,11 +708,25 @@ window.handleAutocompleteNameInput = function(query, target = "register") {
   }
 
   const catalog = typeof masterCatalog !== 'undefined' ? masterCatalog : [];
-  const matches = catalog.filter(item => 
+  const rawMatches = catalog.filter(item => 
     item.artName.toLowerCase().includes(cleanQuery) ||
     item.artNo.toLowerCase().includes(cleanQuery) ||
     (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
-  ).slice(0, 10);
+  );
+
+  const seenArtNos = new Set();
+  const matches = [];
+  for (const item of rawMatches) {
+    let cleanNo = String(item.artNo).replace(/\D/g, '');
+    if (cleanNo.length > 0 && cleanNo.length <= 8) cleanNo = cleanNo.padStart(8, '0');
+    if (!seenArtNos.has(cleanNo)) {
+      seenArtNos.add(cleanNo);
+      let hfb = item.hfb ? String(item.hfb).trim() : '';
+      if (/^\d$/.test(hfb)) hfb = '0' + hfb;
+      matches.push({ ...item, artNo: cleanNo, hfb });
+    }
+    if (matches.length >= 10) break;
+  }
 
   if (matches.length === 0 || !dropdown) {
     if (dropdown) dropdown.classList.remove("active");
@@ -1409,7 +1437,7 @@ window.renderMenuLocationWidget = function() {
 window.filterByStockStatus = function(status) {
   currentStockStatusFilter = status;
   
-  const statusChips = ["all", "good", "low", "out", "negative"];
+  const statusChips = ["all", "good", "low", "out"];
   statusChips.forEach(st => {
     const chip = document.getElementById(`chip-status-${st}`);
     if (chip) {
@@ -2181,7 +2209,7 @@ window.switchTab = function(tabId) {
 // --- 1-Touch Simplified Warehouse-by-Warehouse Picklist System ---
 
 window.currentPicklistZone = "B1";
-window.currentPicklistMode = "queue"; // "queue" or "stock"
+window.currentPicklistMode = "stock"; // "stock" (left) or "queue" (right)
 window.picklistStockSearchQuery = "";
 
 function getOrderItemLocation(item) {
@@ -2206,7 +2234,7 @@ function getOrderItemLocation(item) {
   return "미지정";
 }
 
-window.getProductLatestUpdateTime = function(artNo) {
+window.getProductLatestUpdateTime = function(artNo, includeStoreInbound = false) {
   if (!artNo) return { text: "기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
   let cleanNo = String(artNo).trim();
   if (cleanNo.length > 0 && cleanNo.length <= 8) {
@@ -2218,7 +2246,7 @@ window.getProductLatestUpdateTime = function(artNo) {
   let latestAction = "";
   let latestUser = "";
 
-  // 1. Scan historyLogs for latest transaction of this article
+  // 1. Scan historyLogs for latest transaction of this article (창고 입/출고)
   if (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) {
     for (let i = 0; i < historyLogs.length; i++) {
       const log = historyLogs[i];
@@ -2240,8 +2268,8 @@ window.getProductLatestUpdateTime = function(artNo) {
     }
   }
 
-  // 2. Scan storeInboundLogs for latest store inbound transaction
-  if (typeof storeInboundLogs !== "undefined" && Array.isArray(storeInboundLogs)) {
+  // 2. Scan storeInboundLogs only if explicitly requested (창고 재고 조회에서는 매장입고 배제하여 혼선 방지)
+  if (includeStoreInbound && typeof storeInboundLogs !== "undefined" && Array.isArray(storeInboundLogs)) {
     for (let i = 0; i < storeInboundLogs.length; i++) {
       const log = storeInboundLogs[i];
       const logNo = String(log.artNo || log.artno || "").trim();
@@ -2700,9 +2728,14 @@ function renderPicklistStockView(container, selectedZone, items) {
               <button type="button" onclick="setDirectPickQtyMax('${cleanNo}', ${currentStock})" style="font-size:10.5px; font-weight:800; background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; border-radius:4px; padding:0 6px; height:28px; line-height:28px; cursor:pointer; white-space:nowrap; flex-shrink:0;">최대</button>
             </div>
 
-            <button type="button" onclick="handleDirectPickSubmit('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
-              <i class="fa-solid fa-bolt"></i> 바로 챙기기
-            </button>
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <button type="button" id="btn-queue-add-${cleanNo}" onclick="handleQueueAddFromStock('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#ffffff; color:#0058a3; font-weight:800; font-size:12px; border:1.5px solid #0058a3; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; transition:all 0.15s ease;" title="챙길 대기열에 담기">
+                <i class="fa-solid fa-cart-plus"></i> 담기
+              </button>
+              <button type="button" onclick="handleDirectPickSubmit('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
+                <i class="fa-solid fa-bolt"></i> 바로 챙기기
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2748,6 +2781,82 @@ window.adjustDirectPickQty = function(artNo, delta, maxStock = 9999) {
 window.setDirectPickQtyMax = function(artNo, maxStock) {
   const input = document.getElementById(`direct-pick-qty-${artNo}`);
   if (input) input.value = maxStock;
+};
+
+// Add item to pick queue (챙길 대기열 담기)
+window.handleQueueAddFromStock = async function(artNo, artName) {
+  const cleanNo = String(artNo || "").trim();
+  const input = document.getElementById(`direct-pick-qty-${cleanNo}`);
+  let qty = parseInt(input ? input.value : 1, 10) || 1;
+  const maxStock = (typeof getItemStock === "function") ? getItemStock(cleanNo) : 999;
+  if (qty > maxStock) qty = maxStock;
+  if (qty < 1) qty = 1;
+
+  const btn = document.getElementById(`btn-queue-add-${cleanNo}`);
+  let origText = "";
+  if (btn) {
+    origText = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-check"></i> 담김!`;
+    btn.style.background = "#eff6ff";
+    setTimeout(() => {
+      if (btn) {
+        btn.innerHTML = origText;
+        btn.style.background = "#ffffff";
+      }
+    }, 1200);
+  }
+
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+
+  const newOrder = {
+    date: todayStr,
+    artNo: cleanNo,
+    artName: artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목",
+    qty: qty,
+    user: (typeof currentUser !== "undefined" && currentUser) ? currentUser : "system",
+    status: "출고대기",
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    const insertedId = (typeof saveOrderLogs === "function") ? await saveOrderLogs(newOrder) : null;
+    if (insertedId) newOrder.id = insertedId;
+    if (typeof orderLogs !== "undefined") {
+      orderLogs.unshift(newOrder);
+      try {
+        localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs));
+      } catch(e) {}
+    }
+
+    // Real-time update for picklist badges & counts
+    const selectedZone = window.currentPicklistZone || "B1";
+    const pendingOrders = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs))
+      ? orderLogs.filter(item => ["출고대기", "대기", "요청", "요청됨", "승인", "수락"].includes(item.status))
+      : [];
+    const zoneQueueOrders = pendingOrders.filter(item => isLocationMatch(getOrderItemLocation(item), selectedZone));
+    const queueTabText = document.getElementById("picklist-queue-tab-text");
+    if (queueTabText) queueTabText.textContent = `챙길 대기열 (${zoneQueueOrders.length}건)`;
+
+    const badgePicklist = document.getElementById("badge-picklist");
+    if (badgePicklist) {
+      if (pendingOrders.length > 0) {
+        badgePicklist.textContent = pendingOrders.length;
+        badgePicklist.style.display = "inline-flex";
+      } else {
+        badgePicklist.style.display = "none";
+      }
+    }
+
+    if (typeof renderPicklistZoneTabs === "function") renderPicklistZoneTabs();
+
+    showToast(`🛒 [${cleanNo}] ${newOrder.artName} ${qty}개가 챙길 대기열에 담겼습니다!`, "success");
+    if (typeof playSuccessFeedback === "function") playSuccessFeedback();
+  } catch (err) {
+    console.error("Queue add error:", err);
+    showToast("대기열 담기 중 오류가 발생했습니다: " + err.message, "danger");
+  }
 };
 
 window.handleDirectPickSubmit = async function(artNo, artName) {
@@ -3938,6 +4047,8 @@ window.playWarningHaptic = playWarningHaptic;
 // Global Barcode Scanner Gun Keystroke Interceptor for #tab-store-inbound
 let globalScannerBuffer = "";
 let globalScannerTimer = null;
+let _storeBarcodeAutoTimer = null;
+window._storeBarcodeAutoTimer = _storeBarcodeAutoTimer;
 
 document.addEventListener("keydown", function(e) {
   const storeTab = document.getElementById("tab-store-inbound");
@@ -3946,29 +4057,41 @@ document.addEventListener("keydown", function(e) {
   const activeEl = document.activeElement;
   const inputEl = document.getElementById("store-barcode-input");
 
-  // If already in barcode input, let its onkeydown handle Enter
-  if (activeEl && activeEl.id === "store-barcode-input") {
-    return;
-  }
-
-  // Handle Enter key from hardware scanner gun
-  if (e.key === "Enter") {
+  // Handle Enter / Tab from scanner gun or keyboard
+  if (e.key === "Enter" || e.key === "Tab") {
+    if (activeEl && activeEl.id === "store-barcode-input") {
+      if (inputEl && inputEl.value.trim()) {
+        e.preventDefault();
+        clearTimeout(window._storeBarcodeAutoTimer);
+        handleStoreBarcodeInput(inputEl.value.trim());
+      }
+      return;
+    }
     if (globalScannerBuffer.trim().length >= 3) {
       e.preventDefault();
       const scannedCode = globalScannerBuffer.trim();
       globalScannerBuffer = "";
       handleStoreBarcodeInput(scannedCode);
+      return;
     }
+  }
+
+  // If already inside barcode input, let its oninput / onkeydown handle it
+  if (activeEl && activeEl.id === "store-barcode-input") {
     return;
   }
 
-  // Rapid buffer for hardware scanner gun
+  // Rapid buffer for hardware scanner gun when focus is elsewhere
   if (e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
     globalScannerBuffer += e.key;
     clearTimeout(globalScannerTimer);
     globalScannerTimer = setTimeout(() => {
+      const code = globalScannerBuffer.trim();
       globalScannerBuffer = "";
-    }, 150);
+      if (code.replace(/\D/g, '').length >= 8) {
+        handleStoreBarcodeInput(code);
+      }
+    }, 80);
   }
 });
 
@@ -3993,33 +4116,67 @@ document.addEventListener("click", function(e) {
   if (inputEl) inputEl.focus();
 });
 
-// Live Autocomplete for Morning Store Inbound Search
+// Live Autocomplete & Auto-Scan for Morning Store Inbound Search
 window.handleStoreAutocompleteInput = function(query) {
-  let cleanQuery = String(query || '').trim().toLowerCase();
+  let cleanQuery = String(query || '').trim();
   const dropdown = document.getElementById("store-barcode-dropdown");
-  if (!dropdown) return;
+  clearTimeout(window._storeBarcodeAutoTimer);
 
   if (!cleanQuery) {
-    dropdown.classList.remove("active");
-    dropdown.innerHTML = "";
+    if (dropdown) {
+      dropdown.classList.remove("active");
+      dropdown.innerHTML = "";
+    }
     return;
   }
 
   const digitsOnly = cleanQuery.replace(/\D/g, '');
-  if (digitsOnly.length > 8) {
-    cleanQuery = digitsOnly.slice(0, 8);
+
+  // ⚡ HARDWARE / BARCODE AUTO-COMMIT (바로 담기):
+  // 바코드 스캐너가 찍은 8자리 이상의 바코드/아티클 번호(예: 006111144448, 40433365)는
+  // 드롭다운을 띄워 번거롭게 손으로 누르게 하지 않고, 입력 완료(70ms) 즉시 장바구니에 바로 자동 담기 처리!
+  if (digitsOnly.length >= 8) {
+    if (dropdown) {
+      dropdown.classList.remove("active");
+      dropdown.innerHTML = "";
+    }
+    window._storeBarcodeAutoTimer = setTimeout(() => {
+      const inputEl = document.getElementById("store-barcode-input");
+      const currentVal = inputEl ? inputEl.value.trim() : "";
+      if (currentVal && currentVal.replace(/\D/g, '').length >= 8) {
+        handleStoreBarcodeInput(currentVal);
+      }
+    }, 70);
+    return;
   }
 
+  // 🔍 한글 품명 검색 또는 8자리 미만 수동 검색 (예: '프락타', '7058') -> 자동완성 드롭다운 표시
   const catalog = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog : [];
-  const matches = catalog.filter(item => 
-    (item.artNo && item.artNo.toLowerCase().includes(cleanQuery)) ||
-    (item.artName && item.artName.toLowerCase().includes(cleanQuery)) ||
-    (item.hfb && item.hfb.toLowerCase().includes(cleanQuery))
-  ).slice(0, 12);
+  const rawMatches = catalog.filter(item => 
+    (item.artNo && item.artNo.toLowerCase().includes(cleanQuery.toLowerCase())) ||
+    (item.artName && item.artName.toLowerCase().includes(cleanQuery.toLowerCase())) ||
+    (item.hfb && item.hfb.toLowerCase().includes(cleanQuery.toLowerCase()))
+  );
 
-  if (matches.length === 0) {
-    dropdown.classList.remove("active");
-    dropdown.innerHTML = "";
+  const seen = new Set();
+  const matches = [];
+  for (const item of rawMatches) {
+    let cleanNo = String(item.artNo).replace(/\D/g, '');
+    if (cleanNo.length > 0 && cleanNo.length <= 8) cleanNo = cleanNo.padStart(8, '0');
+    if (!seen.has(cleanNo)) {
+      seen.add(cleanNo);
+      let hfb = item.hfb ? String(item.hfb).trim() : '';
+      if (/^\d$/.test(hfb)) hfb = '0' + hfb;
+      matches.push({ ...item, artNo: cleanNo, hfb });
+    }
+    if (matches.length >= 10) break;
+  }
+
+  if (matches.length === 0 || !dropdown) {
+    if (dropdown) {
+      dropdown.classList.remove("active");
+      dropdown.innerHTML = "";
+    }
     return;
   }
 
@@ -5682,6 +5839,15 @@ window.parseMfaqItem = function(log) {
   let extraNote = "";
   let location = "";
 
+  let metaUser = "";
+  let metaTap = "";
+  const byMatch = rawQuestion.match(/<!--by:([^>|]+)(?:\|tap:([^>]+))?-->/);
+  if (byMatch) {
+    metaUser = byMatch[1].trim();
+    if (byMatch[2]) metaTap = byMatch[2].trim();
+    rawQuestion = rawQuestion.replace(/<!--by:.*?-->/g, '').trim();
+  }
+
   // 1. Try to extract [artNo] from question string (e.g. "[10456789] BILLY 책장 - 재고 문의" or "[104.567.89]")
   const bracketMatch = rawQuestion.match(/\[([\d\.\s]{6,12})\]/);
   if (bracketMatch) {
@@ -5750,6 +5916,8 @@ window.parseMfaqItem = function(log) {
     hfb: hfb || (cleanNo ? "기타 HFB" : ""),
     location,
     extraNote,
+    metaUser,
+    metaTap,
     hasProduct: !!cleanNo,
     fullQuestion: rawQuestion
   };
@@ -6025,7 +6193,10 @@ window.handleAddMfaqSubmit = async function(event) {
   const category = document.getElementById("mfaq-new-category") ? document.getElementById("mfaq-new-category").value : "제품 질문/요청";
   const memoText = document.getElementById("mfaq-new-question") ? document.getElementById("mfaq-new-question").value.trim() : "";
   const selectedType = (category === "제품 질문/요청") ? (window.selectedMfaqType || "") : "";
-  const activeUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'system';
+  const activeUser = (typeof currentUser !== 'undefined' && currentUser) 
+    || window.currentUser 
+    || localStorage.getItem("warehouse_current_user") 
+    || "jipar5";
   const now = new Date().toISOString();
 
   let extraText = "";
@@ -6081,7 +6252,7 @@ window.handleAddMfaqSubmit = async function(event) {
     if (artName && !existing.artName) existing.artName = artName;
     if (hfb && !existing.hfb) existing.hfb = hfb;
     if (!existing.history) {
-      existing.history = [{ user: existing.createdBy || 'system', time: existing.createdAt || now, type: 'create', label: '최초 등록' }];
+      existing.history = [{ user: (existing.createdBy && existing.createdBy !== 'system') ? existing.createdBy : activeUser, time: existing.createdAt || now, type: 'create', label: '최초 등록' }];
     }
     existing.history.push({
       user: activeUser,
@@ -6092,12 +6263,31 @@ window.handleAddMfaqSubmit = async function(event) {
 
     showToast(`이미 등록된 항목입니다. ${activeUser}님의 탭으로 질문 횟수가 +1 (${existing.count}건) 증가했습니다!`, "success");
 
+    const existingCreator = (existing.createdBy && existing.createdBy !== 'system') ? existing.createdBy : activeUser;
+    let baseQ = String(existing.question || "").replace(/<!--by:.*?-->/g, '').trim();
+    const supabaseUpdatedQ = `${baseQ} <!--by:${existingCreator}|tap:${activeUser}-->`;
+
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
-        await supabaseClient
+        const { error: upErr } = await supabaseClient
           .from("mfaq_logs")
-          .update({ count: existing.count, last_updated: existing.lastUpdated })
+          .update({ 
+            count: existing.count, 
+            last_updated: existing.lastUpdated,
+            user: existingCreator,
+            question: supabaseUpdatedQ
+          })
           .eq("id", existing.id);
+        if (upErr) {
+          await supabaseClient
+            .from("mfaq_logs")
+            .update({ 
+              count: existing.count, 
+              last_updated: existing.lastUpdated,
+              question: supabaseUpdatedQ
+            })
+            .eq("id", existing.id);
+        }
       } catch (e) {
         console.warn("MFAQ update Supabase error:", e);
       }
@@ -6111,6 +6301,7 @@ window.handleAddMfaqSubmit = async function(event) {
       artName: artName,
       hfb: hfb,
       count: 1,
+      user: activeUser,
       createdBy: activeUser,
       history: [
         { user: activeUser, time: now, type: 'create', label: '최초 등록' }
@@ -6121,18 +6312,33 @@ window.handleAddMfaqSubmit = async function(event) {
     mfaqLogs.unshift(newLog);
     showToast(`새 MFAQ 항목이 등록되었습니다! (등록자: ${activeUser})`, "success");
 
+    const supabaseInsertQ = `${questionFormatted} <!--by:${activeUser}-->`;
+
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
-        await supabaseClient
+        const { error: insErr } = await supabaseClient
           .from("mfaq_logs")
           .insert([{
             id: newLog.id,
             category: newLog.category,
-            question: newLog.question,
+            question: supabaseInsertQ,
+            user: activeUser,
             count: newLog.count,
             created_at: newLog.createdAt,
             last_updated: newLog.lastUpdated
           }]);
+        if (insErr) {
+          await supabaseClient
+            .from("mfaq_logs")
+            .insert([{
+              id: newLog.id,
+              category: newLog.category,
+              question: supabaseInsertQ,
+              count: newLog.count,
+              created_at: newLog.createdAt,
+              last_updated: newLog.lastUpdated
+            }]);
+        }
       } catch (e) {
         console.warn("MFAQ insert Supabase error:", e);
       }
@@ -6219,16 +6425,27 @@ window.renderMfaq = function() {
 
   let filtered = (mfaqLogs || []).map(log => {
     const parsed = window.parseMfaqItem(log);
+    const itemCreator = (log.createdBy && log.createdBy !== "system") 
+      ? log.createdBy 
+      : (parsed.metaUser || (log.createdBy === "system" ? "jipar5" : (log.createdBy || "jipar5")));
     let history = log.history || log.tapHistory || [];
     if (!history || history.length === 0) {
       history = [{
-        user: log.createdBy || log.user || "system",
+        user: itemCreator,
         time: log.createdAt || log.lastUpdated || new Date().toISOString(),
         type: "create",
         label: "최초 등록"
       }];
+      if (parsed.metaTap) {
+        history.push({
+          user: parsed.metaTap,
+          time: log.lastUpdated || new Date().toISOString(),
+          type: "tap",
+          label: "+1 탭"
+        });
+      }
     }
-    return { ...log, _parsed: parsed, _history: history };
+    return { ...log, createdBy: itemCreator, _parsed: parsed, _history: history };
   });
 
   if (filterCategory !== "all") {
@@ -6289,11 +6506,16 @@ window.renderMfaq = function() {
   filtered.forEach((item, idx) => {
     const p = item._parsed;
     const historyList = item._history || [];
-    const creatorUser = item.createdBy || (historyList[0] ? historyList[0].user : "system");
+    const creatorUser = (item.createdBy && item.createdBy !== "system") 
+      ? item.createdBy 
+      : (p.metaUser || (historyList[0] && historyList[0].user && historyList[0].user !== "system" ? historyList[0].user : "jipar5"));
     
     // Find last tap action
     const tapActions = historyList.filter(h => h.type === 'tap');
-    const lastTap = tapActions.length > 0 ? tapActions[tapActions.length - 1] : null;
+    let lastTap = tapActions.length > 0 ? tapActions[tapActions.length - 1] : null;
+    if (!lastTap && p.metaTap) {
+      lastTap = { user: p.metaTap };
+    }
 
     const timeAgo = Math.floor((new Date() - new Date(item.lastUpdated || item.createdAt || Date.now())) / 60000);
     const timeStr = timeAgo < 1 ? '방금 전' : timeAgo < 60 ? `${timeAgo}분 전` : timeAgo < 1440 ? `${Math.floor(timeAgo/60)}시간 전` : `${Math.floor(timeAgo/1440)}일 전`;
@@ -6361,8 +6583,8 @@ window.renderMfaq = function() {
               <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0; line-height:1.2;">
                 <span>Last: <strong style="color:#475569; font-weight:700;">${timeStr}</strong></span>
                 <span style="color:#cbd5e1;">·</span>
-                <span style="white-space:nowrap;">${creatorUser}</span>
-                ${lastTap ? `<span style="color:#16a34a; font-weight:700; font-size:10.5px; white-space:nowrap;">(+${lastTap.user})</span>` : ''}
+                <span style="white-space:nowrap; font-weight:700; color:#334155;">${creatorUser}</span>
+                ${lastTap && lastTap.user !== creatorUser ? `<span style="color:#16a34a; font-weight:700; font-size:10.5px; white-space:nowrap;">(+${lastTap.user})</span>` : ''}
                 <span onclick="openMfaqCategoryChangeModal('${item.id}', event)" style="background:${catBg}; color:${catColor}; font-size:9.5px; font-weight:700; padding:1px 4px; border-radius:3px; border:1px solid ${catBorder}; cursor:pointer; white-space:nowrap;" title="카테고리 변경">${displayCategory}</span>
               </div>
 
@@ -6410,14 +6632,18 @@ window.renderMfaq = function() {
 window.incrementMfaqCount = async function(id) {
   const log = mfaqLogs.find(l => l.id === id);
   if (log) {
-    const activeUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'system';
+    const activeUser = (typeof currentUser !== 'undefined' && currentUser) 
+      || window.currentUser 
+      || localStorage.getItem("warehouse_current_user") 
+      || "jipar5";
     const now = new Date().toISOString();
 
     log.count = (log.count || 1) + 1;
     log.lastUpdated = now;
 
+    const creator = (log.createdBy && log.createdBy !== 'system') ? log.createdBy : "jipar5";
     if (!log.history) {
-      log.history = [{ user: log.createdBy || 'system', time: log.createdAt || now, type: 'create', label: '최초 등록' }];
+      log.history = [{ user: creator, time: log.createdAt || now, type: 'create', label: '최초 등록' }];
     }
     log.history.push({
       user: activeUser,
@@ -6426,12 +6652,30 @@ window.incrementMfaqCount = async function(id) {
       label: `+1 탭 (${log.count}번째)`
     });
 
+    const cleanBaseQ = String(log.question || "").replace(/<!--by:.*?-->/g, '').trim();
+    const updatedSupabaseQ = `${cleanBaseQ} <!--by:${creator}|tap:${activeUser}-->`;
+
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
-        await supabaseClient
+        const { error: upErr } = await supabaseClient
           .from("mfaq_logs")
-          .update({ count: log.count, last_updated: log.lastUpdated })
+          .update({ 
+            count: log.count, 
+            last_updated: log.lastUpdated,
+            user: creator,
+            question: updatedSupabaseQ
+          })
           .eq("id", id);
+        if (upErr) {
+          await supabaseClient
+            .from("mfaq_logs")
+            .update({ 
+              count: log.count, 
+              last_updated: log.lastUpdated,
+              question: updatedSupabaseQ
+            })
+            .eq("id", id);
+        }
       } catch (e) {
         console.warn("MFAQ update count error:", e);
       }
@@ -6570,6 +6814,32 @@ window.closeNegativeStockModal = function() {
   }
 };
 
+// Switch register tab mode directly to [입고] from warning modal
+window.switchToInboundFromWarning = function() {
+  window.closeNegativeStockModal();
+  
+  // Set type to '입고'
+  const inRadio = document.querySelector('input[name="reg-type"][value="입고"]');
+  if (inRadio) {
+    inRadio.checked = true;
+    if (typeof updateTypeToggle === 'function') updateTypeToggle();
+  }
+  
+  // Update stock preview
+  if (typeof window.updateRegStockPreview === 'function') window.updateRegStockPreview();
+  
+  // Focus location or quantity input
+  const locInput = document.getElementById("reg-location");
+  if (locInput) {
+    locInput.focus();
+  }
+  
+  if (typeof showToast === 'function') {
+    showToast("입고 등록 모드로 전환되었습니다. 보관 구역과 수량을 확인 후 입고 등록해 주세요! 📥", "info", 3500);
+  }
+};
+
+// Strict Outbound Blocking & Warning Modal
 window.checkNegativeStock = function(artNo, artName, outQty) {
   return new Promise((resolve) => {
     const qty = parseInt(outQty, 10) || 0;
@@ -6581,8 +6851,8 @@ window.checkNegativeStock = function(artNo, artName, outQty) {
     const currentStock = window.getArtCurrentStock(artNo);
     const afterStock = currentStock - qty;
 
-    // Only warn if projected stock is negative (< 0)
-    if (afterStock >= 0) {
+    // Only allow if projected stock remains >= 0 AND current stock is > 0
+    if (currentStock > 0 && afterStock >= 0) {
       resolve(true);
       return;
     }
@@ -6606,14 +6876,29 @@ window.checkNegativeStock = function(artNo, artName, outQty) {
     const currentEl = document.getElementById("neg-warn-current");
     const qtyEl = document.getElementById("neg-warn-qty");
     const afterEl = document.getElementById("neg-warn-after");
-    const cancelBtn = document.getElementById("btn-neg-warn-cancel");
-    const confirmBtn = document.getElementById("btn-neg-warn-confirm");
+    const titleEl = document.getElementById("neg-warn-title");
+    const subTitleEl = document.getElementById("neg-warn-subtitle");
+    const noticeTitleEl = document.getElementById("neg-warn-notice-title");
+    const noticeDescEl = document.getElementById("neg-warn-notice-desc");
 
     if (artNoEl) artNoEl.textContent = cleanNo;
     if (artNameEl) artNameEl.textContent = displayName;
     if (currentEl) currentEl.textContent = `${currentStock}개`;
     if (qtyEl) qtyEl.textContent = `-${qty}개`;
-    if (afterEl) afterEl.textContent = `${afterStock}개 (마이너스)`;
+
+    if (currentStock <= 0) {
+      if (titleEl) titleEl.textContent = "출고 등록 불가 (입고 필요)";
+      if (subTitleEl) subTitleEl.textContent = "입고가 안 잡힌 아티클입니다";
+      if (afterEl) afterEl.textContent = "출고 불가 (재고 0개)";
+      if (noticeTitleEl) noticeTitleEl.textContent = "📦 입고가 안 잡힌 아티클입니다!";
+      if (noticeDescEl) noticeDescEl.innerHTML = "현재 남은 재고가 <b>0개</b>이므로 출고 처리가 불가능합니다.<br>먼저 <b>[입고] 등록</b>을 진행해 주세요!";
+    } else {
+      if (titleEl) titleEl.textContent = "출고 수량 초과 (재고 부족)";
+      if (subTitleEl) subTitleEl.textContent = "남은 재고보다 많은 수량입니다";
+      if (afterEl) afterEl.textContent = `${afterStock}개 (재고 부족)`;
+      if (noticeTitleEl) noticeTitleEl.textContent = "⚠️ 출고 수량이 현재 재고를 초과했습니다!";
+      if (noticeDescEl) noticeDescEl.innerHTML = `현재 남은 재고는 <b>${currentStock}개</b>입니다.<br>최대 ${currentStock}개까지만 출고하거나, 먼저 <b>[입고]</b>를 등록해 주세요!`;
+    }
 
     if (thumbEl) {
       if (typeof getProductThumbHtml === "function") {
@@ -6627,31 +6912,8 @@ window.checkNegativeStock = function(artNo, artName, outQty) {
       setTimeout(() => loadProductThumbnails(), 50);
     }
 
+    // STRICTLY RESOLVE FALSE - No outbound allowed when stock is 0 or negative
     pendingNegativeStockResolver = resolve;
-
-    if (cancelBtn) {
-      cancelBtn.onclick = function() {
-        window.closeNegativeStockModal();
-        const qtyInput = document.getElementById("reg-qty");
-        if (qtyInput) {
-          qtyInput.focus();
-          qtyInput.select();
-        }
-      };
-    }
-
-    if (confirmBtn) {
-      confirmBtn.onclick = function() {
-        if (modal) {
-          modal.style.display = "none";
-          modal.classList.remove("active");
-        }
-        if (pendingNegativeStockResolver) {
-          pendingNegativeStockResolver(true);
-          pendingNegativeStockResolver = null;
-        }
-      };
-    }
 
     if (modal) {
       modal.style.display = "flex";
@@ -6677,24 +6939,301 @@ window.updateRegStockPreview = function() {
   const qtyInput = document.getElementById("reg-qty");
   const qty = qtyInput ? (parseInt(qtyInput.value, 10) || 0) : 0;
 
-  if (qty > 0) {
-    if (type === "출고") {
+  if (type === "출고") {
+    if (currentStock <= 0) {
+      stockPreview.innerHTML = `<span style="color:#ef4444; font-weight:900;">0개 (출고 불가 ⚠️ 입고 먼저 처리 필요)</span>`;
+      stockPreview.style.color = "#ef4444";
+    } else if (qty > 0) {
       const afterStock = currentStock - qty;
       if (afterStock < 0) {
-        stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#e11d48; font-weight:900;">→ ${afterStock}개 ⚠️</span>`;
-        stockPreview.style.color = "#e11d48";
+        stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#ef4444; font-weight:900;">→ 재고 부족 (${qty}개 요청 불가 ⚠️)</span>`;
+        stockPreview.style.color = "#ef4444";
       } else {
         stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#059669; font-weight:900;">→ ${afterStock}개</span>`;
         stockPreview.style.color = "#059669";
       }
     } else {
-      const afterStock = currentStock + qty;
-      stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#0058a3; font-weight:900;">→ ${afterStock}개</span>`;
-      stockPreview.style.color = "#0058a3";
+      stockPreview.innerHTML = `<span style="color:#059669; font-weight:900;">${currentStock}개</span>`;
     }
   } else {
-    stockPreview.textContent = `${currentStock} 개`;
-    stockPreview.style.color = currentStock > 0 ? "#059669" : (currentStock < 0 ? "#e11d48" : "#64748b");
+    // 입고
+    if (qty > 0) {
+      const afterStock = currentStock + qty;
+      stockPreview.innerHTML = `<span style="color:#64748b; font-weight:700;">${currentStock}개</span> <span style="color:#0058a3; font-weight:900;">→ ${afterStock}개 (+${qty})</span>`;
+      stockPreview.style.color = "#0058a3";
+    } else {
+      stockPreview.innerHTML = `<span style="color:#334155; font-weight:800;">${currentStock}개</span>`;
+    }
+  }
+};
+
+// ==========================================================================
+// --- Bulk Selection & Delete System in Stock Tab ---
+// ==========================================================================
+
+window.updateBulkSelection = function() {
+  const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
+  const count = checkboxes.length;
+  const countEl = document.getElementById('bulk-count');
+  const actionBar = document.getElementById('bulk-action-bar');
+  if (countEl) countEl.textContent = count;
+  if (actionBar) {
+    actionBar.style.display = count > 0 ? 'flex' : 'none';
+  }
+};
+
+window.clearBulkSelection = function() {
+  document.querySelectorAll('.stock-checkbox').forEach(cb => cb.checked = false);
+  const selectAll = document.getElementById('stock-select-all');
+  if (selectAll) selectAll.checked = false;
+  window.updateBulkSelection();
+};
+
+window.toggleStockSelectAll = function(isChecked) {
+  document.querySelectorAll('.stock-checkbox').forEach(cb => cb.checked = isChecked);
+  window.updateBulkSelection();
+};
+
+window.bulkDeleteSelectedStockItems = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 삭제할 수 없습니다.", "warning");
+    return;
+  }
+  const checkedBoxes = Array.from(document.querySelectorAll('.stock-checkbox:checked'));
+  if (checkedBoxes.length === 0) {
+    if (typeof showToast === 'function') showToast("선택된 품목이 없습니다.", "warning");
+    return;
+  }
+  const artNos = checkedBoxes.map(cb => cb.value);
+  if (!confirm(`선택한 ${artNos.length}개 품목의 입출고 기록을 모두 삭제하시겠습니까?`)) {
+    return;
+  }
+
+  const targetDigitsSet = new Set(artNos.map(no => String(no).replace(/\D/g, '')).filter(Boolean));
+  const logIdsToDelete = [];
+
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs.forEach(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      if (artNos.includes(logArtNo) || targetDigitsSet.has(logDigits)) {
+        if (log.id) logIdsToDelete.push(log.id);
+      }
+    });
+  }
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      if (logIdsToDelete.length > 0) {
+        const CHUNK = 100;
+        for (let i = 0; i < logIdsToDelete.length; i += CHUNK) {
+          const chunk = logIdsToDelete.slice(i, i + CHUNK);
+          await supabaseClient.from('inventory_logs').delete().in('id', chunk);
+        }
+      }
+      const targets = Array.from(targetDigitsSet).flatMap(d => [d, d.padStart(8, '0')]);
+      try {
+        await supabaseClient.from('inventory_logs').delete().in('artno', targets);
+      } catch (e) {}
+    } catch (err) {
+      console.error("Supabase bulk delete error:", err);
+    }
+  }
+
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs = historyLogs.filter(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      return !artNos.includes(logArtNo) && !targetDigitsSet.has(logDigits);
+    });
+    try {
+      localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+    } catch (e) {}
+  }
+
+  window.clearBulkSelection();
+  if (typeof invalidateStockCache === 'function') invalidateStockCache();
+  if (typeof renderStockLookup === 'function') renderStockLookup();
+  if (typeof renderHistoryLogs === 'function') renderHistoryLogs();
+  if (typeof populateArticleFilterDropdown === 'function') populateArticleFilterDropdown();
+  if (typeof showToast === 'function') {
+    showToast(`선택된 ${artNos.length}개 품목의 기록이 삭제되었습니다.`, "success");
+  }
+};
+
+// ==========================================================================
+// --- Negative Stock Cleanup Engine (마이너스 재고 품목 일괄 / 개별 삭제) ---
+// ==========================================================================
+
+window.cleanUpAllNegativeStock = async function(showPrompt = false) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 삭제할 수 없습니다.", "warning");
+    return;
+  }
+
+  const stockMap = typeof buildStockMap === 'function' ? buildStockMap() : null;
+  if (!stockMap) return;
+
+  const negativeArtNos = [];
+  const negativeDigitsSet = new Set();
+  const negativeNames = [];
+
+  stockMap.forEach((entry, artNo) => {
+    if (entry.currentStock < 0) {
+      negativeArtNos.push(entry.artNo);
+      const digits = String(entry.artNo).replace(/\D/g, '');
+      if (digits) negativeDigitsSet.add(digits);
+      negativeNames.push(entry.artName || entry.artNo);
+    }
+  });
+
+  if (negativeArtNos.length === 0) {
+    if (showPrompt && typeof showToast === 'function') {
+      showToast("현재 마이너스(-) 재고인 품목이 없습니다. 모두 정상입니다! 👍", "info");
+    }
+    return;
+  }
+
+  if (showPrompt) {
+    const confirmMsg = `마이너스(-) 재고 품목 총 ${negativeArtNos.length}개의 출고/입고 기록을 모두 삭제하고 재고를 정리하시겠습니까?\n\n[대상 품목]\n${negativeNames.slice(0, 5).join(", ")}${negativeNames.length > 5 ? ` 외 ${negativeNames.length - 5}건` : ""}`;
+    if (!confirm(confirmMsg)) return;
+  }
+
+  // Find all log IDs to delete
+  const logIdsToDelete = [];
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs.forEach(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      if (negativeDigitsSet.has(logDigits) || negativeArtNos.includes(logArtNo)) {
+        if (log.id) logIdsToDelete.push(log.id);
+      }
+    });
+  }
+
+  // Delete from Supabase
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      if (logIdsToDelete.length > 0) {
+        const CHUNK = 100;
+        for (let i = 0; i < logIdsToDelete.length; i += CHUNK) {
+          const chunk = logIdsToDelete.slice(i, i + CHUNK);
+          await supabaseClient.from('inventory_logs').delete().in('id', chunk);
+        }
+      }
+      const cleanArtNos = Array.from(negativeDigitsSet).flatMap(d => [d, d.padStart(8, '0')]);
+      try {
+        await supabaseClient.from('inventory_logs').delete().in('artno', cleanArtNos);
+      } catch (e) {}
+    } catch (err) {
+      console.error("Supabase negative stock cleanup error:", err);
+      if (typeof showToast === 'function') {
+        showToast("서버 삭제 중 오류 발생: " + err.message, "danger");
+      }
+    }
+  }
+
+  // Delete from local historyLogs
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs = historyLogs.filter(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      return !negativeDigitsSet.has(logDigits) && !negativeArtNos.includes(logArtNo);
+    });
+    try {
+      localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+    } catch (e) {}
+  }
+
+  if (typeof invalidateStockCache === 'function') invalidateStockCache();
+  if (typeof renderStockLookup === 'function') renderStockLookup();
+  if (typeof renderHistoryLogs === 'function') renderHistoryLogs();
+  if (typeof populateArticleFilterDropdown === 'function') populateArticleFilterDropdown();
+  if (typeof window.updateBulkSelection === 'function') window.updateBulkSelection();
+
+  if (typeof showToast === 'function') {
+    showToast(`마이너스 품목 ${negativeArtNos.length}건의 기록이 성공적으로 삭제/초기화되었습니다! 🧹`, "success");
+  }
+  if (typeof playSuccessFeedback === 'function') playSuccessFeedback();
+};
+
+window.deleteStockItemLogs = async function(artNo, artName) {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 삭제할 수 없습니다.", "warning");
+    return;
+  }
+  const cleanNo = String(artNo).trim();
+  const digits = cleanNo.replace(/\D/g, '');
+  const displayName = artName || cleanNo;
+
+  if (!confirm(`'${displayName}' (${cleanNo}) 품목의 모든 입출고 기록을 삭제하여 재고를 정리하시겠습니까?`)) {
+    return;
+  }
+
+  const logIdsToDelete = [];
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs.forEach(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      if (logArtNo === cleanNo || (digits && logDigits === digits)) {
+        if (log.id) logIdsToDelete.push(log.id);
+      }
+    });
+  }
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      if (logIdsToDelete.length > 0) {
+        await supabaseClient.from('inventory_logs').delete().in('id', logIdsToDelete);
+      }
+      const targets = [cleanNo, digits, digits.padStart(8, '0')].filter(Boolean);
+      try {
+        await supabaseClient.from('inventory_logs').delete().in('artno', targets);
+      } catch (e) {}
+    } catch (err) {
+      console.error("Supabase single item log delete error:", err);
+    }
+  }
+
+  if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+    historyLogs = historyLogs.filter(log => {
+      const logArtNo = String(log.artNo || log.artno || "").trim();
+      const logDigits = logArtNo.replace(/\D/g, '');
+      return logArtNo !== cleanNo && (!digits || logDigits !== digits);
+    });
+    try {
+      localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+    } catch (e) {}
+  }
+
+  if (typeof invalidateStockCache === 'function') invalidateStockCache();
+  if (typeof renderStockLookup === 'function') renderStockLookup();
+  if (typeof renderHistoryLogs === 'function') renderHistoryLogs();
+  if (typeof populateArticleFilterDropdown === 'function') populateArticleFilterDropdown();
+  if (typeof window.updateBulkSelection === 'function') window.updateBulkSelection();
+
+  if (typeof showToast === 'function') {
+    showToast(`'${displayName}' 품목의 기록이 삭제되었습니다.`, "success");
+  }
+};
+
+// Auto check and clean negative stock on startup
+window.checkAndAutoCleanNegativeStock = async function() {
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) return;
+  const stockMap = typeof buildStockMap === 'function' ? buildStockMap() : null;
+  if (!stockMap) return;
+
+  let hasNegative = false;
+  for (let [artNo, entry] of stockMap.entries()) {
+    if (entry.currentStock < 0) {
+      hasNegative = true;
+      break;
+    }
+  }
+
+  if (hasNegative) {
+    console.log("🧹 [AutoClean] 마이너스 재고 품목 감지됨 -> 자동 일괄 삭제/정리 시작");
+    await window.cleanUpAllNegativeStock(false);
   }
 };
 
@@ -6724,6 +7263,61 @@ function initRegStockPreviewListeners() {
       }
     }
   });
+
+  // Auto-clean negative stock and Unknown items on load
+  setTimeout(() => {
+    if (typeof window.checkAndAutoCleanNegativeStock === "function") {
+      window.checkAndAutoCleanNegativeStock();
+    }
+  }, 1000);
+
+  // Auto-clean any residual 'Unknown' entries from localStorage and in-memory catalogs
+  setTimeout(() => {
+    try {
+      const unknownArtNos = new Set(['80468107','468106','00468106','546468','00546468','591776','00591776','70624735']);
+      if (typeof masterCatalog !== 'undefined' && Array.isArray(masterCatalog)) {
+        const artMap = new Map();
+        masterCatalog.forEach(m => {
+          const name = String(m.artName || m.artname || '').trim();
+          let cleanNo = String(m.artNo || m.artno || '').replace(/\D/g, '');
+          if (cleanNo.length > 0 && cleanNo.length <= 8) cleanNo = cleanNo.padStart(8, '0');
+          if (name.toLowerCase() === 'unknown' || unknownArtNos.has(cleanNo)) return;
+
+          let hfb = m.hfb ? String(m.hfb).trim() : '';
+          if (/^\d$/.test(hfb)) hfb = '0' + hfb;
+
+          const item = { ...m, artNo: cleanNo, hfb };
+          if (!artMap.has(cleanNo)) {
+            artMap.set(cleanNo, item);
+          } else {
+            const ex = artMap.get(cleanNo);
+            if ((!ex.hfb || (ex.hfb.length === 1 && item.hfb.length === 2)) ||
+                (ex.location === '미지정' && item.location && item.location !== '미지정')) {
+              artMap.set(cleanNo, item);
+            }
+          }
+        });
+        masterCatalog = Array.from(artMap.values());
+        localStorage.setItem("warehouse_master_catalog", JSON.stringify(masterCatalog));
+        if (typeof buildMasterCatalogMap === 'function') buildMasterCatalogMap();
+      }
+      if (typeof storeInboundLogs !== 'undefined' && Array.isArray(storeInboundLogs)) {
+        storeInboundLogs = storeInboundLogs.filter(s => {
+          const name = String(s.artName || s.artname || '').trim().toLowerCase();
+          const no = String(s.artNo || s.artno || '').trim();
+          return name !== 'unknown' && !unknownArtNos.has(no);
+        });
+        localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+      }
+      if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+        historyLogs = historyLogs.filter(h => !unknownArtNos.has(String(h.artNo || h.artno || '').trim()));
+        localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+        if (typeof invalidateStockCache === 'function') invalidateStockCache();
+      }
+    } catch (e) {
+      console.warn("Auto-clean unknown items error:", e);
+    }
+  }, 1200);
 }
 
 if (document.readyState === "loading") {
@@ -6731,6 +7325,7 @@ if (document.readyState === "loading") {
 } else {
   initRegStockPreviewListeners();
 }
+
 
 
 

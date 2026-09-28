@@ -400,9 +400,6 @@
           <button type="button" class="chip-btn chip-out" id="chip-status-out" onclick="filterByStockStatus('out')">
             🔴 품절
           </button>
-          <button type="button" class="chip-btn chip-negative" id="chip-status-negative" onclick="filterByStockStatus('negative')">
-            🟣 마이너스
-          </button>
         </div>
 
         <div class="toolbar-controls">
@@ -413,7 +410,6 @@
           <select id="stock-sort-select" class="toolbar-select" onchange="onStockFilterChange()">
             <option value="stock-desc">재고 많은순</option>
             <option value="stock-asc">재고 적은순</option>
-            <option value="negative-first">마이너스 우선</option>
             <option value="name-asc">품목 이름순</option>
             <option value="artno-asc">아티클 번호순</option>
             <option value="loc-asc">창고 구역순</option>
@@ -426,8 +422,11 @@
             <h3 style="font-size:14.5px; font-weight:900; color:#0f172a; margin:0;">전체 재고 현황</h3>
             <span id="stock-count-text" style="font-size:11.5px; font-weight:800; color:#0058a3; background:#eff6ff; padding:2px 8px; border-radius:12px;">0개 품목</span>
           </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <button type="button" id="btn-stock-excel-export" class="btn-excel-export" onclick="if(typeof exportStockToExcel === 'function') exportStockToExcel()" style="display:none; font-size:11.5px; padding:4px 8px; border-radius:6px; height:auto; margin:0;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button type="button" id="btn-clean-negative-stock" class="btn-clean-negative" onclick="if(window.cleanUpAllNegativeStock) window.cleanUpAllNegativeStock(true)" style="display:none; background:#fff1f2; color:#be123c; border:1.5px solid #fecdd3; font-size:11.5px; font-weight:800; padding:4px 10px; border-radius:6px; cursor:pointer; align-items:center; gap:5px; height:32px; box-sizing:border-box;">
+              <i class="fa-solid fa-trash-can"></i> 마이너스 품목 전체 삭제
+            </button>
+            <button type="button" id="btn-stock-excel-export" class="btn-excel-export" onclick="if(typeof exportStockToExcel === 'function') exportStockToExcel()" style="display:none; font-size:11.5px; padding:4px 8px; border-radius:6px; height:32px; margin:0; box-sizing:border-box;">
               <i class="fa-solid fa-file-excel"></i> 엑셀 추출
             </button>
             <label style="font-size:12px; font-weight:800; cursor:pointer; color:#0058a3; display:flex; align-items:center; gap:4px; user-select:none;">
@@ -442,9 +441,10 @@
       <!-- 벌크 액션 바 (다중 선택 시 표시) -->
       <div id="bulk-action-bar" style="display:none; position:fixed; bottom:70px; left:50%; transform:translateX(-50%); width:100%; max-width:500px; background:#2563eb; color:white; padding:12px 20px; z-index:100; justify-content:space-between; align-items:center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);">
         <div><span id="bulk-count" style="font-weight:700; font-size:16px;">0</span>개 선택됨</div>
-        <div style="display:flex; gap:10px;">
-          <button type="button" class="btn-sm" style="background:white; color:#2563eb; font-weight:700; border:none; border-radius:4px; padding: 6px 12px;" onclick="openBulkLocationModal()">위치 일괄 변경</button>
-          <button type="button" class="btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none; border-radius:4px; padding: 6px 12px;" onclick="clearBulkSelection()">취소</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; font-weight:800; border:none; border-radius:4px; padding: 6px 12px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" onclick="if(window.bulkDeleteSelectedStockItems) window.bulkDeleteSelectedStockItems()"><i class="fa-solid fa-trash-can"></i> 선택 삭제</button>
+          <button type="button" class="btn-sm" style="background:white; color:#2563eb; font-weight:700; border:none; border-radius:4px; padding: 6px 12px; cursor:pointer;" onclick="openBulkLocationModal()">위치 변경</button>
+          <button type="button" class="btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none; border-radius:4px; padding: 6px 12px; cursor:pointer;" onclick="clearBulkSelection()">취소</button>
         </div>
       </div>
     </section>
@@ -560,13 +560,13 @@
           <!-- Dynamically populated by renderPicklistZoneTabs() -->
         </div>
 
-        <!-- 2. View Mode Toggle (대기열 vs 창고실재고) -->
+        <!-- 2. View Mode Toggle (창고실재고 vs 챙길대기열) -->
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; background:#e2e8f0; padding:4px; border-radius:10px; margin-bottom:12px;">
-          <button type="button" id="picklist-mode-queue-btn" class="btn-picklist-mode active" onclick="setPicklistMode('queue')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:#ffffff; color:#059669; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.15s ease;">
-            <i class="fa-solid fa-clipboard-list"></i> <span id="picklist-queue-tab-text">챙길 대기열</span>
-          </button>
-          <button type="button" id="picklist-mode-stock-btn" class="btn-picklist-mode" onclick="setPicklistMode('stock')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:transparent; color:#64748b; transition:all 0.15s ease;">
+          <button type="button" id="picklist-mode-stock-btn" class="btn-picklist-mode active" onclick="setPicklistMode('stock')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:#ffffff; color:#0058a3; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.15s ease;">
             <i class="fa-solid fa-boxes-stacked"></i> <span id="picklist-stock-tab-text">창고 실재고</span>
+          </button>
+          <button type="button" id="picklist-mode-queue-btn" class="btn-picklist-mode" onclick="setPicklistMode('queue')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:transparent; color:#64748b; transition:all 0.15s ease;">
+            <i class="fa-solid fa-clipboard-list"></i> <span id="picklist-queue-tab-text">챙길 대기열</span>
           </button>
         </div>
 
@@ -716,7 +716,7 @@
             <div style="display:flex; gap:6px; align-items:center;">
               <div style="position:relative; flex:1;">
                 <i class="fa-solid fa-barcode" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:17px; color:#0058a3; z-index:2;"></i>
-                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 쿠기스, 7058)" class="input-control" style="font-size:13.5px; font-weight:800; height:46px; padding-left:38px; padding-right:10px; border:2px solid #0058a3; border-radius:10px; background:#ffffff; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleStoreBarcodeInput(this.value); }">
+                <input type="text" id="store-barcode-input" placeholder="바코드 스캔 또는 품목명/번호 검색 (예: 쿠기스, 7058)" class="input-control" style="font-size:13.5px; font-weight:800; height:46px; padding-left:38px; padding-right:10px; border:2px solid #0058a3; border-radius:10px; background:#ffffff; color:#0f172a; width:100%; box-sizing:border-box;" autocomplete="off" autofocus oninput="handleStoreAutocompleteInput(this.value)" onfocus="handleStoreAutocompleteInput(this.value)" onkeydown="if(event.key === 'Enter' || event.key === 'Tab'){ event.preventDefault(); if(window._storeBarcodeAutoTimer) clearTimeout(window._storeBarcodeAutoTimer); handleStoreBarcodeInput(this.value); }" onpaste="setTimeout(() => { if(this.value.trim().length >= 8){ if(window._storeBarcodeAutoTimer) clearTimeout(window._storeBarcodeAutoTimer); handleStoreBarcodeInput(this.value); } }, 30);">
               </div>
               <button type="button" class="btn-secondary" onclick="openMasterSelectModal('store_inbound')" style="padding:0 14px; font-size:13px; font-weight:800; border-radius:10px; height:46px; white-space:nowrap; background:#f8fafc; color:#334155; border:1.5px solid #cbd5e1; box-sizing:border-box; display:flex; align-items:center; gap:5px;" title="전체 13,836개 마스터 품목 검색">
                 <i class="fa-solid fa-list"></i> 전체
@@ -2336,20 +2336,18 @@
       </div>
 
     </div>
-  </div>
-
-  <!-- MODAL: Negative Stock Warning Modal (재고 마이너스 발생 경고 모달) -->
+  <!-- MODAL: Negative Stock Warning Modal (재고 마이너스 발생 경고 모달: 0개 출고 차단 & 입고 우선 안내) -->
   <div id="negative-stock-modal" class="modal-backdrop" onclick="if(window.closeNegativeStockModal) window.closeNegativeStockModal()" style="z-index: 9999; display: none; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
     <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; width: 100%; border-top: 5px solid #e11d48; border-radius: 16px; padding: 20px 20px; box-shadow: 0 20px 30px rgba(0,0,0,0.3); animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
       
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:40px; height:40px; border-radius:50%; background:#fee2e2; color:#e11d48; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
-            <i class="fa-solid fa-triangle-exclamation"></i>
+            <i id="neg-warn-icon" class="fa-solid fa-ban"></i>
           </div>
           <div>
-            <h3 style="font-size:16px; font-weight:900; color:#9f1239; margin:0;">재고 마이너스 발생 경고</h3>
-            <span style="font-size:11.5px; color:#be123c; font-weight:700;">출고 수량이 현재 재고보다 많습니다</span>
+            <h3 id="neg-warn-title" style="font-size:16px; font-weight:900; color:#9f1239; margin:0;">출고 등록 불가 (입고 필요)</h3>
+            <span id="neg-warn-subtitle" style="font-size:11.5px; color:#be123c; font-weight:700;">입고가 안 잡힌 아티클입니다</span>
           </div>
         </div>
         <button type="button" class="close-btn" onclick="if(window.closeNegativeStockModal) window.closeNegativeStockModal()" style="font-size:18px; color:#94a3b8; background:none; border:none; cursor:pointer; padding:4px;">
@@ -2378,24 +2376,29 @@
         </div>
         <div style="height:1px; background:#fecdd3; margin:2px 0;"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13.5px;">
-          <span style="font-weight:900; color:#9f1239;">출고 후 예상 재고</span>
-          <span id="neg-warn-after" style="font-weight:900; color:#9333ea; background:#ffffff; padding:2px 8px; border-radius:6px; border:1px solid #e9d5ff;">-0개 (마이너스)</span>
+          <span style="font-weight:900; color:#9f1239;">출고 상태</span>
+          <span id="neg-warn-after" style="font-weight:900; color:#dc2626; background:#ffffff; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3;">출고 불가 ⚠️</span>
         </div>
       </div>
 
-      <!-- Guidance notice -->
-      <p style="margin:0 0 14px 0; font-size:12px; color:#475569; line-height:1.45; text-align:center;">
-        출고를 진행하면 실시간 재고가 <b>마이너스(-)</b>가 됩니다.<br>
-        <span style="color:#e11d48; font-weight:700;">오입력 방지를 위해 수량을 다시 한 번 확인해 주세요!</span>
-      </p>
+      <!-- Guidance notice box -->
+      <div id="neg-warn-notice-box" style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px 14px; margin-bottom:14px; text-align:center;">
+        <div id="neg-warn-notice-title" style="font-size:13.5px; font-weight:900; color:#991b1b; margin-bottom:4px;">
+          📦 입고가 안 잡힌 아티클입니다!
+        </div>
+        <div id="neg-warn-notice-desc" style="font-size:12px; color:#b91c1c; font-weight:700; line-height:1.45;">
+          현재 남은 재고가 0개이므로 출고 처리가 불가능합니다.<br>
+          먼저 <b>[입고] 등록</b>을 진행해 주세요!
+        </div>
+      </div>
 
-      <!-- Action Buttons -->
+      <!-- Action Buttons (입고 전환 및 닫기 - 그래도 출고 제거) -->
       <div style="display:flex; gap:8px;">
-        <button type="button" id="btn-neg-warn-cancel" style="flex:1; height:42px; font-size:13px; font-weight:800; border-radius:10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
-          <i class="fa-solid fa-xmark"></i> 취소 (수정)
+        <button type="button" id="btn-neg-warn-cancel" onclick="if(window.closeNegativeStockModal) window.closeNegativeStockModal()" style="flex:0.85; height:44px; font-size:13px; font-weight:800; border-radius:10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+          <i class="fa-solid fa-xmark"></i> 닫기
         </button>
-        <button type="button" id="btn-neg-warn-confirm" style="flex:1.2; height:42px; font-size:13px; font-weight:900; border-radius:10px; background:#e11d48; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(225,29,72,0.3);">
-          <i class="fa-solid fa-check"></i> 그래도 출고
+        <button type="button" id="btn-neg-warn-switch-in" onclick="if(window.switchToInboundFromWarning) window.switchToInboundFromWarning()" style="flex:1.35; height:44px; font-size:13px; font-weight:900; border-radius:10px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 3px 8px rgba(0,88,163,0.3);">
+          <i class="fa-solid fa-arrow-down"></i> [입고]로 전환하기
         </button>
       </div>
 
@@ -2939,6 +2942,13 @@
 
       document.getElementById("stock-count-text").textContent = `${filteredList.length}개 품목`;
 
+      const totalNegativeCount = stockList.filter(item => item.currentStock < 0).length;
+      const cleanNegBtn = document.getElementById("btn-clean-negative-stock");
+      if (cleanNegBtn) {
+        cleanNegBtn.style.display = totalNegativeCount > 0 ? "inline-flex" : "none";
+        cleanNegBtn.innerHTML = `<i class="fa-solid fa-trash-can"></i> 마이너스 품목 전체 삭제 (${totalNegativeCount})`;
+      }
+
       if (filteredList.length === 0) {
         container.innerHTML = `
           <div style="text-align: center; padding: 40px 20px; color: #94a3b8; background:#fff; border-radius:14px; border:1px dashed #cbd5e1;">
@@ -3034,8 +3044,13 @@
                   <button type="button" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:2px 5px; border-radius:4px; cursor:pointer;" onclick="if(typeof setSingleLocation==='function') setSingleLocation('${item.artNo}')">구역 변경</button>
                 </div>
                 <div class="ssc-quick-btns" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-                  <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
-                  <button type="button" class="btn-sm btn-quick-out" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+                  ${isNegative ? `
+                    <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+                    <button type="button" class="btn-sm" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#be123c; border:1.5px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(window.deleteStockItemLogs) window.deleteStockItemLogs('${item.artNo}', '${(item.artName || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-trash-can" style="margin-right:2px;"></i> 삭제</button>
+                  ` : `
+                    <button type="button" class="btn-sm btn-quick-in" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '입고')">+ 입고</button>
+                    <button type="button" class="btn-sm btn-quick-out" style="padding:3px 8px; font-size:11px; font-weight:800; border-radius:5px; background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; line-height:1; height:24px; box-sizing:border-box;" onclick="if(typeof quickActionRegister==='function') quickActionRegister('${item.artNo}', '출고')">- 출고</button>
+                  `}
                 </div>
               </div>
             </div>

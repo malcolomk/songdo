@@ -3249,5 +3249,16 @@ body { overflow-behavior-y: none; }
   display: flex !important;
 }
 
+.btn-clean-negative:hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #9f1239 !important;
+}
+
+.btn-clean-negative:active {
+  transform: scale(0.98);
+}
+
+
 
 

@@ -1,0 +1,145 @@
+{
+  "timestamp": "2026-09-28T12:06:07.862Z",
+  "master_catalog": [
+    {
+      "id": 892,
+      "artno": "468106",
+      "hfb": null,
+      "artname": "Unknown",
+      "location": "B1"
+    },
+    {
+      "id": 893,
+      "artno": "80468107",
+      "hfb": null,
+      "artname": "Unknown",
+      "location": "B2"
+    },
+    {
+      "id": 894,
+      "artno": "546468",
+      "hfb": null,
+      "artname": "Unknown",
+      "location": "B2"
+    },
+    {
+      "id": 895,
+      "artno": "70624735",
+      "hfb": null,
+      "artname": "Unknown",
+      "location": "B1"
+    },
+    {
+      "id": 896,
+      "artno": "591776",
+      "hfb": null,
+      "artname": "Unknown",
+      "location": "B1"
+    }
+  ],
+  "store_inbound_logs": [
+    {
+      "id": 1059,
+      "date": "2026-09-28",
+      "type": "매장입고",
+      "artno": "80468107",
+      "artname": "Unknown",
+      "qty": 20,
+      "user": "jipar5",
+      "created_at": "2026-09-27T23:37:27.312953+00:00"
+    },
+    {
+      "id": 1060,
+      "date": "2026-09-28",
+      "type": "매장입고",
+      "artno": "00468106",
+      "artname": "Unknown",
+      "qty": 50,
+      "user": "jipar5",
+      "created_at": "2026-09-27T23:37:27.312953+00:00"
+    }
+  ],
+  "inventory_logs": [
+    {
+      "id": 1052,
+      "date": "2026-09-01",
+      "type": "입고",
+      "artNo": "70624735",
+      "artName": null,
+      "qty": 4,
+      "user": "junkoo"
+    },
+    {
+      "id": 1251,
+      "date": "2026-09-07",
+      "type": "출고",
+      "artNo": "70624735",
+      "artName": null,
+      "qty": 2,
+      "user": "goyoo"
+    },
+    {
+      "id": 1315,
+      "date": "2026-09-10",
+      "type": "입고",
+      "artNo": "80468107",
+      "artName": null,
+      "qty": 19,
+      "user": "junkoo"
+    },
+    {
+      "id": 1537,
+      "date": "2026-09-17",
+      "type": "입고",
+      "artNo": "80468107",
+      "artName": null,
+      "qty": 15,
+      "user": "junkoo"
+    },
+    {
+      "id": 1607,
+      "date": "2026-09-19",
+      "type": "입고",
+      "artNo": "00546468",
+      "artName": null,
+      "qty": 30,
+      "user": "junkoo"
+    },
+    {
+      "id": 2043,
+      "date": "2026-09-26",
+      "type": "출고",
+      "artNo": "00546468",
+      "artName": null,
+      "qty": 20,
+      "user": "jipar5"
+    },
+    {
+      "id": 2084,
+      "date": "2026-09-27",
+      "type": "출고",
+      "artNo": "00546468",
+      "artName": null,
+      "qty": 10,
+      "user": "junkoo"
+    },
+    {
+      "id": 2220,
+      "date": "2026-09-28",
+      "type": "입고",
+      "artNo": "70624735",
+      "artName": null,
+      "qty": 2,
+      "user": "jipar5"
+    },
+    {
+      "id": 2223,
+      "date": "2026-09-28",
+      "type": "출고",
+      "artNo": "80468107",
+      "artName": null,
+      "qty": 16,
+      "user": "sulee21"
+    }
+  ]
+}
