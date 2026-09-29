@@ -175,12 +175,12 @@
       <form id="login-form" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
           <label for="login-id"><i class="fa-solid fa-user"></i> 아이디</label>
-          <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required class="input-control">
+          <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required autocomplete="username" class="input-control">
         </div>
 
         <div class="form-group">
           <label for="login-pw"><i class="fa-solid fa-lock"></i> 비밀번호</label>
-          <input type="password" id="login-pw" placeholder="비밀번호 입력" class="input-control">
+          <input type="password" id="login-pw" placeholder="비밀번호 입력" required autocomplete="current-password" class="input-control">
         </div>
 
         <button type="submit" class="btn-submit btn-login">
@@ -537,7 +537,8 @@
             <button type="button" class="btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none; border-radius:4px; padding: 6px 8px;" onclick="clearOrderBulkSelection()">취소</button>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
     <!-- TAB 4: 창고 챙기기 (PICK LIST - 1-Touch Simplified Warehouse Picking) -->
     <section id="tab-picklist" class="tab-page">
@@ -882,13 +883,13 @@
             <span class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#dbeafe; color:#1e40af; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">📘 가이드</span>
           </a>
 
-          <!-- 8. 업데이트 내역 -->
-          <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#f0f9ff; color:#0284c7;">
-              <i class="fa-solid fa-clock-rotate-left"></i>
+          <!-- 8. 공지사항 & 업데이트 -->
+          <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child')); if(typeof renderNoticeBoard==='function') renderNoticeBoard();" style="position:relative;">
+            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
+              <i class="fa-solid fa-bullhorn"></i>
             </div>
-            <span class="menu-text">업데이트 내역</span>
-            <span class="menu-subtext">시스템 히스토리</span>
+            <span class="menu-text">공지사항 & 업데이트</span>
+            <span class="menu-subtext">공지 및 시스템 내역</span>
           </a>
         </div>
 
@@ -943,64 +944,38 @@
       </div>
     </section>
 
-    <!-- TAB: 시스템 업데이트 히스토리 (UPDATE HISTORY) -->
+    <!-- TAB: 공지사항 & 시스템 업데이트 (NOTICE & UPDATE HISTORY) -->
     <section id="tab-update-history" class="tab-page">
-      <div class="card-box" style="border-top: 4px solid #0284c7;">
-        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;">
-            <i class="fa-solid fa-clock-rotate-left" style="color:#0284c7;"></i> 시스템 업데이트 히스토리
-          </h2>
-          <button type="button" class="btn-secondary" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))" style="padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; cursor:pointer;">
-            <i class="fa-solid fa-arrow-left"></i> 메뉴로 돌아가기
-          </button>
+      <div class="card-box" style="border-top: 3px solid #0058a3; padding: 12px 14px;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h2 style="font-size:16px; font-weight:800; color:#0f172a; margin:0; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-bullhorn" style="color:#0058a3; font-size:15px;"></i> 공지사항 & 업데이트
+            </h2>
+            <span id="notice-board-count-badge" style="font-size:11px; font-weight:800; color:#0058a3; background:#e0f2fe; padding:1px 7px; border-radius:12px; border:1px solid #bae6fd;">0건</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <button id="btn-open-notice-modal" type="button" onclick="event.stopPropagation(); if(typeof window.openBulletinNoticeModal==='function') window.openBulletinNoticeModal(); else if(typeof openBulletinNoticeModal==='function') openBulletinNoticeModal();" style="display:none; padding:5px 11px; font-size:11.5px; font-weight:800; border-radius:6px; background:#0058a3; color:white; border:none; cursor:pointer; box-shadow:0 1px 3px rgba(0,88,163,0.25); height:29px; align-items:center; gap:4px;">
+              <i class="fa-solid fa-pen-to-square"></i> 새 공지 작성
+            </button>
+            <button type="button" class="btn-secondary" onclick="if(typeof loadNoticeBoardLogs==='function') loadNoticeBoardLogs(true)" style="padding:5px 8px; font-size:11.5px; font-weight:700; border-radius:6px; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; cursor:pointer; height:29px;" title="새로고침">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button type="button" class="btn-secondary" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))" style="padding:5px 10px; font-size:11.5px; font-weight:700; border-radius:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; cursor:pointer; height:29px; display:inline-flex; align-items:center; gap:4px;">
+              <i class="fa-solid fa-arrow-left"></i> 메뉴
+            </button>
+          </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
-          
-          <!-- Version 2.3 Card (2026.09.01) -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div>
-              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v2.3 실시간 오더 스마트 알림 & UI 고도화</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">새로고침 버튼 활성화 · 실시간 알림 버튼 활성화 · 읽기 전용 뷰어 계정 · UX/UI 개편</div>
-            </div>
-            <span style="font-size:11px; font-weight:700; background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:12px;">2026.09.01</span>
-          </div>
+        <!-- Permission Notice Banner -->
+        <div id="notice-permission-banner" style="margin-top:8px; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569;">
+          <i class="fa-solid fa-circle-info" style="color:#0284c7; font-size:12px;"></i>
+          <span id="notice-banner-text">공지사항 및 시스템 업데이트 내역입니다.</span>
+        </div>
 
-          <!-- Version 2.2 Card -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #3b82f6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div>
-              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v2.2 FY27 리뉴얼 & 실물 사진 엔진</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">실물 사진 연동 · UI 슬림화 · 13,836건 대용량 로더 · 오더 삭제</div>
-            </div>
-            <span style="font-size:11px; font-weight:700; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:12px;">2026.08.30</span>
-          </div>
-
-          <!-- Version 2.0 Card -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #ef4444; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div>
-              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v2.0 스마트 피킹 & 운영 고도화</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">피킹리스트 · 벌크 위치 이동 · P-Tag / MFAQ</div>
-            </div>
-            <span style="font-size:11px; font-weight:700; background:#fee2e2; color:#b91c1c; padding:3px 8px; border-radius:12px;">2026.08.17</span>
-          </div>
-
-          <!-- Version 1.0 Card -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #10b981; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div>
-              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">v1.0 클라우드 DB 연동 & 보안 구축</span>
-              <div style="font-size:12px; color:#64748b; margin-top:3px;">수퍼베이스 동기화 · 권한 관리 · 엑셀 입출력</div>
-            </div>
-            <span style="font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px;">2026.08.16</span>
-          </div>
-
-          <!-- Initial Launch Card -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.02); border-left:4px solid #8b5cf6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div>
-              <span style="font-size:14.5px; font-weight:800; color:#0f172a;">세일즈 창고 관리 모바일 웹사이트 개설</span>
-            </div>
-            <span style="font-size:11px; font-weight:700; background:#f3e8ff; color:#7e22ce; padding:3px 8px; border-radius:12px;">2026.08.04</span>
-          </div>
-
+        <!-- Cards Container (Simple Bulletin Board Container) -->
+        <div id="notice-board-cards" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+          <!-- Dynamically populated by renderNoticeBoard() -->
         </div>
       </div>
     </section>
@@ -2336,6 +2311,8 @@
       </div>
 
     </div>
+  </div>
+
   <!-- MODAL: Negative Stock Warning Modal (재고 마이너스 발생 경고 모달: 0개 출고 차단 & 입고 우선 안내) -->
   <div id="negative-stock-modal" class="modal-backdrop" onclick="if(window.closeNegativeStockModal) window.closeNegativeStockModal()" style="z-index: 9999; display: none; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
     <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; width: 100%; border-top: 5px solid #e11d48; border-radius: 16px; padding: 20px 20px; box-shadow: 0 20px 30px rgba(0,0,0,0.3); animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
@@ -2405,13 +2382,77 @@
     </div>
   </div>
 
+  <!-- Bulletin Notice Modal (Write / Edit Notice) -->
+  <div id="bulletin-notice-modal" class="modal-backdrop" onclick="if(event.target === this) { if(typeof window.closeBulletinNoticeModal==='function') window.closeBulletinNoticeModal(); else if(typeof closeBulletinNoticeModal==='function') closeBulletinNoticeModal(); }" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:99999; justify-content:center; align-items:center; backdrop-filter:blur(3px);">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:440px; width:92%; max-height:85vh; display:flex; flex-direction:column; padding:0; border-radius:12px; overflow:hidden; background:#ffffff; box-shadow:0 15px 25px -5px rgba(0,0,0,0.3);">
+      
+      <!-- Modal Header -->
+      <div style="background:#0058a3; color:white; padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:7px;">
+          <i class="fa-solid fa-bullhorn" style="color:#ffdb00; font-size:14px;"></i>
+          <h3 id="bulletin-modal-title" style="font-size:15px; font-weight:800; margin:0; color:white;">새 공지사항 작성</h3>
+        </div>
+        <button type="button" onclick="if(typeof window.closeBulletinNoticeModal==='function') window.closeBulletinNoticeModal(); else if(typeof closeBulletinNoticeModal==='function') closeBulletinNoticeModal();" style="background:none; border:none; color:white; font-size:18px; cursor:pointer; padding:0 3px; line-height:1;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Modal Body -->
+      <form id="bulletin-notice-form" onsubmit="handleBulletinNoticeSubmit(event)" style="display:flex; flex-direction:column; gap:11px; padding:14px 16px; overflow-y:auto; flex:1;">
+        <input type="hidden" id="notice-form-id" value="">
+
+        <!-- Tag Selection -->
+        <div>
+          <label style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:5px;">공지 유형 / 태그</label>
+          <div id="notice-tag-chips" style="display:flex; flex-wrap:wrap; gap:5px;">
+            <button type="button" class="notice-tag-btn active" data-tag="📢 공지" data-color="#0284c7" data-bg="#e0f2fe" data-txt="#0369a1" onclick="selectNoticeTag(this)" style="padding:4px 9px; border-radius:16px; font-size:11px; font-weight:700; border:1.5px solid #0284c7; background:#0284c7; color:#ffffff; cursor:pointer;">📢 공지</button>
+            <button type="button" class="notice-tag-btn" data-tag="📌 필독" data-color="#7c3aed" data-bg="#f5f3ff" data-txt="#6d28d9" onclick="selectNoticeTag(this)" style="padding:4px 9px; border-radius:16px; font-size:11px; font-weight:700; border:1.5px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">📌 필독</button>
+            <button type="button" class="notice-tag-btn" data-tag="⚠️ 긴급" data-color="#ef4444" data-bg="#fee2e2" data-txt="#b91c1c" onclick="selectNoticeTag(this)" style="padding:4px 9px; border-radius:16px; font-size:11px; font-weight:700; border:1.5px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">⚠️ 긴급</button>
+            <button type="button" class="notice-tag-btn" data-tag="🚀 업데이트" data-color="#f59e0b" data-bg="#fef3c7" data-txt="#b45309" onclick="selectNoticeTag(this)" style="padding:4px 9px; border-radius:16px; font-size:11px; font-weight:700; border:1.5px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">🚀 업데이트</button>
+            <button type="button" class="notice-tag-btn" data-tag="💡 안내" data-color="#10b981" data-bg="#dcfce7" data-txt="#15803d" onclick="selectNoticeTag(this)" style="padding:4px 9px; border-radius:16px; font-size:11px; font-weight:700; border:1.5px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">💡 안내</button>
+          </div>
+        </div>
+
+        <!-- Date & Pin Row -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="flex:1;">
+            <label for="notice-form-date" style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:3px;">날짜</label>
+            <input type="text" id="notice-form-date" placeholder="YYYY.MM.DD" style="width:100%; padding:6px 9px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:700; color:#0f172a; box-sizing:border-box;">
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; margin-top:16px;">
+            <input type="checkbox" id="notice-form-pinned" style="width:15px; height:15px; cursor:pointer; accent-color:#0058a3;">
+            <label for="notice-form-pinned" style="font-size:11.5px; font-weight:800; color:#0f172a; cursor:pointer; user-select:none;">📌 상단 고정</label>
+          </div>
+        </div>
+
+        <!-- Title -->
+        <div>
+          <label for="notice-form-title" style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:3px;">공지 제목 <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="notice-form-title" placeholder="제목을 입력하세요 (예: [공지] 입출고 등록 시 유의사항)" required style="width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; color:#0f172a; box-sizing:border-box;">
+        </div>
+
+        <!-- Content -->
+        <div>
+          <label for="notice-form-desc" style="display:block; font-size:11.5px; font-weight:800; color:#334155; margin-bottom:3px;">공지 상세 내용 <span style="color:#ef4444;">*</span></label>
+          <textarea id="notice-form-desc" rows="4" placeholder="공지할 상세 내용을 입력하세요." required style="width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; line-height:1.5; color:#0f172a; resize:vertical; box-sizing:border-box;"></textarea>
+        </div>
+
+        <!-- Footer Buttons -->
+        <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px; padding-top:10px; border-top:1px solid #f1f5f9;">
+          <button type="button" onclick="if(typeof window.closeBulletinNoticeModal==='function') window.closeBulletinNoticeModal(); else if(typeof closeBulletinNoticeModal==='function') closeBulletinNoticeModal();" style="padding:6px 12px; font-size:12px; font-weight:700; border-radius:6px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; cursor:pointer;">취소</button>
+          <button type="submit" id="btn-save-bulletin-notice" style="padding:6px 15px; font-size:12px; font-weight:800; border-radius:6px; background:#0058a3; color:white; border:none; cursor:pointer; display:flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-check"></i> 저장하기
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Notification Box -->
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="audit.js?v=1.7.71"></script>
-  <script src="app.js?v=1.7.71"></script>
-  <script src="custom.js?v=1.7.71"></script>
+  <script src="audit.js?v=1.7.76"></script>
+  <script src="app.js?v=1.7.76"></script>
+  <script src="custom.js?v=1.7.76"></script>
   
   <script>
     // Premium Wait List Override & Features

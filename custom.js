@@ -4579,10 +4579,10 @@ window.stepStoreScanQty = function(delta) {
 
 let storeInboundPendingBtnElem = null;
 
-// Handle Store Inbound Menu Click (Shows Notice Popup for all accounts)
+// Handle Store Inbound Menu Click (Direct switch to Store Inbound tab)
 window.handleStoreInboundMenuClick = function(btnElement) {
   storeInboundPendingBtnElem = btnElement;
-  openStoreInboundNoticeModal();
+  switchTab('store-inbound', btnElement || document.querySelector('.bottom-nav .nav-item:first-child'));
 };
 
 window.openStoreInboundNoticeModal = function() {
@@ -4815,11 +4815,9 @@ window.renderStoreInboundSavedList = function() {
           <span style="font-size:12.5px; font-weight:900; color:#107c41; background:#ecfdf5; border:1px solid #a7f3d0; padding:2px 8px; border-radius:6px;">
             ${qty}개
           </span>
-          ${(typeof isAdminUser !== 'undefined' && isAdminUser) ? `
-            <button type="button" onclick="deleteStoreInboundLog('${log.id}')" style="background:none; border:none; color:#94a3b8; font-size:13px; cursor:pointer; padding:3px;" title="이 입고 기록 삭제">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          ` : ''}
+          <button type="button" onclick="deleteStoreInboundLog('${log.id}')" style="background:none; border:none; color:#94a3b8; font-size:13px; cursor:pointer; padding:3px;" title="이 입고 기록 삭제">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
         </div>
       </div>
     `;
@@ -4961,13 +4959,9 @@ window.processStoreInboundCart = async function() {
 };
 
 // ==========================================================================
-// STORE INBOUND EXCEL EXPORT (.XLSX) - ALL ADMIN ACCOUNTS SUPPORTED
+// STORE INBOUND EXCEL EXPORT (.XLSX) - ALL ACCOUNTS SUPPORTED
 // ==========================================================================
 window.exportStoreInboundToExcel = async function(selectedDateOnly = false) {
-  if (typeof isAdminUser === 'undefined' || !isAdminUser) {
-    showToast("매장 입고 엑셀 추출은 관리자(Admin) 전용 기능입니다.", "danger");
-    return;
-  }
 
   if (typeof XLSX === "undefined") {
     showToast("엑셀 내보내기 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.", "warning");
@@ -6195,7 +6189,8 @@ window.handleAddMfaqSubmit = async function(event) {
   const selectedType = (category === "제품 질문/요청") ? (window.selectedMfaqType || "") : "";
   const activeUser = (typeof currentUser !== 'undefined' && currentUser) 
     || window.currentUser 
-    || localStorage.getItem("warehouse_current_user") 
+    || sessionStorage.getItem("warehouse_current_user") 
+    || localStorage.getItem("warehouse_saved_login_id") 
     || "jipar5";
   const now = new Date().toISOString();
 
@@ -6423,7 +6418,7 @@ window.renderMfaq = function() {
   const filterCategory = document.getElementById("mfaq-filter-category")?.value || "all";
   const searchQuery = (document.getElementById("mfaq-search")?.value || "").trim().toLowerCase();
 
-  let filtered = (mfaqLogs || []).map(log => {
+  let filtered = (mfaqLogs || []).filter(log => log.category !== "공지사항" && !String(log.id).startsWith("notice_")).map(log => {
     const parsed = window.parseMfaqItem(log);
     const itemCreator = (log.createdBy && log.createdBy !== "system") 
       ? log.createdBy 
@@ -6634,7 +6629,8 @@ window.incrementMfaqCount = async function(id) {
   if (log) {
     const activeUser = (typeof currentUser !== 'undefined' && currentUser) 
       || window.currentUser 
-      || localStorage.getItem("warehouse_current_user") 
+      || sessionStorage.getItem("warehouse_current_user") 
+      || localStorage.getItem("warehouse_saved_login_id") 
       || "jipar5";
     const now = new Date().toISOString();
 
@@ -7325,6 +7321,746 @@ if (document.readyState === "loading") {
 } else {
   initRegStockPreviewListeners();
 }
+
+// ============================================================================
+// 📢 Dynamic Notice Board & System Update Management Engine (공지사항 게시판)
+// ============================================================================
+
+// Base default system update notices (시스템 기본 업데이트 히스토리)
+const DEFAULT_NOTICE_ITEMS = [
+  {
+    id: "base_sys_5",
+    tag: "🚀 업데이트",
+    color: "#f59e0b",
+    badgeBg: "#fef3c7",
+    badgeColor: "#b45309",
+    title: "v2.3 실시간 오더 스마트 알림 & UI 고도화",
+    desc: "새로고침 버튼 활성화 · 실시간 알림 버튼 활성화 · 읽기 전용 뷰어 계정 · UX/UI 개편",
+    date: "2026.09.01",
+    author: "jipar5",
+    pinned: false,
+    isSystem: true
+  },
+  {
+    id: "base_sys_4",
+    tag: "🚀 업데이트",
+    color: "#3b82f6",
+    badgeBg: "#dbeafe",
+    badgeColor: "#1d4ed8",
+    title: "v2.2 FY27 리뉴얼 & 실물 사진 엔진",
+    desc: "실물 사진 연동 · UI 슬림화 · 13,836건 대용량 로더 · 오더 삭제",
+    date: "2026.08.30",
+    author: "jipar5",
+    pinned: false,
+    isSystem: true
+  },
+  {
+    id: "base_sys_3",
+    tag: "🚀 업데이트",
+    color: "#ef4444",
+    badgeBg: "#fee2e2",
+    badgeColor: "#b91c1c",
+    title: "v2.0 스마트 피킹 & 운영 고도화",
+    desc: "피킹리스트 · 벌크 위치 이동 · P-Tag / MFAQ",
+    date: "2026.08.17",
+    author: "jipar5",
+    pinned: false,
+    isSystem: true
+  },
+  {
+    id: "base_sys_2",
+    tag: "🚀 업데이트",
+    color: "#10b981",
+    badgeBg: "#dcfce7",
+    badgeColor: "#15803d",
+    title: "v1.0 클라우드 DB 연동 & 보안 구축",
+    desc: "수퍼베이스 동기화 · 권한 관리 · 엑셀 입출력",
+    date: "2026.08.16",
+    author: "jipar5",
+    pinned: false,
+    isSystem: true
+  },
+  {
+    id: "base_sys_1",
+    tag: "🎉 개설",
+    color: "#8b5cf6",
+    badgeBg: "#f3e8ff",
+    badgeColor: "#7e22ce",
+    title: "세일즈 창고 관리 모바일 웹사이트 개설",
+    desc: "세일즈 창고 관리 모바일 웹사이트 최초 오픈",
+    date: "2026.08.04",
+    author: "jipar5",
+    pinned: false,
+    isSystem: true
+  }
+];
+
+window.noticeBoardLogs = [];
+window.selectedNoticeTag = {
+  tag: "📢 공지",
+  color: "#0284c7",
+  badgeBg: "#e0f2fe",
+  badgeColor: "#0369a1"
+};
+
+// Check if current user has permission to write/edit/delete notices (Only jipar5)
+window.canUserManageNotice = function() {
+  const domName = (document.getElementById("current-user-name")?.textContent || '').trim().toLowerCase();
+  const winUser = (window.currentUser || '').trim().toLowerCase();
+  let appUser = '';
+  try {
+    if (typeof currentUser !== 'undefined' && currentUser) appUser = String(currentUser).trim().toLowerCase();
+  } catch(e) {}
+  let sessUser = '';
+  let savedId = '';
+  try {
+    sessUser = (sessionStorage.getItem("warehouse_current_user") || '').trim().toLowerCase();
+    savedId = (localStorage.getItem("warehouse_saved_login_id") || '').trim().toLowerCase();
+  } catch(e) {}
+
+  return (domName === 'jipar5' || winUser === 'jipar5' || appUser === 'jipar5' || sessUser === 'jipar5' || savedId === 'jipar5');
+};
+
+// Parse raw Supabase rows into clean notice objects
+window.processLoadedNoticeLogs = function(rows) {
+  const parsedList = [];
+  (rows || []).forEach(row => {
+    try {
+      let data = null;
+      if (row.question && typeof row.question === 'string') {
+        const jsonMatch = row.question.replace(/<!--by:.*?-->/g, '').trim();
+        if (jsonMatch.startsWith('{') && jsonMatch.endsWith('}')) {
+          try {
+            data = JSON.parse(jsonMatch);
+          } catch(e) {}
+        }
+      }
+      if (!data) {
+        data = {
+          title: String(row.question || '').replace(/<!--by:.*?-->/g, '').trim(),
+          desc: '',
+          date: (row.created_at || '').slice(0, 10).replace(/-/g, '.'),
+          tag: '📢 공지',
+          color: '#0058a3',
+          badgeBg: '#e0f2fe',
+          badgeColor: '#0284c7'
+        };
+      }
+      parsedList.push({
+        id: String(row.id),
+        tag: data.tag || '📢 공지',
+        color: data.color || '#0058a3',
+        badgeBg: data.badgeBg || '#e0f2fe',
+        badgeColor: data.badgeColor || '#0284c7',
+        title: data.title || '(제목 없음)',
+        desc: data.desc || '',
+        date: data.date || (row.created_at || '').slice(0, 10).replace(/-/g, '.'),
+        author: row.user || data.author || 'jipar5',
+        pinned: !!(row.count === 1 || data.pinned),
+        isSystem: !!data.isSystem,
+        lastUpdated: row.last_updated || row.created_at || new Date().toISOString()
+      });
+    } catch(err) {
+      console.warn("Notice row parsing error:", row, err);
+    }
+  });
+
+  window.noticeBoardLogs = parsedList;
+  try {
+    localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(parsedList));
+  } catch(e) {}
+
+  if (document.getElementById("tab-update-history")?.classList.contains("active")) {
+    window.renderNoticeBoard();
+  }
+};
+
+// Consume cached notice rows from app.js if already loaded
+if (typeof window !== 'undefined' && window.cachedNoticeRows && Array.isArray(window.cachedNoticeRows) && window.cachedNoticeRows.length > 0) {
+  window.processLoadedNoticeLogs(window.cachedNoticeRows);
+}
+
+// Load notices from Supabase (or localStorage fallback)
+window.loadNoticeBoardLogs = async function(isManualRefresh = false) {
+  const refreshBtn = document.querySelector('#tab-update-history .fa-rotate-right');
+  if (isManualRefresh && refreshBtn) refreshBtn.classList.add("fa-spin");
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("mfaq_logs")
+        .select("*")
+        .eq("category", "공지사항")
+        .order("last_updated", { ascending: false });
+
+      if (!error && data) {
+        window.processLoadedNoticeLogs(data);
+        if (isManualRefresh && typeof showToast === 'function') {
+          showToast("공지사항 목록이 새로고침되었습니다.", "success");
+        }
+      } else {
+        window.loadNoticeBoardFromLocalStorage();
+      }
+    } catch (e) {
+      console.warn("Notice load from Supabase error:", e);
+      window.loadNoticeBoardFromLocalStorage();
+    }
+  } else {
+    window.loadNoticeBoardFromLocalStorage();
+  }
+
+  if (isManualRefresh && refreshBtn) {
+    setTimeout(() => refreshBtn.classList.remove("fa-spin"), 500);
+  }
+  window.renderNoticeBoard();
+};
+
+window.loadNoticeBoardFromLocalStorage = function() {
+  try {
+    const saved = localStorage.getItem("warehouse_notice_board_logs");
+    if (saved) {
+      window.noticeBoardLogs = JSON.parse(saved);
+    }
+  } catch(e) {
+    window.noticeBoardLogs = [];
+  }
+};
+
+// Realtime Handler
+window.handleRealtimeNotice = function(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload;
+  if (!window.noticeBoardLogs) window.noticeBoardLogs = [];
+
+  if (eventType === 'INSERT' && newRow) {
+    let data = null;
+    try {
+      const clean = String(newRow.question || '').replace(/<!--by:.*?-->/g, '').trim();
+      if (clean.startsWith('{') && clean.endsWith('}')) data = JSON.parse(clean);
+    } catch(e) {}
+    const newNotice = {
+      id: String(newRow.id),
+      tag: data?.tag || '📢 공지',
+      color: data?.color || '#0058a3',
+      badgeBg: data?.badgeBg || '#e0f2fe',
+      badgeColor: data?.badgeColor || '#0284c7',
+      title: data?.title || clean || '(새 공지사항)',
+      desc: data?.desc || '',
+      date: data?.date || (newRow.created_at || '').slice(0, 10).replace(/-/g, '.'),
+      author: newRow.user || data?.author || 'jipar5',
+      pinned: !!(newRow.count === 1 || data?.pinned),
+      isSystem: false,
+      lastUpdated: newRow.last_updated || newRow.created_at || new Date().toISOString()
+    };
+    // Prepend if not exists
+    if (!window.noticeBoardLogs.some(n => n.id === newNotice.id)) {
+      window.noticeBoardLogs.unshift(newNotice);
+      try {
+        localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(window.noticeBoardLogs));
+      } catch(e) {}
+      if (typeof showToast === 'function') {
+        showToast(`📢 <b>새로운 공지사항</b><br>${newNotice.title}`, "info");
+      }
+      if (typeof window.addUserNotification === 'function') {
+        window.addUserNotification({
+          id: `notif_${newNotice.id}`,
+          type: "notice",
+          title: "📢 새로운 공지사항",
+          message: `${newNotice.title}`,
+          timestamp: Date.now(),
+          read: false
+        });
+      }
+    }
+  } else if (eventType === 'UPDATE' && newRow) {
+    let data = null;
+    try {
+      const clean = String(newRow.question || '').replace(/<!--by:.*?-->/g, '').trim();
+      if (clean.startsWith('{') && clean.endsWith('}')) data = JSON.parse(clean);
+    } catch(e) {}
+    const idx = window.noticeBoardLogs.findIndex(n => n.id === String(newRow.id));
+    if (idx !== -1) {
+      window.noticeBoardLogs[idx] = {
+        ...window.noticeBoardLogs[idx],
+        tag: data?.tag || window.noticeBoardLogs[idx].tag,
+        color: data?.color || window.noticeBoardLogs[idx].color,
+        badgeBg: data?.badgeBg || window.noticeBoardLogs[idx].badgeBg,
+        badgeColor: data?.badgeColor || window.noticeBoardLogs[idx].badgeColor,
+        title: data?.title || window.noticeBoardLogs[idx].title,
+        desc: data?.desc || window.noticeBoardLogs[idx].desc,
+        date: data?.date || window.noticeBoardLogs[idx].date,
+        pinned: !!(newRow.count === 1 || data?.pinned),
+        lastUpdated: newRow.last_updated || new Date().toISOString()
+      };
+      try {
+        localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(window.noticeBoardLogs));
+      } catch(e) {}
+    }
+  } else if (eventType === 'DELETE' && oldRow) {
+    window.noticeBoardLogs = window.noticeBoardLogs.filter(n => n.id !== String(oldRow.id));
+    try {
+      localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(window.noticeBoardLogs));
+    } catch(e) {}
+  }
+
+  if (typeof window.renderNoticeBoard === "function") {
+    window.renderNoticeBoard();
+  }
+};
+
+// Render Notice Board UI
+window.renderNoticeBoard = function() {
+  const cardsContainer = document.getElementById("notice-board-cards");
+  if (!cardsContainer) return;
+
+  const canManage = window.canUserManageNotice();
+  const writeBtn = document.getElementById("btn-open-notice-modal");
+  const countBadge = document.getElementById("notice-board-count-badge");
+  const banner = document.getElementById("notice-permission-banner");
+  const bannerText = document.getElementById("notice-banner-text");
+
+  // Access Control UI adjustments
+  if (writeBtn) {
+    writeBtn.style.display = canManage ? "inline-flex" : "none";
+  }
+
+  if (banner && bannerText) {
+    if (canManage) {
+      banner.style.background = "#eff6ff";
+      banner.style.border = "1px solid #bfdbfe";
+      banner.style.color = "#1e40af";
+      banner.style.padding = "6px 12px";
+      banner.style.fontSize = "11.5px";
+      banner.style.borderRadius = "8px";
+      bannerText.innerHTML = `👑 <strong>공지 관리 권한 (jipar5)</strong> · 새 공지 등록 및 수정/삭제 가능`;
+    } else {
+      banner.style.background = "#f8fafc";
+      banner.style.border = "1px solid #e2e8f0";
+      banner.style.color = "#475569";
+      banner.style.padding = "6px 12px";
+      banner.style.fontSize = "11.5px";
+      banner.style.borderRadius = "8px";
+      bannerText.innerHTML = `📢 <strong>공지사항 & 업데이트</strong> · 매장 및 창고 공지사항입니다.`;
+    }
+  }
+
+  // Combine custom notices and base update items
+  const customList = Array.isArray(window.noticeBoardLogs) ? [...window.noticeBoardLogs] : [];
+  
+  // Sort custom notices: Pinned first, then by date/lastUpdated DESC
+  customList.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    const dateA = a.date || a.lastUpdated || '';
+    const dateB = b.date || b.lastUpdated || '';
+    return dateB.localeCompare(dateA);
+  });
+
+  const customIds = new Set(customList.map(n => n.id));
+  const filteredDefaults = DEFAULT_NOTICE_ITEMS.filter(d => !customIds.has(d.id));
+  const allItems = [...customList, ...filteredDefaults];
+
+  if (countBadge) {
+    countBadge.textContent = `${allItems.length}건`;
+  }
+
+  if (allItems.length === 0) {
+    cardsContainer.innerHTML = `
+      <div style="text-align:center; padding:32px 16px; color:#64748b;">
+        <i class="fa-regular fa-bell-slash" style="font-size:24px; color:#94a3b8; margin-bottom:8px;"></i>
+        <div style="font-size:13px; font-weight:700; color:#334155;">등록된 공지사항이 없습니다.</div>
+        ${canManage ? '<button type="button" onclick="event.stopPropagation(); (window.openBulletinNoticeModal || openBulletinNoticeModal)()" style="margin-top:10px; padding:6px 14px; font-size:12px; font-weight:800; border-radius:6px; background:#0058a3; color:white; border:none; cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i> 새 공지 작성</button>' : ''}
+      </div>
+    `;
+    return;
+  }
+
+  const escapeHtml = (str) => {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  cardsContainer.innerHTML = allItems.map((item, idx) => {
+    const isPinned = !!item.pinned;
+    const isSys = !!item.isSystem;
+    const tagBg = item.badgeBg || '#e0f2fe';
+    const tagTxt = item.badgeColor || '#0284c7';
+    const tagLabel = item.tag || (isSys ? '🚀 업데이트' : '📢 공지');
+    const cleanDesc = (item.desc || '').trim();
+    const isLast = (idx === allItems.length - 1);
+
+    return `
+      <div class="notice-row" style="padding: 12px 14px; ${isLast ? '' : 'border-bottom: 1px solid #f1f5f9;'} background: ${isPinned ? '#fffdf5' : '#ffffff'}; transition: background 0.15s;">
+        
+        <!-- Header Line: Tag + Pin + Title + Date -->
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap;">
+            <span style="font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 5px; background: ${tagBg}; color: ${tagTxt}; flex-shrink: 0; line-height: 1.35;">
+              ${escapeHtml(tagLabel)}
+            </span>
+            ${isPinned ? `
+              <span style="font-size: 10.5px; font-weight: 800; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 5px; border: 1px solid #fde68a; display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                <i class="fa-solid fa-thumbtack" style="font-size: 9px;"></i> 고정
+              </span>
+            ` : ''}
+            <span style="font-size: 13.5px; font-weight: 700; color: #0f172a; line-height: 1.4; word-break: keep-all;">
+              ${escapeHtml(item.title)}
+            </span>
+          </div>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 600; flex-shrink: 0; white-space: nowrap; padding-top: 2px;">
+            ${escapeHtml(item.date || '')}
+          </span>
+        </div>
+
+        <!-- Description: Simple, readable paragraph text -->
+        ${cleanDesc ? `
+          <div style="font-size: 12.5px; color: #475569; line-height: 1.5; margin-top: 5px; word-break: break-word; padding-left: 1px;">
+            ${escapeHtml(cleanDesc)}
+          </div>
+        ` : ''}
+
+        <!-- Footer Line: Author & Management Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 7px; font-size: 11px;">
+          <span style="color: #94a3b8; font-weight: 500;">
+            작성자: <strong style="color: #64748b; font-weight: 700;">${escapeHtml(item.author || 'jipar5')}</strong>
+          </span>
+
+          <!-- Edit & Delete Buttons: ONLY visible to jipar5 -->
+          ${canManage ? `
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button type="button" onclick="event.stopPropagation(); (window.openBulletinNoticeModal || openBulletinNoticeModal)('${escapeHtml(item.id)}')" style="padding: 2.5px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="공지 수정">
+                <i class="fa-solid fa-pen" style="font-size: 9.5px;"></i> 수정
+              </button>
+              ${!isSys ? `
+                <button type="button" onclick="event.stopPropagation(); (window.deleteBulletinNotice || deleteBulletinNotice)('${escapeHtml(item.id)}')" style="padding: 2.5px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="공지 삭제">
+                  <i class="fa-solid fa-trash-can" style="font-size: 9.5px;"></i> 삭제
+                </button>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+
+      </div>
+    `;
+  }).join('');
+};
+
+// Select Notice Tag Chip
+window.selectNoticeTag = function(btn) {
+  const container = document.getElementById("notice-tag-chips");
+  if (container) {
+    container.querySelectorAll(".notice-tag-btn").forEach(b => {
+      b.classList.remove("active");
+      b.style.borderColor = "#cbd5e1";
+      b.style.background = "#ffffff";
+      b.style.color = "#475569";
+    });
+  }
+  btn.classList.add("active");
+  const color = btn.getAttribute("data-color") || "#0284c7";
+  const bg = btn.getAttribute("data-bg") || "#e0f2fe";
+  const txt = btn.getAttribute("data-txt") || "#0369a1";
+  const tag = btn.getAttribute("data-tag") || "📢 공지";
+
+  btn.style.borderColor = color;
+  btn.style.background = color;
+  btn.style.color = "#ffffff";
+
+  window.selectedNoticeTag = {
+    tag: tag,
+    color: color,
+    badgeBg: bg,
+    badgeColor: txt
+  };
+};
+
+// Open Bulletin Modal
+window.openBulletinNoticeModal = function(noticeId = null) {
+  if (typeof event !== 'undefined' && event && event.stopPropagation) {
+    try { event.stopPropagation(); } catch(e) {}
+  }
+
+  if (!window.canUserManageNotice()) {
+    if (typeof showToast === 'function') {
+      showToast("공지사항 작성 및 관리 권한이 없습니다. (jipar5 전용)", "warning");
+    }
+    return;
+  }
+
+  const modal = document.getElementById("bulletin-notice-modal");
+  const titleEl = document.getElementById("bulletin-modal-title");
+  const idInput = document.getElementById("notice-form-id");
+  const titleInput = document.getElementById("notice-form-title");
+  const dateInput = document.getElementById("notice-form-date");
+  const descInput = document.getElementById("notice-form-desc");
+  const pinInput = document.getElementById("notice-form-pinned");
+
+  if (!modal) {
+    console.error("bulletin-notice-modal not found in DOM");
+    return;
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+
+  if (noticeId) {
+    // Edit Mode
+    const item = [...(window.noticeBoardLogs || []), ...DEFAULT_NOTICE_ITEMS].find(n => n.id === noticeId);
+    if (!item) {
+      if (typeof showToast === 'function') showToast("해당 공지사항을 찾을 수 없습니다.", "danger");
+      return;
+    }
+    if (titleEl) titleEl.textContent = "✏️ 공지사항 수정";
+    if (idInput) idInput.value = item.id;
+    if (titleInput) titleInput.value = item.title || "";
+    if (dateInput) dateInput.value = item.date || todayStr;
+    if (descInput) descInput.value = item.desc || "";
+    if (pinInput) pinInput.checked = !!item.pinned;
+
+    // Set active tag button
+    const container = document.getElementById("notice-tag-chips");
+    if (container) {
+      let matched = false;
+      container.querySelectorAll(".notice-tag-btn").forEach(b => {
+        if (b.getAttribute("data-tag") === item.tag) {
+          window.selectNoticeTag(b);
+          matched = true;
+        }
+      });
+      if (!matched) {
+        const firstBtn = container.querySelector(".notice-tag-btn");
+        if (firstBtn) window.selectNoticeTag(firstBtn);
+      }
+    }
+  } else {
+    // New Notice Mode
+    if (titleEl) titleEl.textContent = "✍️ 새 공지사항 작성";
+    if (idInput) idInput.value = "";
+    if (titleInput) titleInput.value = "";
+    if (dateInput) dateInput.value = todayStr;
+    if (descInput) descInput.value = "";
+    if (pinInput) pinInput.checked = false;
+
+    // Reset tag to first tag (📢 공지)
+    const firstBtn = document.querySelector("#notice-tag-chips .notice-tag-btn");
+    if (firstBtn) window.selectNoticeTag(firstBtn);
+  }
+
+  modal.classList.add("active");
+  modal.style.display = "flex";
+  modal.style.visibility = "visible";
+  modal.style.opacity = "1";
+  modal.style.pointerEvents = "auto";
+
+  setTimeout(() => {
+    if (titleInput) titleInput.focus();
+  }, 100);
+};
+
+// Close Bulletin Modal
+window.closeBulletinNoticeModal = function() {
+  const modal = document.getElementById("bulletin-notice-modal");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.style.display = "none";
+    modal.style.visibility = "hidden";
+    modal.style.opacity = "0";
+    modal.style.pointerEvents = "none";
+  }
+};
+
+// Global function wrappers so inline handlers never fail
+function openBulletinNoticeModal(id) {
+  if (typeof window.openBulletinNoticeModal === 'function') {
+    return window.openBulletinNoticeModal(id);
+  }
+}
+function closeBulletinNoticeModal() {
+  if (typeof window.closeBulletinNoticeModal === 'function') {
+    return window.closeBulletinNoticeModal();
+  }
+}
+function selectNoticeTag(btn) {
+  if (typeof window.selectNoticeTag === 'function') {
+    return window.selectNoticeTag(btn);
+  }
+}
+function handleBulletinNoticeSubmit(e) {
+  if (typeof window.handleBulletinNoticeSubmit === 'function') {
+    return window.handleBulletinNoticeSubmit(e);
+  }
+}
+function deleteBulletinNotice(id) {
+  if (typeof window.deleteBulletinNotice === 'function') {
+    return window.deleteBulletinNotice(id);
+  }
+}
+
+// Submit Notice Form
+window.handleBulletinNoticeSubmit = async function(event) {
+  if (event) event.preventDefault();
+
+  if (!window.canUserManageNotice()) {
+    if (typeof showToast === 'function') {
+      showToast("공지사항 작성 권한이 없습니다. (jipar5 전용)", "danger");
+    }
+    return;
+  }
+
+  const idInput = document.getElementById("notice-form-id");
+  const titleInput = document.getElementById("notice-form-title");
+  const dateInput = document.getElementById("notice-form-date");
+  const descInput = document.getElementById("notice-form-desc");
+  const pinInput = document.getElementById("notice-form-pinned");
+  const saveBtn = document.getElementById("btn-save-bulletin-notice");
+
+  const title = (titleInput?.value || "").trim();
+  const desc = (descInput?.value || "").trim();
+  const date = (dateInput?.value || "").trim() || new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+  const pinned = !!(pinInput?.checked);
+  const curId = idInput?.value || "";
+
+  if (!title) {
+    if (typeof showToast === 'function') showToast("공지 제목을 입력해주세요.", "warning");
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  const curUser = (window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : '') || sessionStorage.getItem("warehouse_current_user") || localStorage.getItem("warehouse_saved_login_id") || 'jipar5').trim();
+  const tagInfo = window.selectedNoticeTag || {
+    tag: "📢 공지",
+    color: "#0284c7",
+    badgeBg: "#e0f2fe",
+    badgeColor: "#0369a1"
+  };
+
+  const noticeId = curId || `notice_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+  const noticeData = {
+    id: noticeId,
+    tag: tagInfo.tag,
+    color: tagInfo.color,
+    badgeBg: tagInfo.badgeBg,
+    badgeColor: tagInfo.badgeColor,
+    title: title,
+    desc: desc,
+    date: date,
+    author: curUser,
+    pinned: pinned,
+    isSystem: false,
+    lastUpdated: new Date().toISOString()
+  };
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
+  }
+
+  try {
+    // 1. Save to Supabase mfaq_logs
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      const payload = {
+        id: noticeId,
+        category: "공지사항",
+        question: JSON.stringify(noticeData) + `<!--by:${curUser}-->`,
+        count: pinned ? 1 : 0,
+        user: curUser,
+        last_updated: new Date().toISOString()
+      };
+      const { error } = await supabaseClient.from("mfaq_logs").upsert(payload, { onConflict: "id" });
+      if (error) {
+        console.warn("Supabase notice upsert warning:", error);
+      }
+    }
+
+    // 2. Update local state
+    if (!window.noticeBoardLogs) window.noticeBoardLogs = [];
+    const existingIdx = window.noticeBoardLogs.findIndex(n => n.id === noticeId);
+    if (existingIdx !== -1) {
+      window.noticeBoardLogs[existingIdx] = noticeData;
+    } else {
+      window.noticeBoardLogs.unshift(noticeData);
+    }
+
+    try {
+      localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(window.noticeBoardLogs));
+    } catch(e) {}
+
+    window.closeBulletinNoticeModal();
+    window.renderNoticeBoard();
+
+    if (typeof showToast === 'function') {
+      showToast(`공지사항이 ${curId ? '수정' : '등록'}되었습니다!`, "success");
+    }
+  } catch (err) {
+    console.error("Notice submit error:", err);
+    if (typeof showToast === 'function') {
+      showToast("공지사항 저장 중 오류가 발생했습니다.", "danger");
+    }
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> 저장하기';
+    }
+  }
+};
+
+// Delete Notice
+window.deleteBulletinNotice = async function(noticeId) {
+  if (!window.canUserManageNotice()) {
+    if (typeof showToast === 'function') {
+      showToast("공지사항 삭제 권한이 없습니다. (jipar5 전용)", "danger");
+    }
+    return;
+  }
+
+  if (!confirm("해당 공지사항을 삭제하시겠습니까?")) return;
+
+  try {
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      const { error } = await supabaseClient.from("mfaq_logs").delete().eq("id", noticeId);
+      if (error) {
+        console.warn("Supabase notice delete error:", error);
+      }
+    }
+
+    if (window.noticeBoardLogs) {
+      window.noticeBoardLogs = window.noticeBoardLogs.filter(n => n.id !== noticeId);
+      try {
+        localStorage.setItem("warehouse_notice_board_logs", JSON.stringify(window.noticeBoardLogs));
+      } catch(e) {}
+    }
+
+    window.renderNoticeBoard();
+    if (typeof showToast === 'function') {
+      showToast("공지사항이 삭제되었습니다.", "success");
+    }
+  } catch (err) {
+    console.error("Notice delete error:", err);
+    if (typeof showToast === 'function') {
+      showToast("공지사항 삭제 중 오류가 발생했습니다.", "danger");
+    }
+  }
+};
+
+// Initialize Notice Board on startup
+if (typeof window !== 'undefined') {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        if (typeof window.loadNoticeBoardLogs === "function") window.loadNoticeBoardLogs();
+      }, 500);
+    });
+  } else {
+    setTimeout(() => {
+      if (typeof window.loadNoticeBoardLogs === "function") window.loadNoticeBoardLogs();
+    }, 500);
+  }
+}
+
 
 
 

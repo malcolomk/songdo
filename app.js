@@ -196,8 +196,12 @@ function saveUserPasswords() {
 }
 
 function checkLoginSession() {
-  const savedUser = localStorage.getItem("warehouse_current_user") || sessionStorage.getItem("warehouse_current_user");
-  const sessionUser = currentUser || savedUser;
+  // Purge any lingering localStorage user to completely eliminate auto-login bypass
+  try {
+    localStorage.removeItem("warehouse_current_user");
+  } catch(e) {}
+
+  const sessionUser = currentUser || sessionStorage.getItem("warehouse_current_user");
   const loginOverlay = document.getElementById("login-overlay");
   const userBadge = document.getElementById("user-profile-badge");
   const userNameElem = document.getElementById("current-user-name");
@@ -214,7 +218,7 @@ function checkLoginSession() {
     currentUser = sessionUser;
     window.currentUser = sessionUser;
     try {
-      localStorage.setItem("warehouse_current_user", sessionUser);
+      sessionStorage.setItem("warehouse_current_user", sessionUser);
       localStorage.setItem("warehouse_saved_login_id", sessionUser);
     } catch(e) {}
     isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === sessionUser.toLowerCase());
@@ -230,6 +234,9 @@ function checkLoginSession() {
     }
     if (userBadge) userBadge.style.display = "flex";
     if (userNameElem) userNameElem.textContent = sessionUser;
+    if (typeof window.renderNoticeBoard === "function") {
+      window.renderNoticeBoard();
+    }
 
     const storeInboundLockBadge = document.getElementById("badge-store-inbound-lock");
     if (storeInboundLockBadge) {
@@ -298,10 +305,17 @@ function checkLoginSession() {
     }
     if (userBadge) userBadge.style.display = "none";
 
-    const savedId = localStorage.getItem("warehouse_saved_login_id") || localStorage.getItem("warehouse_current_user");
+    const savedId = localStorage.getItem("warehouse_saved_login_id");
     const loginIdElem = document.getElementById("login-id");
+    const loginPwElem = document.getElementById("login-pw");
     if (savedId && loginIdElem && !loginIdElem.value) {
       loginIdElem.value = savedId;
+    }
+    if (loginPwElem) {
+      loginPwElem.value = "";
+      setTimeout(() => {
+        try { loginPwElem.focus(); } catch(e) {}
+      }, 150);
     }
   }
 }
@@ -319,6 +333,13 @@ function handleLoginSubmit(e) {
 
   if (!rawInputId) {
     showToast("아이디를 입력해 주세요.", "danger");
+    loginIdElem.focus();
+    return;
+  }
+
+  if (!inputPw) {
+    showToast("비밀번호를 입력해 주세요.", "danger");
+    loginPwElem.focus();
     return;
   }
 
@@ -333,14 +354,16 @@ function handleLoginSubmit(e) {
 
   if (inputPw !== storedPw) {
     showToast(`비밀번호가 올바르지 않습니다. (기본 비밀번호: ${INITIAL_PASSWORD})`, "danger");
+    loginPwElem.focus();
     return;
   }
 
   currentUser = matchedId;
   window.currentUser = matchedId;
   try {
-    localStorage.setItem("warehouse_current_user", matchedId);
+    sessionStorage.setItem("warehouse_current_user", matchedId);
     localStorage.setItem("warehouse_saved_login_id", matchedId);
+    localStorage.removeItem("warehouse_current_user");
   } catch(e) {}
   isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === matchedId.toLowerCase());
   window.isAdminUser = isAdminUser;
@@ -383,6 +406,7 @@ function handleLogout() {
   currentUser = null;
   window.currentUser = null;
   try {
+    sessionStorage.removeItem("warehouse_current_user");
     localStorage.removeItem("warehouse_current_user");
   } catch(e) {}
   isAdminUser = false;
@@ -818,6 +842,12 @@ async function loadDataFromSupabase() {
         .order("last_updated", { ascending: false });
 
       if (!mfaqErr && mfaq) {
+        const noticeRows = mfaq.filter(r => r.category === "공지사항" || String(r.id).startsWith("notice_"));
+        window.cachedNoticeRows = noticeRows;
+        if (typeof window.processLoadedNoticeLogs === "function") {
+          window.processLoadedNoticeLogs(noticeRows);
+        }
+        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_"));
         let localData = [];
         try {
           const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
@@ -825,7 +855,7 @@ async function loadDataFromSupabase() {
         } catch(e) {}
         const localMap = new Map(localData.map(l => [l.id, l]));
 
-        mfaqLogs = mfaq.map(row => {
+        mfaqLogs = customerMfaqRows.map(row => {
           const local = localMap.get(row.id) || {};
           let metaUser = "";
           let metaTap = "";
@@ -1035,6 +1065,13 @@ function switchTab(tabId, btnElement) {
       const artNoInput = document.getElementById("audit-artno");
       if (artNoInput) artNoInput.focus();
     }, 150);
+  }
+  if (tabId === "update-history") {
+    if (typeof window.loadNoticeBoardLogs === "function") {
+      window.loadNoticeBoardLogs();
+    } else if (typeof window.renderNoticeBoard === "function") {
+      window.renderNoticeBoard();
+    }
   }
 }
 
@@ -3078,8 +3115,10 @@ function handleRealtimeMasterCatalog(payload) {
 
 function handleRealtimeStoreInbound(payload) {
   const { eventType, new: newRecord, old: oldRecord } = payload;
-  if (eventType === 'INSERT') {
-    const exists = storeInboundLogs.some(log => log.id === newRecord.id);
+  let changed = false;
+
+  if (eventType === 'INSERT' && newRecord) {
+    const exists = storeInboundLogs.some(log => String(log.id) === String(newRecord.id));
     if (!exists) {
       let mappedArtNo = String(newRecord.artno || newRecord.artNo || "").trim();
       const digitsOnly = mappedArtNo.replace(/\D/g, '');
@@ -3088,19 +3127,70 @@ function handleRealtimeStoreInbound(payload) {
       }
       storeInboundLogs.unshift({
         ...newRecord,
+        id: newRecord.id,
+        date: newRecord.date,
+        type: newRecord.type || "매장입고",
         artNo: mappedArtNo,
-        artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "매장 입고 품목")
+        artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "매장 입고 품목"),
+        qty: Number(newRecord.qty) || 1,
+        user: newRecord.user || "매장",
+        time: newRecord.time || (newRecord.created_at ? new Date(newRecord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "")
       });
-      localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+      changed = true;
     }
-  } else if (eventType === 'DELETE') {
-    storeInboundLogs = storeInboundLogs.filter(log => log.id !== oldRecord.id);
-    localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+  } else if (eventType === 'UPDATE' && newRecord) {
+    const idx = storeInboundLogs.findIndex(log => String(log.id) === String(newRecord.id));
+    let mappedArtNo = String(newRecord.artno || newRecord.artNo || "").trim();
+    const digitsOnly = mappedArtNo.replace(/\D/g, '');
+    if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+      mappedArtNo = digitsOnly.padStart(8, '0');
+    }
+    const updated = {
+      ...newRecord,
+      id: newRecord.id,
+      date: newRecord.date,
+      type: newRecord.type || "매장입고",
+      artNo: mappedArtNo,
+      artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "매장 입고 품목"),
+      qty: Number(newRecord.qty) || 1,
+      user: newRecord.user || "매장",
+      time: newRecord.time || (newRecord.created_at ? new Date(newRecord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "")
+    };
+    if (idx !== -1) {
+      storeInboundLogs[idx] = updated;
+    } else {
+      storeInboundLogs.unshift(updated);
+    }
+    changed = true;
+  } else if (eventType === 'DELETE' && oldRecord) {
+    const prevLen = storeInboundLogs.length;
+    storeInboundLogs = storeInboundLogs.filter(log => String(log.id) !== String(oldRecord.id));
+    if (storeInboundLogs.length !== prevLen) {
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    try {
+      localStorage.setItem("warehouse_store_inbound_logs", JSON.stringify(storeInboundLogs));
+    } catch (e) {}
+    if (typeof invalidateStockCache === "function") invalidateStockCache();
+    if (typeof renderStoreInboundSavedList === "function") renderStoreInboundSavedList();
+    if (typeof renderStockLookup === "function") renderStockLookup();
+    if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+    if (typeof updateDashboard === "function") updateDashboard();
   }
 }
 
 function handleRealtimeMfaq(payload) {
   const { eventType, new: newRow, old: oldRow } = payload;
+  const row = newRow || oldRow;
+  if (row && (row.category === "공지사항" || String(row.id || "").startsWith("notice_"))) {
+    if (typeof window.handleRealtimeNotice === "function") {
+      window.handleRealtimeNotice(payload);
+    }
+    return;
+  }
   if (eventType === 'INSERT') {
     let metaUser = "";
     let metaTap = "";
@@ -3167,28 +3257,63 @@ function handleRealtimeMfaq(payload) {
 
 function handleRealtimeInventory(payload) {
   const { eventType, new: newRecord, old: oldRecord } = payload;
-  
-  if (eventType === 'INSERT') {
-    const exists = historyLogs.some(log => log.id === newRecord.id);
+  let changed = false;
+
+  if (eventType === 'INSERT' && newRecord) {
+    const exists = historyLogs.some(log => String(log.id) === String(newRecord.id));
     if (!exists) {
-      const mappedArtNo = newRecord.artno || newRecord.artNo || "";
+      let mappedArtNo = String(newRecord.artno || newRecord.artNo || "").trim();
+      const digitsOnly = mappedArtNo.replace(/\D/g, '');
+      if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+        mappedArtNo = digitsOnly.padStart(8, '0');
+      }
       historyLogs.unshift({
         ...newRecord,
+        id: newRecord.id,
         artNo: mappedArtNo,
-        artName: newRecord.artname || newRecord.artName || masterCatalogMap.get(mappedArtNo) || "알 수 없는 품목"
+        artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "알 수 없는 품목")
       });
       historyLogs.sort((a, b) => b.id - a.id);
+      changed = true;
     }
-  } else if (eventType === 'DELETE') {
-    historyLogs = historyLogs.filter(log => log.id !== oldRecord.id);
+  } else if (eventType === 'UPDATE' && newRecord) {
+    const idx = historyLogs.findIndex(log => String(log.id) === String(newRecord.id));
+    let mappedArtNo = String(newRecord.artno || newRecord.artNo || "").trim();
+    const digitsOnly = mappedArtNo.replace(/\D/g, '');
+    if (digitsOnly.length > 0 && digitsOnly.length <= 8) {
+      mappedArtNo = digitsOnly.padStart(8, '0');
+    }
+    const updated = {
+      ...newRecord,
+      id: newRecord.id,
+      artNo: mappedArtNo,
+      artName: newRecord.artname || newRecord.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(mappedArtNo) : "알 수 없는 품목")
+    };
+    if (idx !== -1) {
+      historyLogs[idx] = updated;
+    } else {
+      historyLogs.unshift(updated);
+    }
+    historyLogs.sort((a, b) => b.id - a.id);
+    changed = true;
+  } else if (eventType === 'DELETE' && oldRecord) {
+    const prevLen = historyLogs.length;
+    historyLogs = historyLogs.filter(log => String(log.id) !== String(oldRecord.id));
+    if (historyLogs.length !== prevLen) {
+      changed = true;
+    }
   }
   
-  invalidateStockCache();
-  try {
-    if (currentTab === 'stock') renderStockLookup();
-    if (currentTab === 'history') renderHistoryLogs();
-    if (currentTab === 'picklist' && typeof renderSimplePicklist === 'function') renderSimplePicklist();
-  } catch (e) {}
+  if (changed) {
+    if (typeof saveHistoryLogs === 'function') saveHistoryLogs();
+    if (typeof invalidateStockCache === 'function') invalidateStockCache();
+    try {
+      if (typeof renderStockLookup === 'function') renderStockLookup();
+      if (typeof renderHistoryLogs === 'function') renderHistoryLogs();
+      if (typeof renderSimplePicklist === 'function') renderSimplePicklist();
+      if (typeof updateDashboard === 'function') updateDashboard();
+    } catch (e) {}
+  }
 }
 
 function handleRealtimeOrder(payload) {
@@ -3273,12 +3398,15 @@ function handleRealtimeOrder(payload) {
   }
 
   try {
+    saveOrderLogs();
+    if (typeof updateOrderBadge === 'function') updateOrderBadge();
     const activeTab = document.querySelector('.tab-page.active');
     if (activeTab && (activeTab.id === 'tab-order' || activeTab.id === 'tab-picklist')) {
       renderOrderLogs();
       if (typeof renderStandardPickList === 'function') renderStandardPickList();
       if (typeof renderStandardInventory === 'function') renderStandardInventory();
     }
+    if (typeof updateDashboard === 'function') updateDashboard();
   } catch (e) {}
 }
 
@@ -3542,6 +3670,11 @@ async function refreshMfaqData() {
         .order("last_updated", { ascending: false });
 
       if (!mfaqErr && mfaq) {
+        const noticeRows = mfaq.filter(r => r.category === "공지사항" || String(r.id).startsWith("notice_"));
+        if (typeof window.processLoadedNoticeLogs === "function") {
+          window.processLoadedNoticeLogs(noticeRows);
+        }
+        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_"));
         let localData = [];
         try {
           const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
@@ -3549,7 +3682,7 @@ async function refreshMfaqData() {
         } catch(e) {}
         const localMap = new Map(localData.map(l => [l.id, l]));
 
-        mfaqLogs = mfaq.map(row => {
+        mfaqLogs = customerMfaqRows.map(row => {
           const local = localMap.get(row.id) || {};
           let metaUser = "";
           let metaTap = "";
