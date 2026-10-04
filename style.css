@@ -1,27 +1,38 @@
-/* CSS Design Tokens - Modern Minimalist Theme */
+/* CSS Design Tokens - Modern Autumn Bento Theme 🍁 */
 :root {
-  --primary-color: #0058a3;
-  --primary-hover: #004785;
-  --primary-light: #eff6ff;
-  --success-color: #059669;
+  --primary-color: #c2410c;
+  --primary-hover: #9a3412;
+  --primary-light: #fff7ed;
+  --accent-color: #ea580c;
+  --autumn-orange: #ea580c;
+  --autumn-amber: #f59e0b;
+  --autumn-brown: #78350f;
+  --autumn-leaf: #b45309;
+  --autumn-bg-soft: #fffaf5;
+  --success-color: #10b981;
   --success-bg: #ecfdf5;
   --danger-color: #ef4444;
   --danger-bg: #fef2f2;
   --warning-color: #f59e0b;
   --warning-bg: #fffbeb;
-  --dark-bg: #0f172a;
+  --dark-bg: #18181b;
   --surface-bg: #ffffff;
   --body-bg: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.02);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.06);
-  --font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-main: #09090b;
+  --text-muted: #71717a;
+  --text-subtle: #a1a1aa;
+  --border-color: #e4e4e7;
+  --border-subtle: rgba(194, 65, 12, 0.08);
+  --input-bg: #f4f5f6;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 26px;
+  --radius-pill: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 20px -2px rgba(194, 65, 12, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 12px 32px -4px rgba(194, 65, 12, 0.09), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+  --font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Inter', 'Noto Sans KR', 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
@@ -31,22 +42,32 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  background-color: #ffffff !important;
+  color-scheme: light;
+  overflow-x: hidden !important;
+  width: 100%;
+}
+
 body {
   font-family: var(--font-family);
-  background-color: #ffffff;
+  background-color: #ffffff !important;
   color: var(--text-main);
-  padding-bottom: 70px;
-  line-height: 1.4;
-  max-width: 540px;
+  padding-bottom: 78px;
+  line-height: 1.45;
+  max-width: 520px;
+  width: 100%;
   margin: 0 auto;
   min-height: 100vh;
   box-shadow: none;
   position: relative;
   letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
 }
 
-/* LOGIN OVERLAY SCREEN */
+/* LOGIN OVERLAY SCREEN - Autumn Fall Season Edition 🍁 */
 .login-overlay {
   position: fixed;
   top: 0;
@@ -55,7 +76,9 @@ body {
   bottom: 0;
   width: 100%;
   height: 100%;
-  background: #ffffff;
+  background: radial-gradient(circle at 50% 35%, rgba(255, 247, 237, 0.96) 0%, rgba(254, 242, 242, 0.94) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 9999;
   display: flex;
   justify-content: center;
@@ -64,6 +87,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
+  overflow: hidden;
 }
 
 .login-overlay.active {
@@ -71,14 +95,69 @@ body {
   pointer-events: auto;
 }
 
+/* Falling Autumn Leaves Effect */
+.autumn-leaves-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.autumn-leaf {
+  position: absolute;
+  top: -40px;
+  user-select: none;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+  animation: fallLeaves linear infinite;
+}
+
+.leaf-1 { left: 8%; font-size: 26px; animation-duration: 9s; animation-delay: 0s; }
+.leaf-2 { left: 24%; font-size: 20px; animation-duration: 11.5s; animation-delay: 2.2s; }
+.leaf-3 { left: 42%; font-size: 28px; animation-duration: 8.5s; animation-delay: 4.5s; }
+.leaf-4 { left: 58%; font-size: 22px; animation-duration: 12s; animation-delay: 1.2s; }
+.leaf-5 { left: 74%; font-size: 25px; animation-duration: 10s; animation-delay: 5.5s; }
+.leaf-6 { left: 88%; font-size: 19px; animation-duration: 13s; animation-delay: 3.2s; }
+.leaf-7 { left: 34%; font-size: 23px; animation-duration: 9.8s; animation-delay: 6.8s; }
+.leaf-8 { left: 93%; font-size: 24px; animation-duration: 11s; animation-delay: 7.5s; }
+
+@keyframes fallLeaves {
+  0% {
+    top: -40px;
+    transform: translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(35px) rotate(160deg);
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 105%;
+    transform: translateX(-25px) rotate(340deg);
+    opacity: 0;
+  }
+}
+
 .login-card {
   background-color: #ffffff;
-  border-radius: var(--radius-lg);
-  padding: 32px 24px;
+  border-radius: var(--radius-xl);
+  padding: 32px 26px;
   width: 100%;
   max-width: 400px;
-  box-shadow: none;
-  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 48px -10px rgba(194, 65, 12, 0.16), 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1.5px solid #fed7aa;
+  position: relative;
+  z-index: 2;
+  text-align: center;
   animation: loginCardPop 0.3s ease-out;
 }
 
@@ -87,41 +166,84 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+.autumn-edition-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(194, 65, 12, 0.08);
+}
+
 .login-header {
   text-align: center;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .login-logo {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  width: 58px;
+  height: 58px;
+  background: linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #ea580c 100%);
   color: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 24px;
   margin: 0 auto 12px auto;
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 8px 24px rgba(194, 65, 12, 0.32);
+  transition: transform 0.25s ease;
+}
+
+.login-logo:hover {
+  transform: translateY(-2px) scale(1.05);
 }
 
 .login-header h2 {
   font-size: 20px;
   font-weight: 800;
-  color: var(--text-main);
+  color: #18181b;
+  letter-spacing: -0.3px;
 }
 
 .login-header p {
   font-size: 12px;
-  color: var(--text-muted);
+  color: #71717a;
   margin-top: 4px;
 }
 
 .btn-login {
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 14px;
-  font-size: 16px;
+  font-size: 15.5px;
+  font-weight: 800;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #ea580c 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 6px 18px rgba(194, 65, 12, 0.32) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-login:hover {
+  background: linear-gradient(135deg, #9a3412 0%, #ea580c 50%, #f97316 100%) !important;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.42) !important;
+  transform: translateY(-1px);
+}
+
+.btn-login:active {
+  transform: translateY(1px);
 }
 
 .login-footer {
@@ -132,11 +254,16 @@ body {
 .btn-link {
   background: none;
   border: none;
-  color: var(--primary-color);
+  color: #c2410c;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.btn-link:hover {
+  color: #ea580c;
 }
 
 .allowed-users-info {
@@ -224,20 +351,21 @@ body {
   color: #ef4444;
 }
 
-/* App Header - Modern Minimalist Clean White */
+/* App Header - Modern Minimalist Clean Bento */
 .app-header {
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: #0f172a;
-  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text-main);
+  padding: 6px 10px;
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1.5px solid #e2e8f0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
   box-sizing: border-box;
   width: 100%;
+  overflow: hidden;
 }
 
 .header-content {
@@ -246,37 +374,43 @@ body {
   align-items: center;
   gap: 4px;
   width: 100%;
+  min-width: 0;
 }
 
 .logo-area {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 5px;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .logo-icon {
-  font-size: 18px;
-  color: #0058a3;
+  font-size: 16px;
+  color: #c2410c;
   flex-shrink: 0;
 }
 
 .app-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 900;
   letter-spacing: -0.3px;
   line-height: 1.2;
   white-space: nowrap;
-  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-main);
 }
 
 .app-subtitle {
-  font-size: 9.5px;
-  color: #64748b;
-  font-weight: 700;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-weight: 600;
   display: block;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
   margin-top: 1px;
 }
@@ -294,7 +428,10 @@ body {
   min-width: 28px !important;
   padding: 0 !important;
   justify-content: center !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
+  background: #f4f4f5 !important;
+  color: #18181b !important;
+  border: 1px solid #e4e4e7 !important;
 }
 
 .refresh-label {
@@ -306,14 +443,20 @@ body {
   height: 28px !important;
   min-width: 28px !important;
   font-size: 12px !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
+  background: #f4f4f5 !important;
+  color: #18181b !important;
+  border: 1px solid #e4e4e7 !important;
 }
 
 #user-profile-badge {
   height: 28px !important;
-  padding: 0 5px !important;
-  gap: 3px !important;
-  border-radius: 6px !important;
+  padding: 0 8px !important;
+  gap: 4px !important;
+  border-radius: 9999px !important;
+  background: #f4f4f5 !important;
+  border: 1px solid #e4e4e7 !important;
+  color: #18181b !important;
 }
 
 #user-profile-badge i.fa-circle-user {
@@ -491,7 +634,11 @@ body {
 
 /* App Body & Tabs */
 .app-body {
-  padding: 16px;
+  padding: 12px 14px;
+  background-color: #ffffff !important;
+  box-sizing: border-box;
+  overflow-x: hidden !important;
+  width: 100%;
 }
 
 .tab-page {
@@ -508,25 +655,25 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Cards & Containers */
+/* Cards & Containers - Modern Minimalist Bento Rounded */
 .card-box {
   background-color: var(--surface-bg);
-  border-radius: var(--radius-md);
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px 18px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-subtle);
 }
 
 .card-box.primary-border {
-  border-top: 4px solid var(--primary-color);
+  border-top: none;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .card-header.space-between {
@@ -534,29 +681,31 @@ body {
 }
 
 .card-header h2 {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-main);
+  letter-spacing: -0.2px;
 }
 
 .card-header h2 i {
   color: var(--primary-color);
 }
 
-/* Badges */
+/* Badges - Modern Pill Style */
 .badge {
   font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
 }
 
 .badge-info {
   background-color: var(--primary-light);
-  color: var(--primary-color);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
 }
 
 .badge-success {
@@ -569,15 +718,15 @@ body {
   color: var(--danger-color);
 }
 
-/* Forms & Inputs */
+/* Forms & Inputs - Tinted Soft Gray Minimalist */
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .form-group label {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-muted);
   margin-bottom: 6px;
 }
@@ -588,7 +737,7 @@ body {
 
 .form-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .col-half {
@@ -598,31 +747,34 @@ body {
 .input-control {
   width: 100%;
   padding: 12px 14px;
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid transparent;
   border-radius: var(--radius-sm);
-  background-color: #fff;
+  background-color: var(--input-bg);
   color: var(--text-main);
   transition: all 0.2s ease;
   outline: none;
+  font-weight: 600;
 }
 
 .input-control:focus {
+  background-color: #ffffff;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
 }
 
 .input-control.readonly {
-  background-color: #f8fafc;
-  color: #334155;
+  background-color: #ededef;
+  color: #3f3f46;
   font-weight: 600;
-  border-color: #cbd5e1;
+  border-color: transparent;
 }
 
 .input-control.sm {
   padding: 8px 12px;
   font-size: 13px;
+  border-radius: 8px;
 }
 
 .input-with-action {
@@ -838,7 +990,7 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 8px rgba(0, 88, 163, 0.25);
+  box-shadow: 0 2px 8px rgba(24, 24, 27, 0.15);
   transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
@@ -848,14 +1000,14 @@ body {
 
 .reg-compact-form .btn-submit-compact:active {
   transform: scale(0.97);
-  background-color: #003666;
+  background-color: #09090b;
 }
 
-/* Buttons */
+/* Buttons - Modern Bento Palette */
 .btn-submit {
   width: 100%;
-  padding: 16px;
-  font-size: 16px;
+  padding: 14px 18px;
+  font-size: 15px;
   font-weight: 700;
   background-color: var(--primary-color);
   color: #ffffff;
@@ -866,31 +1018,51 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  transition: background-color 0.2s ease, transform 0.1s ease;
-  min-height: 54px;
+  box-shadow: 0 4px 14px rgba(24, 24, 27, 0.16);
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  min-height: 48px;
 }
 
-.btn-submit:active {
-  transform: scale(0.97);
+.btn-submit:hover {
   background-color: var(--primary-hover);
 }
 
+.btn-submit:active {
+  transform: scale(0.98);
+  background-color: #09090b;
+}
+
 .btn-secondary {
-  padding: 12px 16px;
-  font-size: 14px;
+  padding: 10px 16px;
+  font-size: 13.5px;
   font-weight: 600;
-  background-color: #f1f5f9;
+  background-color: var(--primary-light);
   color: var(--text-main);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 46px;
+  min-height: 42px;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #e4e4e7;
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary.sm {
+  padding: 6px 12px;
+  font-size: 12.5px;
+  min-height: 36px;
+  border-radius: 10px;
 }
 
 .btn-secondary.sm {
@@ -981,15 +1153,15 @@ body {
   background-color: #fecaca;
 }
 
-/* Search Bar Sticky - Modern Glass */
+/* Search Bar Sticky - Modern Bento Pill Search */
 .search-sticky-bar {
   position: sticky;
   top: 53px;
   z-index: 90;
-  background-color: rgba(250, 250, 250, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 6px 0 10px 0;
+  background-color: rgba(244, 245, 247, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 8px 0 10px 0;
 }
 
 .search-input-wrapper {
@@ -998,20 +1170,23 @@ body {
 
 .search-control {
   width: 100%;
-  padding: 11px 14px 11px 40px;
+  padding: 12px 14px 12px 40px;
   font-size: 13.5px;
   font-family: inherit;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 24px;
-  background-color: #ffffff;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--input-bg);
   outline: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   transition: all 0.2s ease;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
 .search-control:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background-color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
 }
 
 .search-icon {
@@ -1037,39 +1212,46 @@ body {
 
 .mb-15 { margin-bottom: 15px; }
 
-/* Metrics Grid */
+/* Metrics Grid - Bento Box Style */
 .metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .metric-card {
-  background-color: #fff;
+  background-color: #ffffff;
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .metric-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  flex-shrink: 0;
 }
 
-.metric-total .metric-icon { background: #e0f2fe; color: #0284c7; }
-.metric-in .metric-icon { background: var(--success-bg); color: var(--success-color); }
-.metric-out .metric-icon { background: var(--danger-bg); color: var(--danger-color); }
-.metric-stock .metric-icon { background: #f0fdf4; color: #15803d; }
+.metric-total .metric-icon { background: #f4f4f5; color: #18181b; }
+.metric-in .metric-icon { background: #ecfdf5; color: #059669; }
+.metric-out .metric-icon { background: #fef2f2; color: #dc2626; }
+.metric-stock .metric-icon { background: #f4f4f5; color: #18181b; }
 
 .metric-info {
   display: flex;
@@ -1079,19 +1261,25 @@ body {
 .metric-label {
   font-size: 11px;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 .metric-val {
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 900;
   color: var(--text-main);
+  letter-spacing: -0.02em;
 }
 
-/* TOP 10 STOCK DASHBOARD STYLES */
+/* TOP 10 STOCK DASHBOARD - Clean Minimal Bento Card */
 .stock-dash-card {
-  border-left: 4px solid #6366f1;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-left: none;
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
+  padding: 18px 16px;
 }
 
 .dash-header {
@@ -1102,48 +1290,49 @@ body {
 }
 
 .dash-header h2 {
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 800;
-  color: #1e1b4b;
+  color: #09090b;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .dash-header h2 i {
-  color: #6366f1;
+  color: #18181b;
 }
 
 .dash-tab-group {
   display: flex;
-  background-color: #e0e7ff;
-  border-radius: 10px;
-  padding: 4px;
-  gap: 4px;
+  background-color: #f4f4f5;
+  border-radius: 12px;
+  padding: 3px;
+  gap: 3px;
   margin-bottom: 14px;
 }
 
 .dash-tab-btn {
   flex: 1;
-  padding: 8px 10px;
+  padding: 7px 10px;
   font-size: 12px;
   font-weight: 700;
-  color: #4338ca;
+  color: #71717a;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .dash-tab-btn.active {
   background-color: #ffffff;
-  color: #312e81;
-  box-shadow: var(--shadow-sm);
+  color: #18181b;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .dash-list {
@@ -1898,21 +2087,21 @@ body {
   color: var(--text-main);
 }
 
-/* Bottom Navigation Bar - Modern Native Feel */
+/* Bottom Navigation Bar - Modern Bento Dock */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 500px;
-  height: 60px;
-  background-color: rgba(255, 255, 255, 0.96);
+  max-width: 520px;
+  height: 62px;
+  background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   display: flex;
-  border-top: 1px solid #e2e8f0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+  border-top: 1px solid var(--border-subtle);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.03);
   z-index: 1000;
 }
 
@@ -1924,7 +2113,7 @@ body {
   justify-content: center;
   background: none;
   border: none;
-  color: #64748b;
+  color: #71717a;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -1939,7 +2128,7 @@ body {
 }
 
 .nav-item.active {
-  color: #2563eb;
+  color: var(--primary-color);
   font-weight: 800;
 }
 
@@ -2268,7 +2457,7 @@ body {
 body { overflow-behavior-y: none; }
 .btn-quick-loc { background-color: #eff6ff; color: #0058a3; border: none; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
 
-/* Menu Tab Styles (Modern Minimalist) */
+/* Menu Tab Styles (Modern Bento Grid) */
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2282,11 +2471,11 @@ body { overflow-behavior-y: none; }
   align-items: center;
   justify-content: center;
   background-color: #ffffff;
-  padding: 20px 12px 16px 12px;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
+  padding: 22px 14px 18px 14px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -2294,8 +2483,8 @@ body { overflow-behavior-y: none; }
 }
 
 .menu-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+  border-color: #18181b;
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
@@ -2312,6 +2501,8 @@ body { overflow-behavior-y: none; }
   justify-content: center;
   font-size: 20px;
   margin-bottom: 10px;
+  background-color: #f4f4f5 !important;
+  color: #18181b !important;
   transition: all 0.2s ease;
 }
 

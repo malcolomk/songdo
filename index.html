@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>세일즈 창고 입출고 & 재고 관리</title>
   
-  <!-- Google Fonts: Noto Sans KR & FontAwesome -->
+  <!-- Google Fonts: Inter & Noto Sans KR & FontAwesome -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- SheetJS for Excel Import/Export -->
@@ -16,12 +16,12 @@
   <!-- HTML5 QR & Barcode Scanner -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
-  <link rel="stylesheet" href="style.css?v=2.2.2">
+  <link rel="stylesheet" href="style.css?v=2.3.5">
   <style>
   .selected-card {
-    border: 3px solid #4f46e5 !important;
-    background-color: #e0e7ff !important;
-    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3) !important;
+    border: 2px solid #18181b !important;
+    background-color: #f4f4f5 !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
     transform: scale(1.01);
     transition: all 0.2s ease;
   }
@@ -161,25 +161,40 @@
   </style>
 </head>
 <body>
-  <!-- LOGIN OVERLAY SCREEN -->
+  <!-- LOGIN OVERLAY SCREEN - Autumn Fall Season Edition 🍁 -->
   <div id="login-overlay" class="login-overlay active">
+    <!-- Falling Autumn Leaves Effect -->
+    <div class="autumn-leaves-container" aria-hidden="true">
+      <span class="autumn-leaf leaf-1">🍁</span>
+      <span class="autumn-leaf leaf-2">🍂</span>
+      <span class="autumn-leaf leaf-3">🍁</span>
+      <span class="autumn-leaf leaf-4">🌾</span>
+      <span class="autumn-leaf leaf-5">🍂</span>
+      <span class="autumn-leaf leaf-6">🍁</span>
+      <span class="autumn-leaf leaf-7">🍂</span>
+      <span class="autumn-leaf leaf-8">🍁</span>
+    </div>
+
     <div class="login-card">
+      <div class="autumn-edition-badge">
+        <i class="fa-solid fa-leaf"></i> 2026 가을 시즌 🍁
+      </div>
       <div class="login-header">
         <div class="login-logo">
           <i class="fa-solid fa-boxes-stacked"></i>
         </div>
         <h2>세일즈 창고 로그인</h2>
-        <p>허가된 아이디와 비밀번호로 로그인하세요</p>
+        <p>허가된 아이디와 비밀번호로 로그인하세요 🍂</p>
       </div>
 
       <form id="login-form" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
-          <label for="login-id"><i class="fa-solid fa-user"></i> 아이디</label>
+          <label for="login-id"><i class="fa-solid fa-user" style="color:#c2410c;"></i> 아이디</label>
           <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required autocomplete="username" class="input-control">
         </div>
 
         <div class="form-group">
-          <label for="login-pw"><i class="fa-solid fa-lock"></i> 비밀번호</label>
+          <label for="login-pw"><i class="fa-solid fa-lock" style="color:#c2410c;"></i> 비밀번호</label>
           <input type="password" id="login-pw" placeholder="비밀번호 입력" required autocomplete="current-password" class="input-control">
         </div>
 
@@ -194,22 +209,33 @@
         </button>
       </div>
 
-      <div class="allowed-users-info" style="text-align:left; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+      <div class="allowed-users-info" style="text-align:left; padding:12px 14px; background:#fffaf5; border:1px solid #fed7aa; border-radius:12px; margin-top:14px; display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; align-items:center; justify-content:space-between;">
-          <span style="font-size:11.5px; color:#475569; font-weight:700;">
-            <i class="fa-solid fa-id-badge" style="color:#0058a3; margin-right:4px;"></i> 네트워크 아이디
+          <span style="font-size:11.5px; color:#9a3412; font-weight:700;">
+            <i class="fa-solid fa-id-badge" style="color:#c2410c; margin-right:4px;"></i> 네트워크 아이디
           </span>
-          <code style="background:#e2e8f0; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#0f172a;">예시: jipar5</code>
+          <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">예시: jipar5</code>
         </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; border-top:1px dashed #e2e8f0; padding-top:6px;">
-          <span style="font-size:11.5px; color:#475569; font-weight:700;">
-            <i class="fa-solid fa-users" style="color:#10b981; margin-right:4px;"></i> 게스트 아이디
+        <div style="display:flex; align-items:center; justify-content:space-between; border-top:1px dashed #fed7aa; padding-top:6px;">
+          <span style="font-size:11.5px; color:#9a3412; font-weight:700;">
+            <i class="fa-solid fa-users" style="color:#ea580c; margin-right:4px;"></i> 게스트 아이디
           </span>
           <div style="display:flex; gap:4px;">
-            <code style="background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#15803d;">guest1</code>
-            <code style="background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#15803d;">guest2</code>
+            <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">guest1</code>
+            <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">guest2</code>
           </div>
         </div>
+      </div>
+
+      <!-- 로그인 화면 방문자수 카운터 -->
+      <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; margin-top:10px; font-size:11px; font-weight:700; color:#78350f;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <i class="fa-solid fa-users" style="color:#ea580c;"></i> 오늘 <strong class="val-visitor-today" style="color:#c2410c; font-weight:900;">18</strong>명
+        </span>
+        <span style="color:#fed7aa;">|</span>
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <i class="fa-solid fa-chart-line" style="color:#ea580c;"></i> 누적 <strong class="val-visitor-total" style="color:#9a3412; font-weight:900;">1,425</strong>명
+        </span>
       </div>
     </div>
   </div>
@@ -218,9 +244,9 @@
   <header class="app-header">
     <div class="header-content">
       <div class="logo-area">
-        <i class="fa-solid fa-boxes-stacked logo-icon"></i>
+        <i class="fa-solid fa-boxes-stacked logo-icon" style="color:#c2410c;"></i>
         <div>
-          <h1 class="app-title">세일즈 창고 입출고</h1>
+          <h1 class="app-title" style="display:flex; align-items:center; gap:4px;">세일즈 창고 입출고 <span style="font-size:12px;">🍁</span></h1>
           <span class="app-subtitle">모바일 재고 관리 시스템</span>
         </div>
       </div>
@@ -262,6 +288,25 @@
     <!-- TAB 1: 입출고 등록 (REGISTER - No-Scroll Compact View) -->
     <section id="tab-register" class="tab-page active">
       <div style="padding: 2px 0 10px 0;">
+        <!-- 메인 화면 실시간 방문자수 바 (Today & Total) -->
+        <div class="visitor-counter-bar" style="display:flex; align-items:center; justify-content:space-between; background:#fffaf5; border:1px solid #fed7aa; border-radius:10px; padding:5px 10px; margin-bottom:8px; font-size:11px; box-shadow:0 1px 3px rgba(194, 65, 12, 0.05);">
+          <div style="display:flex; align-items:center; gap:5px; color:#9a3412; font-weight:800;">
+            <i class="fa-solid fa-users" style="color:#ea580c; font-size:11px;"></i>
+            <span>방문자수</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700;">
+            <span style="color:#78350f; display:inline-flex; align-items:center; gap:3px;">
+              <i class="fa-regular fa-calendar-check" style="color:#c2410c; font-size:10px;"></i>
+              오늘 <strong class="val-visitor-today" style="color:#c2410c; font-weight:900; font-size:12px;">18</strong>명
+            </span>
+            <span style="color:#fed7aa;">|</span>
+            <span style="color:#78350f; display:inline-flex; align-items:center; gap:3px;">
+              <i class="fa-solid fa-chart-line" style="color:#ea580c; font-size:10px;"></i>
+              누적 <strong class="val-visitor-total" style="color:#9a3412; font-weight:900; font-size:12px;">1,425</strong>명
+            </span>
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin:0;"><i class="fa-solid fa-pen-to-square" style="color:#0058a3; margin-right:4px;"></i> 입출고 등록</h2>
           <span style="font-size:10.5px; font-weight:800; color:#0058a3; background:#eff6ff; padding:2px 8px; border-radius:10px; border:1px solid #bfdbfe;">빠른 등록</span>
@@ -551,9 +596,14 @@
             </h2>
             <span style="font-size:11px; font-weight:700; color:#64748b;">창고 층별 간편 출고 & 피킹</span>
           </div>
-          <button type="button" class="btn-secondary sm" onclick="if(typeof renderSimplePicklist === 'function') renderSimplePicklist()" style="font-size:11px; padding:4px 8px; border-radius:8px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
-            <i class="fa-solid fa-rotate-right"></i> 새로고침
-          </button>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <button type="button" id="btn-picklist-zone-reset" onclick="handleZoneStockReset()" style="font-size:10.5px; height:24px; padding:0 7px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:3px; cursor:pointer; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; font-weight:800; transition:all 0.15s ease; box-sizing:border-box; white-space:nowrap;" title="현재 선택된 구역 전체 재고 및 아티클 삭제 리셋 (junkoo, jipar5 전용)">
+              <i class="fa-solid fa-trash-can" style="font-size:9.5px;"></i> <span id="picklist-reset-zone-label">B1 리셋</span>
+            </button>
+            <button type="button" class="btn-secondary sm" onclick="if(typeof renderSimplePicklist === 'function') renderSimplePicklist()" style="font-size:10.5px; height:24px; padding:0 7px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:3px; cursor:pointer; box-sizing:border-box; white-space:nowrap;">
+              <i class="fa-solid fa-rotate-right" style="font-size:9.5px;"></i> 새로고침
+            </button>
+          </div>
         </div>
 
         <!-- 1. Warehouse Zone Selector Pills -->
@@ -2451,8 +2501,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=1.7.76"></script>
-  <script src="app.js?v=1.7.76"></script>
-  <script src="custom.js?v=1.7.76"></script>
+  <script src="app.js?v=1.7.78"></script>
+  <script src="custom.js?v=2.3.5"></script>
   
   <script>
     // Premium Wait List Override & Features

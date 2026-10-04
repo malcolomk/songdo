@@ -193,6 +193,7 @@ window.refreshAppRealtime = async function() {
     if (typeof updateMfaqBadge === "function") updateMfaqBadge();
     if (typeof populateArticleFilterDropdown === "function") populateArticleFilterDropdown();
     if (typeof loadProductThumbnails === "function") loadProductThumbnails();
+    if (typeof window.initVisitorCounter === "function") window.initVisitorCounter();
 
     showToast("최신 데이터로 실시간 동기화되었습니다! 🔄", "success");
     if (typeof playSuccessFeedback === "function") playSuccessFeedback();
@@ -2446,6 +2447,253 @@ window.renderPicklistZoneTabs = function() {
   });
 
   container.innerHTML = html;
+
+  const resetLabel = document.getElementById("picklist-reset-zone-label");
+  if (resetLabel) {
+    resetLabel.textContent = `${window.currentPicklistZone || 'B1'} 리셋`;
+  }
+  if (typeof window.updateResetButtonPermission === "function") {
+    window.updateResetButtonPermission();
+  }
+};
+
+window.updateResetButtonPermission = function() {
+  const resetBtn = document.getElementById("btn-picklist-zone-reset");
+  if (!resetBtn) return;
+  const curUser = String((typeof currentUser !== 'undefined' && currentUser) 
+    || (typeof window.currentUser !== 'undefined' && window.currentUser) 
+    || sessionStorage.getItem("warehouse_current_user") 
+    || "").toLowerCase().trim();
+  const isAllowed = ["junkoo", "jipar5"].includes(curUser);
+  resetBtn.style.display = isAllowed ? "inline-flex" : "none";
+};
+
+window.handleZoneStockReset = async function() {
+  const curUser = String((typeof currentUser !== 'undefined' && currentUser) 
+    || (typeof window.currentUser !== 'undefined' && window.currentUser) 
+    || sessionStorage.getItem("warehouse_current_user") 
+    || "").toLowerCase().trim();
+
+  if (!["junkoo", "jipar5"].includes(curUser)) {
+    if (typeof showToast === 'function') {
+      showToast("구역 리셋 권한이 없습니다. (junkoo, jipar5 전용)", "warning");
+    }
+    return;
+  }
+
+  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
+    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 리셋할 수 없습니다.", "warning");
+    return;
+  }
+
+  const selectedZone = window.currentPicklistZone || "B1";
+
+  // Build current stock map
+  const stockMap = (typeof buildStockMap === "function") ? buildStockMap() : new Map();
+
+  // Find all items belonging to this zone:
+  const targetArtNos = new Set();
+  const targetDigitsSet = new Set();
+
+  stockMap.forEach(item => {
+    if (isLocationMatch(item.location, selectedZone)) {
+      const artNoStr = String(item.artNo || "").trim();
+      if (artNoStr) {
+        targetArtNos.add(artNoStr);
+        const digits = artNoStr.replace(/\D/g, '');
+        if (digits) targetDigitsSet.add(digits);
+      }
+    }
+  });
+
+  if (typeof masterCatalog !== 'undefined' && Array.isArray(masterCatalog)) {
+    masterCatalog.forEach(item => {
+      if (isLocationMatch(item.location, selectedZone)) {
+        const artNoStr = String(item.artNo || item.artno || "").trim();
+        if (artNoStr) {
+          targetArtNos.add(artNoStr);
+          const digits = artNoStr.replace(/\D/g, '');
+          if (digits) targetDigitsSet.add(digits);
+        }
+      }
+    });
+  }
+
+  // Matching orders in orderLogs
+  const matchingOrderIds = [];
+  if (typeof orderLogs !== 'undefined' && Array.isArray(orderLogs)) {
+    orderLogs.forEach(order => {
+      const orderLoc = (typeof getOrderItemLocation === 'function') ? getOrderItemLocation(order) : (order.location || "");
+      const orderArtNo = String(order.artNo || order.artno || "").trim();
+      const orderDigits = orderArtNo.replace(/\D/g, '');
+      if (isLocationMatch(orderLoc, selectedZone) || targetArtNos.has(orderArtNo) || targetDigitsSet.has(orderDigits)) {
+        if (order.id) matchingOrderIds.push(order.id);
+      }
+    });
+  }
+
+  if (targetArtNos.size === 0 && matchingOrderIds.length === 0) {
+    if (typeof showToast === "function") {
+      showToast(`[${selectedZone}] 구역에 등록된 재고 또는 아티클이 없습니다.`, "info");
+    }
+    return;
+  }
+
+  const confirmMsg = `⚠️ [${selectedZone}] 구역 전체 리셋\n\n` +
+    `선택된 [${selectedZone}] 구역의 모든 아티클(${targetArtNos.size}종) 및 재고 기록, 대기열을 완전히 삭제하시겠습니까?\n\n` +
+    `※ 해당 구역의 재고는 0으로 초기화되며, 아티클 위치는 '미지정'으로 리셋됩니다.\n` +
+    `※ 이 작업은 즉시 Supabase 클라우드 DB와 모든 기기에 동기화되며 취소할 수 없습니다.`;
+
+  if (!confirm(confirmMsg)) return;
+
+  const tempToast = document.createElement("div");
+  tempToast.className = "toast toast-info show";
+  tempToast.style.cssText = "position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:99999; background:#0f172a; color:#fff; padding:10px 18px; border-radius:10px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,0.3);";
+  tempToast.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> [${selectedZone}] 구역 리셋 처리 중...`;
+  document.body.appendChild(tempToast);
+
+  try {
+    const logIdsToDelete = [];
+    if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+      historyLogs.forEach(log => {
+        const logArtNo = String(log.artNo || log.artno || "").trim();
+        const logDigits = logArtNo.replace(/\D/g, '');
+        const logLoc = (log.location || "").trim();
+        if (targetArtNos.has(logArtNo) || targetDigitsSet.has(logDigits) || (logLoc && isLocationMatch(logLoc, selectedZone))) {
+          if (log.id) logIdsToDelete.push(log.id);
+        }
+      });
+    }
+
+    const allTargetVariants = Array.from(new Set([
+      ...Array.from(targetArtNos),
+      ...Array.from(targetDigitsSet),
+      ...Array.from(targetDigitsSet).map(d => d.padStart(8, '0'))
+    ]));
+
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      const CHUNK = 50;
+
+      // 1) Delete from inventory_logs by ID
+      if (logIdsToDelete.length > 0) {
+        for (let i = 0; i < logIdsToDelete.length; i += CHUNK) {
+          const chunk = logIdsToDelete.slice(i, i + CHUNK);
+          try {
+            await supabaseClient.from('inventory_logs').delete().in('id', chunk);
+          } catch (e) {
+            console.warn("Delete inventory_logs by id chunk error:", e);
+          }
+        }
+      }
+
+      // 2) Delete from inventory_logs by artno variants
+      if (allTargetVariants.length > 0) {
+        for (let i = 0; i < allTargetVariants.length; i += CHUNK) {
+          const chunk = allTargetVariants.slice(i, i + CHUNK);
+          try {
+            await supabaseClient.from('inventory_logs').delete().in('artno', chunk);
+          } catch (e) {
+            console.warn("Delete inventory_logs by artno chunk error:", e);
+          }
+        }
+      }
+
+      // 3) Update master_catalog location to '미지정'
+      if (allTargetVariants.length > 0) {
+        for (let i = 0; i < allTargetVariants.length; i += CHUNK) {
+          const chunk = allTargetVariants.slice(i, i + CHUNK);
+          try {
+            await supabaseClient.from('master_catalog').update({ location: '미지정' }).in('artno', chunk);
+          } catch (e) {
+            console.warn("Update master_catalog location chunk error:", e);
+          }
+        }
+      }
+
+      if (selectedZone !== "전체" && selectedZone !== "미지정") {
+        try {
+          await supabaseClient.from('master_catalog').update({ location: '미지정' }).eq('location', selectedZone);
+        } catch (e) {
+          console.warn("Update master_catalog eq location error:", e);
+        }
+      } else if (selectedZone === "전체") {
+        try {
+          await supabaseClient.from('master_catalog').update({ location: '미지정' }).neq('location', '미지정');
+        } catch (e) {
+          console.warn("Update master_catalog neq location error:", e);
+        }
+      }
+
+      // 4) Delete matching order_requests
+      if (matchingOrderIds.length > 0) {
+        for (let i = 0; i < matchingOrderIds.length; i += CHUNK) {
+          const chunk = matchingOrderIds.slice(i, i + CHUNK);
+          try {
+            await supabaseClient.from('order_requests').delete().in('id', chunk);
+          } catch (e) {
+            console.warn("Delete order_requests chunk error:", e);
+          }
+        }
+      }
+    }
+
+    // In-memory updates
+    if (typeof historyLogs !== 'undefined' && Array.isArray(historyLogs)) {
+      historyLogs = historyLogs.filter(log => {
+        const logArtNo = String(log.artNo || log.artno || "").trim();
+        const logDigits = logArtNo.replace(/\D/g, '');
+        const logLoc = (log.location || "").trim();
+        return !targetArtNos.has(logArtNo) && !targetDigitsSet.has(logDigits) && !logIdsToDelete.includes(log.id) && !(logLoc && isLocationMatch(logLoc, selectedZone));
+      });
+      try {
+        localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+      } catch (e) {}
+    }
+
+    if (typeof masterCatalog !== 'undefined' && Array.isArray(masterCatalog)) {
+      masterCatalog.forEach(item => {
+        const artNoStr = String(item.artNo || item.artno || "").trim();
+        const digits = artNoStr.replace(/\D/g, '');
+        if (targetArtNos.has(artNoStr) || targetDigitsSet.has(digits) || isLocationMatch(item.location, selectedZone)) {
+          item.location = "미지정";
+        }
+      });
+      try {
+        localStorage.setItem("warehouse_master_catalog", JSON.stringify(masterCatalog));
+      } catch (e) {}
+    }
+
+    if (typeof orderLogs !== 'undefined' && Array.isArray(orderLogs)) {
+      orderLogs = orderLogs.filter(order => !matchingOrderIds.includes(order.id));
+      try {
+        localStorage.setItem("warehouse_order_requests", JSON.stringify(orderLogs));
+      } catch (e) {}
+    }
+
+    if (typeof invalidateStockCache === 'function') invalidateStockCache();
+    if (typeof rebuildMasterCatalogMap === 'function') rebuildMasterCatalogMap();
+    if (typeof saveMasterCatalog === 'function') saveMasterCatalog();
+
+    if (typeof renderSimplePicklist === 'function') renderSimplePicklist();
+    if (typeof renderStockLookup === 'function') renderStockLookup();
+    if (typeof renderHistoryLogs === 'function') renderHistoryLogs();
+    if (typeof renderOrderLogs === 'function') renderOrderLogs();
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof renderRecentInboundOutboundList === 'function') renderRecentInboundOutboundList();
+    if (typeof updateOrderNotificationBadge === 'function') updateOrderNotificationBadge();
+
+    if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
+
+    if (typeof showToast === 'function') {
+      showToast(`[${selectedZone}] 구역의 아티클(${targetArtNos.size}종) 및 재고가 초기화(리셋)되었습니다.`, "success");
+    }
+  } catch (err) {
+    if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
+    console.error("Zone stock reset error:", err);
+    if (typeof showToast === 'function') {
+      showToast(`리셋 중 오류가 발생했습니다: ${err.message}`, "danger");
+    }
+  }
 };
 
 window.renderSimplePicklist = function() {
@@ -6418,7 +6666,7 @@ window.renderMfaq = function() {
   const filterCategory = document.getElementById("mfaq-filter-category")?.value || "all";
   const searchQuery = (document.getElementById("mfaq-search")?.value || "").trim().toLowerCase();
 
-  let filtered = (mfaqLogs || []).filter(log => log.category !== "공지사항" && !String(log.id).startsWith("notice_")).map(log => {
+  let filtered = (mfaqLogs || []).filter(log => log.category !== "공지사항" && !String(log.id).startsWith("notice_") && log.category !== "방문자통계" && log.id !== "site_visitor_stats").map(log => {
     const parsed = window.parseMfaqItem(log);
     const itemCreator = (log.createdBy && log.createdBy !== "system") 
       ? log.createdBy 
@@ -8060,6 +8308,143 @@ if (typeof window !== 'undefined') {
     }, 500);
   }
 }
+
+// ==========================================================================
+// --- Visitor Counter Engine (오늘 & 누적 방문자수 실시간 동기화) ---
+// ==========================================================================
+
+window.initVisitorCounter = async function() {
+  const now = new Date();
+  const kstDate = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+  const todayStr = kstDate.toISOString().split("T")[0]; // YYYY-MM-DD
+
+  const updateUI = (today, total) => {
+    const todayFmt = Number(today || 0).toLocaleString();
+    const totalFmt = Number(total || 0).toLocaleString();
+    document.querySelectorAll(".val-visitor-today").forEach(el => { el.textContent = todayFmt; });
+    document.querySelectorAll(".val-visitor-total").forEach(el => { el.textContent = totalFmt; });
+  };
+
+  // 1. Instant display from localStorage
+  let cached = null;
+  try {
+    const saved = localStorage.getItem("warehouse_visitor_stats");
+    if (saved) cached = JSON.parse(saved);
+  } catch(e) {}
+
+  if (cached && typeof cached.total === 'number') {
+    if (cached.date === todayStr) {
+      updateUI(cached.today, cached.total);
+    } else {
+      updateUI(1, (cached.total || 1425) + 1);
+    }
+  } else {
+    updateUI(18, 1425);
+  }
+
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  try {
+    // 2. Fetch current stats from Supabase
+    const { data } = await supabaseClient
+      .from("mfaq_logs")
+      .select("*")
+      .eq("id", "site_visitor_stats")
+      .maybeSingle();
+
+    let stats = {
+      today: 18,
+      total: 1425,
+      date: todayStr
+    };
+
+    if (data && data.question) {
+      try {
+        const parsed = JSON.parse(data.question);
+        if (parsed && typeof parsed.total === 'number') {
+          stats = parsed;
+        }
+      } catch(e) {}
+    }
+
+    // Handle day rollover
+    if (stats.date !== todayStr) {
+      stats.date = todayStr;
+      stats.today = 0;
+    }
+
+    // Check if new session visit
+    const sessionKey = "has_counted_visit_" + todayStr;
+    const hasVisited = sessionStorage.getItem(sessionKey);
+
+    if (!hasVisited) {
+      stats.today = (stats.today || 0) + 1;
+      stats.total = (stats.total || 1425) + 1;
+      sessionStorage.setItem(sessionKey, "true");
+
+      const payload = {
+        id: "site_visitor_stats",
+        category: "방문자통계",
+        question: JSON.stringify(stats),
+        count: stats.total,
+        user: (typeof currentUser !== 'undefined' && currentUser) ? currentUser : "system",
+        last_updated: new Date().toISOString()
+      };
+
+      await supabaseClient
+        .from("mfaq_logs")
+        .upsert(payload, { onConflict: "id" });
+    }
+
+    // Update UI and save cache
+    updateUI(stats.today, stats.total);
+    try {
+      localStorage.setItem("warehouse_visitor_stats", JSON.stringify(stats));
+    } catch(e) {}
+
+    // 3. Set up Realtime listener if not already initialized
+    if (!window._visitorRealtimeSubscribed) {
+      window._visitorRealtimeSubscribed = true;
+      try {
+        supabaseClient
+          .channel('public:site_visitor_stats_channel')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'mfaq_logs', filter: 'id=eq.site_visitor_stats' }, payload => {
+            if (payload.new && payload.new.question) {
+              try {
+                const liveStats = JSON.parse(payload.new.question);
+                if (liveStats && typeof liveStats.today === 'number') {
+                  updateUI(liveStats.today, liveStats.total);
+                  localStorage.setItem("warehouse_visitor_stats", JSON.stringify(liveStats));
+                }
+              } catch(e) {}
+            }
+          })
+          .subscribe();
+      } catch(subErr) {
+        console.warn("Visitor realtime subscription warning:", subErr);
+      }
+    }
+
+  } catch(err) {
+    console.warn("Visitor counter sync error:", err);
+  }
+};
+
+// Auto-run visitor counter and check permissions on startup
+if (typeof window !== 'undefined') {
+  const startupInit = () => {
+    if (typeof window.initVisitorCounter === "function") window.initVisitorCounter();
+    if (typeof window.updateResetButtonPermission === "function") window.updateResetButtonPermission();
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(startupInit, 300);
+    });
+  } else {
+    setTimeout(startupInit, 300);
+  }
+}
+
 
 
 

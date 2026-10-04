@@ -287,6 +287,11 @@ function checkLoginSession() {
         updateNotificationBadge();
       }
     } catch (e) { console.error(e); }
+    try {
+      if (typeof window.updateResetButtonPermission === 'function') {
+        window.updateResetButtonPermission();
+      }
+    } catch (e) { console.error(e); }
   } else {
     currentUser = null;
     window.currentUser = null;
@@ -317,6 +322,11 @@ function checkLoginSession() {
         try { loginPwElem.focus(); } catch(e) {}
       }, 150);
     }
+    try {
+      if (typeof window.updateResetButtonPermission === 'function') {
+        window.updateResetButtonPermission();
+      }
+    } catch (e) { console.error(e); }
   }
 }
 
@@ -3674,7 +3684,7 @@ async function refreshMfaqData() {
         if (typeof window.processLoadedNoticeLogs === "function") {
           window.processLoadedNoticeLogs(noticeRows);
         }
-        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_"));
+        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_") && r.category !== "방문자통계" && r.id !== "site_visitor_stats");
         let localData = [];
         try {
           const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
