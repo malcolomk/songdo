@@ -418,65 +418,6 @@ window.clearAllNotifications = function() {
   if (typeof showToast === 'function') showToast("알림 내역을 비웠습니다.", "info");
 };
 
-// ==========================================
-// --- Order Likes Engine ---
-// ==========================================
-
-window.getOrderLikesMap = function() {
-  try {
-    const saved = localStorage.getItem("warehouse_order_likes");
-    return saved ? JSON.parse(saved) : {};
-  } catch (e) {
-    return {};
-  }
-};
-
-window.saveOrderLikesMap = function(map) {
-  try {
-    localStorage.setItem("warehouse_order_likes", JSON.stringify(map));
-  } catch (e) {}
-};
-
-window.toggleOrderLike = async function(originalIndex) {
-  if (typeof isViewerUser !== 'undefined' && isViewerUser) {
-    if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 좋아요를 누를 수 없습니다.", "warning");
-    return;
-  }
-
-  if (typeof orderLogs === 'undefined' || !orderLogs[originalIndex]) return;
-  const order = orderLogs[originalIndex];
-  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
-  const orderKey = String(order.id || `${order.artNo}_${order.date}_${order.user}`);
-
-  const likesMap = window.getOrderLikesMap();
-  let userList = likesMap[orderKey] || (Array.isArray(order.likes) ? order.likes : []);
-
-  const hasLiked = userList.includes(user);
-  if (hasLiked) {
-    userList = userList.filter(u => u !== user);
-    if (typeof showToast === 'function') showToast(`🤍 좋아요를 취소했습니다.`, "info");
-  } else {
-    userList.push(user);
-    if (typeof showToast === 'function') showToast(`❤️ '${order.artName || order.artNo}' 오더에 공감했습니다!`, "success");
-    if (typeof playSuccessFeedback === 'function') playSuccessFeedback();
-  }
-
-  likesMap[orderKey] = userList;
-  order.likes = userList;
-  window.saveOrderLikesMap(likesMap);
-
-  // Sync to Supabase if connected
-  if (typeof supabaseClient !== 'undefined' && supabaseClient && order.id) {
-    try {
-      await supabaseClient.from('order_requests').update({ likes: userList }).eq('id', order.id);
-    } catch (e) {
-      console.warn("Supabase likes update error (ignorable if column absent):", e);
-    }
-  }
-
-  if (typeof renderOrderLogs === 'function') renderOrderLogs();
-};
-
 // Check user notifications on login / session start
 window.checkUserNotificationsOnLogin = function() {
   if (typeof currentUser === 'undefined' || !currentUser) return;
@@ -1263,7 +1204,7 @@ window.renderStockLocationDashboard = function() {
     ALL: { name: "전체 구역", items: 0, totalStock: 0, icon: "fa-boxes-stacked", color: "#0058a3", bg: "#eff6ff", border: "#bfdbfe" },
     B1: { name: "B1 구역", items: 0, totalStock: 0, icon: "fa-warehouse", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
     B2: { name: "B2 구역", items: 0, totalStock: 0, icon: "fa-warehouse", color: "#0284c7", bg: "#f0f9ff", border: "#bae6fd" },
-    "B2 램프": { name: "B2 램프", items: 0, totalStock: 0, icon: "fa-mountain-sun", color: "#4f46e5", bg: "#eef2ff", border: "#c7d2fe" },
+    "램프": { name: "램프", items: 0, totalStock: 0, icon: "fa-mountain-sun", color: "#4f46e5", bg: "#eef2ff", border: "#c7d2fe" },
     B3: { name: "B3 구역", items: 0, totalStock: 0, icon: "fa-pallet", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
     "미지정": { name: "위치 미지정", items: 0, totalStock: 0, icon: "fa-triangle-exclamation", color: "#d97706", bg: "#fffbeb", border: "#fde68a" }
   };
@@ -1289,9 +1230,9 @@ window.renderStockLocationDashboard = function() {
     if (loc === "미지정" || !loc) {
       stats["미지정"].items++;
       stats["미지정"].totalStock += qty;
-    } else if (loc.includes("B2 램프") || loc.includes("램프")) {
-      stats["B2 램프"].items++;
-      stats["B2 램프"].totalStock += qty;
+    } else if (loc.includes("램프")) {
+      stats["램프"].items++;
+      stats["램프"].totalStock += qty;
     } else if (loc.includes("B1")) {
       stats.B1.items++;
       stats.B1.totalStock += qty;
@@ -1311,7 +1252,7 @@ window.renderStockLocationDashboard = function() {
   });
 
   const activeKey = window.currentStockLocationFilter || "ALL";
-  const zoneKeys = ["ALL", "B1", "B2", "B2 램프", "B3", "미지정"];
+  const zoneKeys = ["ALL", "B1", "B2", "램프", "B3", "미지정"];
   Object.keys(stats).forEach(k => {
     if (!zoneKeys.includes(k)) zoneKeys.push(k);
   });
@@ -1376,7 +1317,7 @@ window.renderMenuLocationWidget = function() {
   const stats = {
     B1: { items: 0, qty: 0, color: "#2563eb", bg: "#eff6ff" },
     B2: { items: 0, qty: 0, color: "#0284c7", bg: "#f0f9ff" },
-    "B2 램프": { items: 0, qty: 0, color: "#4f46e5", bg: "#eef2ff" },
+    "램프": { items: 0, qty: 0, color: "#4f46e5", bg: "#eef2ff" },
     B3: { items: 0, qty: 0, color: "#7c3aed", bg: "#f5f3ff" },
     "미지정": { items: 0, qty: 0, color: "#d97706", bg: "#fffbeb" }
   };
@@ -1395,7 +1336,7 @@ window.renderMenuLocationWidget = function() {
     }
     const qty = Math.max(0, item.currentStock || 0);
     if (loc === "미지정" || !loc) { stats["미지정"].items++; stats["미지정"].qty += qty; }
-    else if (loc.includes("B2 램프") || loc.includes("램프")) { stats["B2 램프"].items++; stats["B2 램프"].qty += qty; }
+    else if (loc.includes("램프")) { stats["램프"].items++; stats["램프"].qty += qty; }
     else if (loc.includes("B1")) { stats.B1.items++; stats.B1.qty += qty; }
     else if (loc.includes("B2")) { stats.B2.items++; stats.B2.qty += qty; }
     else if (loc.includes("B3")) { stats.B3.items++; stats.B3.qty += qty; }
@@ -1416,9 +1357,9 @@ window.renderMenuLocationWidget = function() {
           <div style="font-size:11px; font-weight:900; color:#0284c7; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-warehouse" style="font-size:10px;"></i>B2</div>
           <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats.B2.qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
         </div>
-        <div onclick="filterStockByLocation('B2 램프')" style="cursor:pointer; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:6px 8px; text-align:center;">
-          <div style="font-size:11px; font-weight:900; color:#4f46e5; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-mountain-sun" style="font-size:10px;"></i>B2 램프</div>
-          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats["B2 램프"].qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
+        <div onclick="filterStockByLocation('램프')" style="cursor:pointer; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:6px 8px; text-align:center;">
+          <div style="font-size:11px; font-weight:900; color:#4f46e5; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-mountain-sun" style="font-size:10px;"></i>램프</div>
+          <div style="font-size:13px; font-weight:900; color:#0f172a;">${stats["램프"].qty}<span style="font-size:10px; font-weight:normal; color:#64748b;">개</span></div>
         </div>
         <div onclick="filterStockByLocation('B3')" style="cursor:pointer; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 8px; text-align:center;">
           <div style="font-size:11px; font-weight:900; color:#7c3aed; display:flex; align-items:center; justify-content:center; gap:3px;"><i class="fa-solid fa-pallet" style="font-size:10px;"></i>B3</div>
@@ -1500,8 +1441,8 @@ window.renderStockLookup = function() {
   if (window.currentStockLocationFilter && window.currentStockLocationFilter !== "ALL") {
     if (window.currentStockLocationFilter === "미지정") {
       filteredList = filteredList.filter(item => !item.location || item.location === "미지정" || item.location.trim() === "");
-    } else if (window.currentStockLocationFilter === "B2 램프") {
-      filteredList = filteredList.filter(item => item.location && (item.location.includes("B2 램프") || item.location.includes("램프")));
+    } else if (window.currentStockLocationFilter === "램프") {
+      filteredList = filteredList.filter(item => item.location && (item.location.includes("램프")));
     } else {
       filteredList = filteredList.filter(item => item.location && item.location.includes(window.currentStockLocationFilter));
     }
@@ -1604,6 +1545,7 @@ window.renderStockLookup = function() {
               <span style="color:#64748b; font-weight:700; white-space:nowrap;">업데이트:</span>
               <strong style="color:#334155; font-weight:700; white-space:nowrap;">${updateInfo.text}</strong>
             </span>
+            ${typeof window.getCycleCheckedBadgeHtml === 'function' ? window.getCycleCheckedBadgeHtml(item.artNo) : ''}
             ${updateInfo.user ? `
               <span style="color:#cbd5e1;">·</span>
               <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;" title="작업자 ID">
@@ -2352,8 +2294,8 @@ function isLocationMatch(itemLoc, targetZone) {
   if (targetZone === "미지정") {
     return !loc || loc === "미지정" || loc === "";
   }
-  if (targetZone === "B2 램프") {
-    return loc.includes("B2 램프") || loc.includes("램프");
+  if (targetZone === "램프") {
+    return loc.includes("램프");
   }
   if (targetZone === "B2") {
     return loc.includes("B2") && !loc.includes("램프");
@@ -2401,7 +2343,7 @@ window.renderPicklistZoneTabs = function() {
   const zoneCounts = {
     B1: 0,
     B2: 0,
-    "B2 램프": 0,
+    "램프": 0,
     B3: 0,
     "미지정": 0,
     "전체": pendingOrders.length
@@ -2409,8 +2351,8 @@ window.renderPicklistZoneTabs = function() {
 
   pendingOrders.forEach(item => {
     const loc = getOrderItemLocation(item);
-    if (loc.includes("B2 램프") || loc.includes("램프")) {
-      zoneCounts["B2 램프"]++;
+    if (loc.includes("램프")) {
+      zoneCounts["램프"]++;
     } else if (loc.includes("B1")) {
       zoneCounts.B1++;
     } else if (loc.includes("B2")) {
@@ -2422,7 +2364,7 @@ window.renderPicklistZoneTabs = function() {
     }
   });
 
-  const zones = ["B1", "B2", "B2 램프", "B3", "미지정", "전체"];
+  const zones = ["B1", "B2", "램프", "B3", "미지정", "전체"];
   let html = "";
 
   zones.forEach(zone => {
@@ -2435,7 +2377,7 @@ window.renderPicklistZoneTabs = function() {
     let zoneIcon = 'fa-warehouse';
     if (zone === '전체') zoneIcon = 'fa-boxes-stacked';
     else if (zone === '미지정') zoneIcon = 'fa-triangle-exclamation';
-    else if (zone === 'B2 램프') zoneIcon = 'fa-mountain-sun';
+    else if (zone === '램프') zoneIcon = 'fa-mountain-sun';
     else if (zone === 'B3') zoneIcon = 'fa-pallet';
 
     html += `
@@ -2591,7 +2533,7 @@ window.handleZoneStockReset = async function() {
         for (let i = 0; i < allTargetVariants.length; i += CHUNK) {
           const chunk = allTargetVariants.slice(i, i + CHUNK);
           try {
-            await supabaseClient.from('inventory_logs').delete().in('artno', chunk);
+            await supabaseClient.from('inventory_logs').delete().in('artNo', chunk);
           } catch (e) {
             console.warn("Delete inventory_logs by artno chunk error:", e);
           }
@@ -2952,6 +2894,7 @@ function renderPicklistStockView(container, selectedZone, items) {
               <span style="color:#64748b; font-weight:700;">업데이트:</span>
               <strong style="color:#0f172a; font-weight:800;">${updateInfo.text}</strong>
             </span>
+            ${typeof window.getCycleCheckedBadgeHtml === 'function' ? window.getCycleCheckedBadgeHtml(cleanNo) : ''}
             ${updateInfo.user ? `
               <span style="color:#cbd5e1;">·</span>
               <span style="display:inline-flex; align-items:center; gap:3px; background:#f8fafc; color:#334155; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #e2e8f0;" title="작업자 ID">
@@ -3488,8 +3431,8 @@ window.setSingleLocation = function(artNo) {
   // Dynamically populate location buttons
   const btnContainer = document.getElementById("single-loc-quick-buttons");
   if (btnContainer) {
-    // 빠른 구역 선택은 표준 창고 구역(B1, B2, B2 램프, B3)만 표시 (매장 제외)
-    const locList = ["B1", "B2", "B2 램프", "B3"];
+    // 빠른 구역 선택은 표준 창고 구역(B1, B2, 램프, B3)만 표시 (매장 제외)
+    const locList = ["B1", "B2", "램프", "B3"];
     let btnHtml = "";
     locList.forEach(loc => {
       const isCurrent = (currentLoc === loc);
@@ -4154,9 +4097,9 @@ window.saveEditItemName = async function() {
       }
       
       // Update inventory_logs artname
-      await supabaseClient.from("inventory_logs").update({ artname: newName }).eq("artno", artNo);
+      await supabaseClient.from("inventory_logs").update({ artName: newName }).eq("artNo", artNo);
       // Update order_requests artname
-      await supabaseClient.from("order_requests").update({ artname: newName }).eq("artno", artNo);
+      await supabaseClient.from("order_requests").update({ artName: newName }).eq("artNo", artNo);
       
     } catch (err) {
       console.error("Supabase item name update error:", err);
@@ -5233,7 +5176,12 @@ window.exportStoreInboundToExcel = async function(selectedDateOnly = false) {
         query = query.eq('date', selectedDateStr);
       }
 
-      const { data: dbLogs, error } = await query;
+      let dbLogs, error;
+      if (!selectedDateOnly && typeof fetchAllRows === "function") {
+        ({ data: dbLogs, error } = await fetchAllRows('store_inbound_logs', 'id', false));
+      } else {
+        ({ data: dbLogs, error } = await query);
+      }
 
       if (!error && dbLogs && dbLogs.length > 0) {
         dataToExport = dbLogs.map(row => {
@@ -5390,7 +5338,7 @@ window.updateRegLocationGuideBanner = function(artNo, optLoc, optType) {
             <span style="font-size:10px; font-weight:800; background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:4px;">구역 지정 필요</span>
           </div>
           <div style="font-size:11.5px; font-weight:700; color:#92400e; margin-top:2px;">
-            보관 구역이 설정되지 않았습니다. 입고 시 아래 구역(B1, B2, B2 램프, B3)을 선택해 주세요!
+            보관 구역이 설정되지 않았습니다. 입고 시 아래 구역(B1, B2, 램프, B3)을 선택해 주세요!
           </div>
         </div>
       </div>
@@ -6659,9 +6607,52 @@ window.renderMfaqNoteHtml = function(extraNote) {
   `;
 };
 
+// MFAQ 구분 칩 (전체 / 매장 질문 / 제품 질문·요청 / 직접 만든 구분) + 개수
+window.mfaqCategoryGroup = function(cat) {
+  if (cat === "제품 질문/요청" || cat === "제품 요청" || cat === "제품 질문" || cat === "제품 문의") return "제품 질문/요청";
+  if (!cat || cat === "매장 질문" || cat === "일반 질문") return "매장 질문";
+  return cat;
+};
+window.renderMfaqChips = function() {
+  const row = document.getElementById("mfaq-chip-row");
+  const sel = document.getElementById("mfaq-filter-category");
+  if (!row || !sel) return;
+  const current = sel.value || "all";
+  const counts = { all: 0 };
+  (mfaqLogs || []).forEach(l => {
+    if (l.category === "공지사항" || String(l.id).startsWith("notice_")) return;
+    if (typeof isMfaqSystemRow === "function" && isMfaqSystemRow(l)) return;
+    counts.all++;
+    const g = window.mfaqCategoryGroup(l.category);
+    counts[g] = (counts[g] || 0) + 1;
+  });
+  const opts = Array.from(sel.options).map(o => ({ value: o.value, label: o.value === "all" ? "전체" : o.textContent.trim() }));
+  row.innerHTML = opts.map(o => {
+    const n = counts[o.value] || 0;
+    const safe = String(o.value).replace(/'/g, "\\'");
+    return `<button type="button" class="mfaq-chip${o.value === current ? " active" : ""}" onclick="setMfaqCategory('${safe}')">${o.label}<span>${n}</span></button>`;
+  }).join("");
+};
+window.setMfaqCategory = function(v) {
+  const sel = document.getElementById("mfaq-filter-category");
+  if (sel) sel.value = v;
+  renderMfaq();
+};
+window.setMfaqSort = function(mode) {
+  window.mfaqSortMode = mode;
+  document.querySelectorAll(".mfaq-sort-toggle button").forEach(b => b.classList.toggle("active", b.dataset.sort === mode));
+  renderMfaq();
+};
+window.clearMfaqSearch = function() {
+  const el = document.getElementById("mfaq-search");
+  if (el) { el.value = ""; el.focus(); }
+  renderMfaq();
+};
+
 window.renderMfaq = function() {
   const container = document.getElementById("mfaq-list-container");
   if (!container) return;
+  try { window.renderMfaqChips(); } catch (e) {}
 
   const filterCategory = document.getElementById("mfaq-filter-category")?.value || "all";
   const searchQuery = (document.getElementById("mfaq-search")?.value || "").trim().toLowerCase();
@@ -6728,10 +6719,17 @@ window.renderMfaq = function() {
     });
   }
 
+  const sortMode = window.mfaqSortMode || "count";
   filtered.sort((a, b) => {
+    if (sortMode === "recent") return new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0);
     if ((b.count || 1) !== (a.count || 1)) return (b.count || 1) - (a.count || 1);
     return new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0);
   });
+
+  const resultCountEl = document.getElementById("mfaq-result-count");
+  if (resultCountEl) resultCountEl.textContent = `${filtered.length}개` + (searchQuery ? ` · '${searchQuery}' 검색 결과` : "");
+  const clearBtn = document.getElementById("mfaq-search-clear");
+  if (clearBtn) clearBtn.style.display = searchQuery ? "" : "none";
 
   if (filtered.length === 0) {
     container.innerHTML = `
@@ -6784,9 +6782,11 @@ window.renderMfaq = function() {
       <div class="mfaq-row-item" style="border-bottom:${isLast ? 'none' : '1px solid #f1f5f9'}; transition:background 0.12s ease;">
         <div style="display:flex; align-items:flex-start; padding:9px 10px; gap:8px;">
           <!-- Left 1: + and Count (Direct Tap Button) & Inquiry Type Badge Underneath -->
-          <div onclick="incrementMfaqCount('${item.id}')" style="display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-width:38px; cursor:pointer; flex-shrink:0; user-select:none; padding:2px 3px; border-radius:6px; transition:background 0.15s ease, transform 0.1s ease;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'" title="탭하여 건수 +1">
-            <span style="font-size:14px; font-weight:700; color:#475569; line-height:1;">+</span>
-            <span style="font-size:16px; font-weight:800; color:#0f172a; line-height:1.15; margin-top:1px;">${item.count || 1}</span>
+          <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:4px;">
+            <button type="button" class="mfaq-plus-btn" onclick="incrementMfaqCount('${item.id}')" title="같은 질문을 또 받았으면 눌러 주세요 (+1)">
+              <span class="mfaq-plus-count">${item.count || 1}</span>
+              <span class="mfaq-plus-label">+1</span>
+            </button>
             ${typeInfo.badge ? `
               <span style="font-size:8.5px; font-weight:800; background:${typeInfo.badge.bg}; color:${typeInfo.badge.color}; border:1px solid ${typeInfo.badge.border}; border-radius:4px; padding:1.5px 3px; white-space:nowrap; margin-top:4px; line-height:1.1; text-align:center; display:inline-flex; align-items:center; gap:2px; letter-spacing:-0.4px;">
                 <i class="fa-solid ${typeInfo.badge.icon}" style="font-size:7.5px;"></i>${typeInfo.badge.label}
@@ -6825,9 +6825,6 @@ window.renderMfaq = function() {
             <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; margin-top:1px;">
               <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0; line-height:1.2;">
                 <span>Last: <strong style="color:#475569; font-weight:700;">${timeStr}</strong></span>
-                <span style="color:#cbd5e1;">·</span>
-                <span style="white-space:nowrap; font-weight:700; color:#334155;">${creatorUser}</span>
-                ${lastTap && lastTap.user !== creatorUser ? `<span style="color:#16a34a; font-weight:700; font-size:10.5px; white-space:nowrap;">(+${lastTap.user})</span>` : ''}
                 <span onclick="openMfaqCategoryChangeModal('${item.id}', event)" style="background:${catBg}; color:${catColor}; font-size:9.5px; font-weight:700; padding:1px 4px; border-radius:3px; border:1px solid ${catBorder}; cursor:pointer; white-space:nowrap;" title="카테고리 변경">${displayCategory}</span>
               </div>
 
@@ -6873,6 +6870,11 @@ window.renderMfaq = function() {
 };
 
 window.incrementMfaqCount = async function(id) {
+  // 실수로 두 번 눌리는 것 방지 (같은 질문 1.5초 안에 다시 누르면 무시)
+  window.__mfaqTapGuard = window.__mfaqTapGuard || {};
+  const nowMs = Date.now();
+  if (window.__mfaqTapGuard[id] && nowMs - window.__mfaqTapGuard[id] < 1500) return;
+  window.__mfaqTapGuard[id] = nowMs;
   const log = mfaqLogs.find(l => l.id === id);
   if (log) {
     const activeUser = (typeof currentUser !== 'undefined' && currentUser) 
@@ -7277,7 +7279,7 @@ window.bulkDeleteSelectedStockItems = async function() {
       }
       const targets = Array.from(targetDigitsSet).flatMap(d => [d, d.padStart(8, '0')]);
       try {
-        await supabaseClient.from('inventory_logs').delete().in('artno', targets);
+        await supabaseClient.from('inventory_logs').delete().in('artNo', targets);
       } catch (e) {}
     } catch (err) {
       console.error("Supabase bulk delete error:", err);
@@ -7367,7 +7369,7 @@ window.cleanUpAllNegativeStock = async function(showPrompt = false) {
       }
       const cleanArtNos = Array.from(negativeDigitsSet).flatMap(d => [d, d.padStart(8, '0')]);
       try {
-        await supabaseClient.from('inventory_logs').delete().in('artno', cleanArtNos);
+        await supabaseClient.from('inventory_logs').delete().in('artNo', cleanArtNos);
       } catch (e) {}
     } catch (err) {
       console.error("Supabase negative stock cleanup error:", err);
@@ -7432,7 +7434,7 @@ window.deleteStockItemLogs = async function(artNo, artName) {
       }
       const targets = [cleanNo, digits, digits.padStart(8, '0')].filter(Boolean);
       try {
-        await supabaseClient.from('inventory_logs').delete().in('artno', targets);
+        await supabaseClient.from('inventory_logs').delete().in('artNo', targets);
       } catch (e) {}
     } catch (err) {
       console.error("Supabase single item log delete error:", err);
@@ -7463,6 +7465,10 @@ window.deleteStockItemLogs = async function(artNo, artName) {
 
 // Auto check and clean negative stock on startup
 window.checkAndAutoCleanNegativeStock = async function() {
+  // [자동 삭제 중지] 화면을 열 때마다 마이너스 재고 품목의 기록을 자동으로 지우던 기능입니다.
+  // 데이터가 다 불러와지기 전(1초 뒤)에도 실행되어 정상 기록까지 지울 위험이 있어 끕니다.
+  // 정리가 필요하면 "마이너스 재고 정리" 버튼(확인 창 있음)으로만 실행됩니다.
+  return;
   if (typeof isViewerUser !== 'undefined' && isViewerUser) return;
   const stockMap = typeof buildStockMap === 'function' ? buildStockMap() : null;
   if (!stockMap) return;
@@ -8442,6 +8448,898 @@ if (typeof window !== 'undefined') {
     });
   } else {
     setTimeout(startupInit, 300);
+  }
+}
+
+// ==============================================================================
+// 📋 CYCLE COUNTING MODULE (오늘의 5개 랜덤 재고 실사 · 스팟 점검)
+// ==============================================================================
+window.cycleCountRecords = window.cycleCountRecords || {};
+try {
+  const localCycleData = localStorage.getItem("warehouse_cycle_counts");
+  if (localCycleData) {
+    const parsed = JSON.parse(localCycleData);
+    if (parsed && typeof parsed === "object") {
+      window.cycleCountRecords = parsed;
+    }
+  }
+} catch(e) {}
+
+window.cycleCurrentZone = "ALL";
+window.activeCycleItems = [];
+
+// Helper: robust lookup of cycle count records with multi-key normalization
+window.getCycleCountRecord = function(artNo) {
+  if (!artNo) return null;
+  if (!window.cycleCountRecords || Object.keys(window.cycleCountRecords).length === 0) {
+    try {
+      const local = localStorage.getItem("warehouse_cycle_counts");
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed && typeof parsed === "object") {
+          window.cycleCountRecords = parsed;
+        }
+      }
+    } catch(e) {}
+  }
+
+  const recs = window.cycleCountRecords;
+  if (!recs || typeof recs !== 'object') return null;
+
+  const rawStr = String(artNo).trim();
+  const digits = rawStr.replace(/\D/g, '');
+  const padded8 = (digits.length > 0 && digits.length <= 8) ? digits.padStart(8, '0') : digits;
+  const stripped = digits.replace(/^0+/, '');
+
+  if (padded8 && recs[padded8]) return recs[padded8];
+  if (digits && recs[digits]) return recs[digits];
+  if (stripped && recs[stripped]) return recs[stripped];
+  if (rawStr && recs[rawStr]) return recs[rawStr];
+
+  if (digits) {
+    for (const key of Object.keys(recs)) {
+      const keyDigits = key.replace(/\D/g, '');
+      if (keyDigits && (keyDigits === digits || keyDigits === padded8 || keyDigits === stripped)) {
+        return recs[key];
+      }
+    }
+  }
+
+  return null;
+};
+
+// 1. Cycle Count Records: Load from localStorage and Supabase Cloud
+window.loadCycleCountRecords = async function() {
+  try {
+    const local = localStorage.getItem("warehouse_cycle_counts");
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (parsed && typeof parsed === "object") {
+        window.cycleCountRecords = { ...window.cycleCountRecords, ...parsed };
+      }
+    }
+  } catch(e) {}
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("mfaq_logs")
+        .select("id, question, last_updated")
+        .eq("id", "cycle_counting_records")
+        .maybeSingle();
+
+      if (!error && data && data.question) {
+        try {
+          const cloudRecords = JSON.parse(data.question);
+          if (cloudRecords && typeof cloudRecords === "object") {
+            window.cycleCountRecords = { ...window.cycleCountRecords, ...cloudRecords };
+            try {
+              localStorage.setItem("warehouse_cycle_counts", JSON.stringify(window.cycleCountRecords));
+            } catch(e) {}
+            if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+            else if (typeof renderStockLookup === "function") renderStockLookup();
+            if (typeof renderSimplePicklist === "function") renderSimplePicklist();
+          }
+        } catch(pe) {}
+      }
+    } catch(err) {
+      console.warn("Supabase cycle count load error:", err);
+    }
+  }
+};
+
+// 2. Cycle Count Records: Save to localStorage and Supabase Cloud
+window.saveCycleCountRecords = async function() {
+  try {
+    localStorage.setItem("warehouse_cycle_counts", JSON.stringify(window.cycleCountRecords));
+  } catch(e) {}
+
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      const payload = {
+        id: "cycle_counting_records",
+        category: "cycle_counting_records",
+        question: JSON.stringify(window.cycleCountRecords),
+        last_updated: new Date().toISOString()
+      };
+      await supabaseClient.from("mfaq_logs").upsert(payload);
+    } catch(err) {
+      console.warn("Supabase cycle count save error:", err);
+    }
+  }
+};
+
+// 3. UI Badge Helper: Renders "[✔ 랜덤 체크 완료]" badge next to update date
+window.getCycleCheckedBadgeHtml = function(artNo) {
+  if (!artNo) return '';
+  const record = (typeof window.getCycleCountRecord === 'function') 
+    ? window.getCycleCountRecord(artNo) 
+    : (window.cycleCountRecords && (window.cycleCountRecords[String(artNo).replace(/\D/g, '')] || window.cycleCountRecords[String(artNo).trim()]));
+  if (!record) return '';
+
+  const dateStr = record.checkedDate || (record.checkedAt ? record.checkedAt.split(' ')[0] : '');
+  const shortDate = dateStr && dateStr.length >= 10 ? dateStr.slice(5) : dateStr; // e.g. "10-05"
+  const userStr = record.checkedUser ? ` (작업자: ${record.checkedUser})` : '';
+  const statusLabel = record.status === 'adjusted' ? '실사 수량 보정' : '재고 일치';
+
+  return `
+    <span style="color:#cbd5e1; margin:0 2px;">·</span>
+    <span class="badge-cycle-checked" style="display:inline-flex; align-items:center; gap:3px; background:#ecfdf5; color:#047857; font-size:9.5px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid #a7f3d0; white-space:nowrap; vertical-align:middle; cursor:pointer;" title="Cycle Counting 실사 점검 완료 (${statusLabel}): ${record.checkedAt || dateStr}${userStr}" onclick="event.stopPropagation(); if(typeof openCycleCountingModal==='function') openCycleCountingModal();">
+      <i class="fa-solid fa-circle-check" style="font-size:9px; color:#10b981;"></i>
+      랜덤 체크 완료${shortDate ? ` (${shortDate})` : ''}
+    </span>
+  `;
+};
+
+// 4. Modal Open & Close
+window.openCycleCountingModal = function() {
+  const modal = document.getElementById("cycle-counting-modal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  modal.classList.add("active");
+
+  window.loadCycleCountRecords().then(() => {
+    if (!window.activeCycleItems || window.activeCycleItems.length === 0) {
+      window.rollNewCycleCountItems();
+    } else {
+      window.renderCycleCountingCards();
+    }
+  });
+};
+
+window.closeCycleCountingModal = function() {
+  const modal = document.getElementById("cycle-counting-modal");
+  if (!modal) return;
+  modal.style.display = "none";
+  modal.classList.remove("active");
+
+  if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+  else if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderSimplePicklist === "function") renderSimplePicklist();
+};
+
+// 5. Zone Filter Changer
+window.setCycleZone = function(zone, btn) {
+  window.cycleCurrentZone = zone || "ALL";
+  const buttons = document.querySelectorAll("#cycle-zone-chips .btn-cycle-zone");
+  buttons.forEach(b => {
+    b.classList.remove("active");
+    b.style.background = "#fff";
+    b.style.color = "#78350f";
+    b.style.borderColor = "#fed7aa";
+  });
+  if (btn) {
+    btn.classList.add("active");
+    btn.style.background = "#ea580c";
+    btn.style.color = "#fff";
+    btn.style.borderColor = "#ea580c";
+  }
+  window.rollNewCycleCountItems();
+};
+
+// 6. Roll 5 Random Warehouse Items
+window.rollNewCycleCountItems = function() {
+  let stockMap = null;
+  if (typeof buildStockMap === "function") {
+    try { stockMap = buildStockMap(); } catch(e) {}
+  }
+
+  // 1. Collect all articles that have had at least ONE inbound ('입고') record on the warehouse site
+  const inboundedArtNos = new Set();
+
+  if (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) {
+    for (let i = 0; i < historyLogs.length; i++) {
+      const log = historyLogs[i];
+      if (log && log.type === "입고") {
+        const rawNo = String(log.artNo || log.artno || "").trim();
+        const digits = rawNo.replace(/\D/g, '');
+        if (rawNo) inboundedArtNos.add(rawNo);
+        if (digits) {
+          inboundedArtNos.add(digits);
+          if (digits.length <= 8) inboundedArtNos.add(digits.padStart(8, '0'));
+        }
+      }
+    }
+  }
+
+  if (stockMap && stockMap.size > 0) {
+    stockMap.forEach((entry, artNo) => {
+      if (entry && Number(entry.totalIn) > 0) {
+        const rawNo = String(artNo || "").trim();
+        const digits = rawNo.replace(/\D/g, '');
+        if (rawNo) inboundedArtNos.add(rawNo);
+        if (digits) {
+          inboundedArtNos.add(digits);
+          if (digits.length <= 8) inboundedArtNos.add(digits.padStart(8, '0'));
+        }
+      }
+    });
+  }
+
+  // 2. Filter candidates: STRICTLY articles that have had '입고' AND CURRENT STOCK > 0!
+  let candidates = [];
+  if (stockMap && stockMap.size > 0) {
+    candidates = Array.from(stockMap.values())
+      .filter(item => {
+        const rawNo = String(item.artNo || "").trim();
+        const digits = rawNo.replace(/\D/g, '');
+        const pad = (digits.length > 0 && digits.length <= 8) ? digits.padStart(8, '0') : digits;
+        const hasInbound = (Number(item.totalIn) > 0) || inboundedArtNos.has(rawNo) || (digits && inboundedArtNos.has(digits)) || (pad && inboundedArtNos.has(pad));
+        const hasStock = Number(item.currentStock) > 0;
+        return hasInbound && hasStock;
+      })
+      .map(item => {
+        let cleanNo = String(item.artNo || "").trim();
+        const digits = cleanNo.replace(/\D/g, '');
+        if (digits.length > 0 && digits.length <= 8) cleanNo = digits.padStart(8, '0');
+        return {
+          artNo: item.artNo,
+          cleanNo: cleanNo,
+          artName: item.artName || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목",
+          location: item.location || "미지정",
+          currentStock: Number(item.currentStock) || 0,
+          totalIn: Number(item.totalIn) || 0
+        };
+      });
+  } else if (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) {
+    const seen = new Set();
+    historyLogs.forEach(log => {
+      if (log && log.type === "입고") {
+        let cleanNo = String(log.artNo || log.artno || "").trim();
+        const digits = cleanNo.replace(/\D/g, '');
+        if (digits.length > 0 && digits.length <= 8) cleanNo = digits.padStart(8, '0');
+        const curStock = (typeof getItemStock === "function") ? getItemStock(cleanNo) : 0;
+        if (cleanNo && !seen.has(cleanNo) && curStock > 0) {
+          seen.add(cleanNo);
+          candidates.push({
+            artNo: log.artNo || log.artno,
+            cleanNo: cleanNo,
+            artName: log.artName || log.artname || (typeof masterCatalogMap !== 'undefined' ? masterCatalogMap.get(cleanNo) : "") || "창고 품목",
+            location: (typeof getItemLocation === "function" ? getItemLocation(cleanNo) : "미지정"),
+            currentStock: curStock,
+            totalIn: Number(log.qty) || 1
+          });
+        }
+      }
+    });
+  }
+
+  // Filter candidates by selected zone
+  const targetZone = window.cycleCurrentZone || "ALL";
+  let zoneFiltered = candidates;
+  if (targetZone !== "ALL" && targetZone !== "전체") {
+    zoneFiltered = candidates.filter(item => {
+      if (typeof isLocationMatch === "function") {
+        return isLocationMatch(item.location, targetZone);
+      }
+      return (item.location || "").includes(targetZone);
+    });
+  }
+
+  if (zoneFiltered.length === 0) {
+    window.activeCycleItems = [];
+    window.renderCycleCountingCards();
+    return;
+  }
+
+  // Smart Priority Selection based on Last Update Date & Time:
+  // 1순위: 5일 이상 미업데이트 (또는 최근 기록 없음)
+  // 2순위: 3일 이상 ~ 5일 미만 미업데이트
+  // 3순위: 3일 이내 업데이트된 나머지 품목들 (유동적)
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+
+  const now = new Date();
+
+  const tier1_notChecked = [];
+  const tier1_checked = [];
+  const tier2_notChecked = [];
+  const tier2_checked = [];
+  const tier3_notChecked = [];
+  const tier3_checked = [];
+
+  zoneFiltered.forEach(item => {
+    const updateInfo = (typeof window.getProductLatestUpdateTime === "function")
+      ? window.getProductLatestUpdateTime(item.cleanNo || item.artNo)
+      : { text: "최근 기록 없음", exactTime: "-", relative: "", raw: null, action: "", user: "" };
+
+    let daysSinceUpdate = Infinity;
+    if (updateInfo && updateInfo.raw instanceof Date && !isNaN(updateInfo.raw.getTime())) {
+      daysSinceUpdate = (now.getTime() - updateInfo.raw.getTime()) / (1000 * 60 * 60 * 24);
+    }
+
+    const rec = (typeof window.getCycleCountRecord === 'function')
+      ? window.getCycleCountRecord(item.cleanNo || item.artNo)
+      : (window.cycleCountRecords && (window.cycleCountRecords[item.cleanNo] || window.cycleCountRecords[item.artNo]));
+    const isCheckedToday = !!(rec && rec.checkedDate === todayStr);
+
+    let priorityTier = 3;
+    let priorityLabel = "일반 (유동)";
+    if (daysSinceUpdate >= 5) {
+      priorityTier = 1;
+      priorityLabel = "1순위 (5일+ 미업데이트)";
+    } else if (daysSinceUpdate >= 3) {
+      priorityTier = 2;
+      priorityLabel = "2순위 (3일+ 미업데이트)";
+    }
+
+    const itemWithMeta = {
+      ...item,
+      updateInfo: updateInfo,
+      daysSinceUpdate: daysSinceUpdate,
+      priorityTier: priorityTier,
+      priorityLabel: priorityLabel
+    };
+
+    if (priorityTier === 1) {
+      if (isCheckedToday) tier1_checked.push(itemWithMeta);
+      else tier1_notChecked.push(itemWithMeta);
+    } else if (priorityTier === 2) {
+      if (isCheckedToday) tier2_checked.push(itemWithMeta);
+      else tier2_notChecked.push(itemWithMeta);
+    } else {
+      if (isCheckedToday) tier3_checked.push(itemWithMeta);
+      else tier3_notChecked.push(itemWithMeta);
+    }
+  });
+
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  // Prioritize Tier 1 (5d+) -> Tier 2 (3d+) -> Tier 3 (remaining flexible)
+  const rankedPool = [
+    ...shuffle(tier1_notChecked),
+    ...shuffle(tier1_checked),
+    ...shuffle(tier2_notChecked),
+    ...shuffle(tier2_checked),
+    ...shuffle(tier3_notChecked),
+    ...shuffle(tier3_checked)
+  ];
+
+  const picked = rankedPool.slice(0, 5);
+
+  window.activeCycleItems = picked.map(item => {
+    const rec = (typeof window.getCycleCountRecord === 'function')
+      ? window.getCycleCountRecord(item.cleanNo || item.artNo)
+      : (window.cycleCountRecords && (window.cycleCountRecords[item.cleanNo] || window.cycleCountRecords[item.artNo]));
+    const isCompleted = !!(rec && rec.checkedDate === todayStr);
+
+    return {
+      artNo: item.artNo,
+      cleanNo: item.cleanNo,
+      artName: item.artName,
+      location: item.location,
+      currentStock: item.currentStock,
+      actualInputQty: item.currentStock,
+      isCompleted: isCompleted,
+      completionStatus: isCompleted ? rec.status : null,
+      updateInfo: item.updateInfo,
+      daysSinceUpdate: item.daysSinceUpdate,
+      priorityTier: item.priorityTier,
+      priorityLabel: item.priorityLabel
+    };
+  });
+
+  window.renderCycleCountingCards();
+};
+
+// 7. Render 5 Cycle Counting Cards
+window.renderCycleCountingCards = function() {
+  const container = document.getElementById("cycle-counting-cards-list");
+  if (!container) return;
+
+  const items = window.activeCycleItems || [];
+  const completedCount = items.filter(i => i.isCompleted).length;
+  const totalCount = items.length;
+
+  const countEl = document.getElementById("cycle-completed-count");
+  if (countEl) countEl.textContent = completedCount;
+
+  const pillEl = document.getElementById("cycle-status-pill");
+  if (pillEl) {
+    if (totalCount > 0 && completedCount === totalCount) {
+      pillEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 전체 실사 완료!`;
+      pillEl.style.background = "#dcfce7";
+      pillEl.style.color = "#15803d";
+      pillEl.style.borderColor = "#86efac";
+    } else {
+      pillEl.innerHTML = `점검 진행 중 (${completedCount}/${totalCount})`;
+      pillEl.style.background = "#fef3c7";
+      pillEl.style.color = "#b45309";
+      pillEl.style.borderColor = "#fde68a";
+    }
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:35px 20px; background:#fff; border-radius:12px; border:1px dashed #cbd5e1; color:#64748b;">
+        <i class="fa-solid fa-clipboard-question" style="font-size:36px; color:#cbd5e1; margin-bottom:10px;"></i>
+        <div style="font-weight:800; font-size:14px; color:#334155;">점검할 아티클을 불러올 수 없습니다.</div>
+        <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">창고에 현재 전산 재고(1개 이상)가 있는 입고 품목이 없거나 선택한 구역(${window.cycleCurrentZone || '전체'})에 재고 품목이 없습니다.</div>
+        <button type="button" onclick="rollNewCycleCountItems()" style="margin-top:12px; background:#ea580c; color:#fff; border:none; padding:6px 14px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+          <i class="fa-solid fa-rotate"></i> 다시 시도
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+
+  if (totalCount > 0 && completedCount === totalCount) {
+    html += `
+      <div style="background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border:1.5px solid #6ee7b7; border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(16,185,129,0.15);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:34px; height:34px; border-radius:50%; background:#10b981; color:white; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <div style="font-weight:900; font-size:13.5px; color:#065f46;">🎉 5개 랜덤 실사를 모두 완료했습니다!</div>
+            <div style="font-size:11px; font-weight:700; color:#047857; margin-top:1px;">전 품목에 [✔ 랜덤 체크 완료] 뱃지가 등록되었습니다.</div>
+          </div>
+        </div>
+        <button type="button" onclick="rollNewCycleCountItems()" style="background:#059669; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+          <i class="fa-solid fa-dice"></i> 다음 5개
+        </button>
+      </div>
+    `;
+  }
+
+  items.forEach((item, idx) => {
+    const diff = (item.actualInputQty || 0) - (item.currentStock || 0);
+    const isCompleted = !!item.isCompleted;
+
+    html += `
+      <div class="cycle-item-card" style="background:#ffffff; border:1.5px solid ${isCompleted ? '#86efac' : '#e2e8f0'}; border-radius:12px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); transition:all 0.2s ease; ${isCompleted ? 'background:#f0fdf4;' : ''}">
+        
+        <!-- Card Top Bar: Item Index & Priority Badge & Status -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:4px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; font-weight:800; color:#c2410c; background:#fff7ed; padding:1px 8px; border-radius:10px; border:1px solid #fed7aa;">
+              #${idx + 1} / 5
+            </span>
+            ${item.priorityTier === 1 ? `
+              <span style="display:inline-flex; align-items:center; gap:3px; background:#fef2f2; color:#b91c1c; font-size:10px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid #fecaca;" title="5일 이상 업데이트되지 않은 1순위 실사 대상">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size:9px;"></i> 1순위 (5일+ 미업데이트)
+              </span>
+            ` : item.priorityTier === 2 ? `
+              <span style="display:inline-flex; align-items:center; gap:3px; background:#fffbeb; color:#b45309; font-size:10px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid #fde68a;" title="3일 이상 업데이트되지 않은 2순위 실사 대상">
+                <i class="fa-solid fa-clock" style="font-size:9px;"></i> 2순위 (3일+ 미업데이트)
+              </span>
+            ` : `
+              <span style="display:inline-flex; align-items:center; gap:3px; background:#f8fafc; color:#475569; font-size:10px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid #e2e8f0;" title="최근 3일 이내 업데이트된 일반 실사 대상">
+                <i class="fa-solid fa-rotate" style="font-size:9px;"></i> 일반 (유동)
+              </span>
+            `}
+          </div>
+          ${isCompleted ? `
+            <span style="display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 8px; border-radius:12px; border:1px solid #a7f3d0;">
+              <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
+              ${item.completionStatus === 'adjusted' ? '수량 보정 완료' : '재고 일치 확인됨'}
+            </span>
+          ` : `
+            <span style="font-size:10.5px; font-weight:700; color:#64748b; background:#f1f5f9; padding:2px 7px; border-radius:10px;">
+              점검 대기
+            </span>
+          `}
+        </div>
+
+        <!-- Product Thumbnail & Basic Info -->
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <div style="width:50px; height:50px; border-radius:8px; overflow:hidden; background:#f8fafc; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.cleanNo, item.artName, 50) : `<i class="fa-solid fa-box" style="color:#cbd5e1; font-size:20px;"></i>`}
+          </div>
+
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              <span style="font-family:monospace; font-size:12px; font-weight:800; color:#1e293b; background:#f1f5f9; padding:1px 6px; border-radius:4px;">
+                ${item.cleanNo}
+              </span>
+              <span style="font-size:10.5px; font-weight:800; color:#c2410c; background:#fff7ed; padding:1px 6px; border-radius:4px; border:1px solid #fed7aa; display:inline-flex; align-items:center; gap:3px;">
+                <i class="fa-solid fa-location-dot" style="font-size:9px;"></i> ${item.location || '미지정'}
+              </span>
+            </div>
+
+            <div style="font-size:13px; font-weight:800; color:#0f172a; margin-top:3px; line-height:1.3; word-break:keep-all;">
+              ${item.artName}
+            </div>
+
+            <!-- Product Update Date & Time Info -->
+            <div style="font-size:10.5px; color:#64748b; display:flex; align-items:center; gap:4px; margin-top:3px; flex-wrap:wrap; line-height:1.25;">
+              <i class="fa-regular fa-clock" style="color:#0058a3; font-size:9.5px;"></i>
+              <span style="font-weight:700;">최근 업데이트:</span>
+              <strong style="color:#334155; font-weight:700;">${item.updateInfo ? item.updateInfo.text : '기록 없음'}</strong>
+              ${item.updateInfo && item.updateInfo.user ? `
+                <span style="color:#cbd5e1;">·</span>
+                <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0;">
+                  <i class="fa-solid fa-user" style="color:#64748b; font-size:8px;"></i>
+                  ${item.updateInfo.user}
+                </span>
+              ` : ''}
+              ${item.updateInfo && item.updateInfo.action ? `
+                <span style="color:#cbd5e1;">·</span>
+                <span style="background:#f1f5f9; color:#475569; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0;">
+                  ${item.updateInfo.action}
+                </span>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- 1-Click Quick Location Change Row -->
+        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0; display:flex; align-items:center; justify-content:space-between; gap:4px; flex-wrap:wrap;">
+          <span style="font-size:10.5px; font-weight:700; color:#64748b;">
+            <i class="fa-solid fa-map-pin" style="color:#ea580c; font-size:9.5px;"></i> 위치 변경:
+          </span>
+          <div style="display:flex; gap:3px; align-items:center; flex-wrap:wrap;">
+            <button type="button" onclick="applyCycleLocation('${item.cleanNo}', 'B1')" style="padding:2px 6px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid ${item.location === 'B1' ? '#ea580c' : '#cbd5e1'}; background:${item.location === 'B1' ? '#fff7ed' : '#ffffff'}; color:${item.location === 'B1' ? '#c2410c' : '#475569'}; cursor:pointer;">B1</button>
+            <button type="button" onclick="applyCycleLocation('${item.cleanNo}', 'B2')" style="padding:2px 6px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid ${item.location === 'B2' ? '#ea580c' : '#cbd5e1'}; background:${item.location === 'B2' ? '#fff7ed' : '#ffffff'}; color:${item.location === 'B2' ? '#c2410c' : '#475569'}; cursor:pointer;">B2</button>
+            <button type="button" onclick="applyCycleLocation('${item.cleanNo}', '램프')" style="padding:2px 6px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid ${item.location === '램프' ? '#ea580c' : '#cbd5e1'}; background:${item.location === '램프' ? '#fff7ed' : '#ffffff'}; color:${item.location === '램프' ? '#c2410c' : '#475569'}; cursor:pointer;">램프</button>
+            <button type="button" onclick="applyCycleLocation('${item.cleanNo}', 'B3')" style="padding:2px 6px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid ${item.location === 'B3' ? '#ea580c' : '#cbd5e1'}; background:${item.location === 'B3' ? '#fff7ed' : '#ffffff'}; color:${item.location === 'B3' ? '#c2410c' : '#475569'}; cursor:pointer;">B3</button>
+            <button type="button" onclick="setSingleLocation('${item.cleanNo}')" style="padding:2px 6px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid #94a3b8; background:#f8fafc; color:#334155; cursor:pointer;" title="직접 입력 또는 기타 구역"><i class="fa-solid fa-pen"></i> 직접</button>
+          </div>
+        </div>
+
+        <!-- Stock Comparison & Stepper Row -->
+        <div style="margin-top:8px; background:${isCompleted ? '#ffffff' : '#f8fafc'}; border:1px solid ${isCompleted ? '#bbf7d0' : '#e2e8f0'}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11.5px; font-weight:700; color:#475569;">전산 등록 재고:</span>
+            <span style="font-size:14px; font-weight:900; color:#0f172a;">${item.currentStock}개</span>
+          </div>
+
+          ${!isCompleted ? `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:6px;">
+              <span style="font-size:11.5px; font-weight:800; color:#0f172a;">실제 확인 수량:</span>
+              <div style="display:flex; align-items:center; gap:3px;">
+                <button type="button" onclick="changeCycleInputQty('${item.cleanNo}', -1)" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#ffffff; border-radius:6px; font-size:14px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center;">-</button>
+                <input type="number" id="cycle-actual-qty-${item.cleanNo}" value="${item.actualInputQty}" min="0" oninput="onCycleQtyInputChanged('${item.cleanNo}', this.value)" style="width:46px; height:28px; text-align:center; border:1.5px solid #ea580c; border-radius:6px; font-size:14px; font-weight:900; color:#0f172a; outline:none; padding:0;">
+                <button type="button" onclick="changeCycleInputQty('${item.cleanNo}', 1)" style="width:28px; height:28px; border:1px solid #cbd5e1; background:#ffffff; border-radius:6px; font-size:14px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center;">+</button>
+              </div>
+            </div>
+
+            <!-- Discrepancy Note -->
+            <div style="text-align:right; font-size:11px; font-weight:800;">
+              ${diff === 0 ? `
+                <span style="color:#059669;"><i class="fa-solid fa-check"></i> 전산과 수량 일치 (0개 차이)</span>
+              ` : diff < 0 ? `
+                <span style="color:#e11d48;"><i class="fa-solid fa-triangle-exclamation"></i> ${Math.abs(diff)}개 부족 (전산 ${item.currentStock}개 ➔ 실제 ${item.actualInputQty}개)</span>
+              ` : `
+                <span style="color:#2563eb;"><i class="fa-solid fa-circle-plus"></i> +${diff}개 초과 (전산 ${item.currentStock}개 ➔ 실제 ${item.actualInputQty}개)</span>
+              `}
+            </div>
+          ` : `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #bbf7d0; padding-top:6px;">
+              <span style="font-size:11.5px; font-weight:700; color:#047857;">실사 확인 수량:</span>
+              <span style="font-size:14px; font-weight:900; color:#047857;">${item.currentStock}개 (확인 완료)</span>
+            </div>
+          `}
+        </div>
+
+        <!-- Action Buttons Row -->
+        <div style="margin-top:8px; display:flex; justify-content:flex-end; gap:6px;">
+          ${!isCompleted ? (
+            diff === 0 ? `
+              <button type="button" onclick="confirmCycleMatch('${item.cleanNo}')" style="flex:1; padding:8px 12px; font-size:12px; font-weight:800; border-radius:8px; background:#059669; color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 2px 4px rgba(5,150,105,0.25);">
+                <i class="fa-solid fa-check-double"></i> 재고 일치 확인 (맞음)
+              </button>
+            ` : diff < 0 ? `
+              <button type="button" onclick="confirmCycleAdjust('${item.cleanNo}')" style="flex:1; padding:8px 12px; font-size:12px; font-weight:800; border-radius:8px; background:#e11d48; color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 2px 4px rgba(225,29,72,0.25);">
+                <i class="fa-solid fa-arrow-down"></i> -${Math.abs(diff)}개 출고(손실) 보정하기
+              </button>
+            ` : `
+              <button type="button" onclick="confirmCycleAdjust('${item.cleanNo}')" style="flex:1; padding:8px 12px; font-size:12px; font-weight:800; border-radius:8px; background:#2563eb; color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 2px 4px rgba(37,99,235,0.25);">
+                <i class="fa-solid fa-arrow-up"></i> +${diff}개 입고(초과) 보정하기
+              </button>
+            `
+          ) : `
+            <button type="button" onclick="resetCycleItemToRecheck('${item.cleanNo}')" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; cursor:pointer;">
+              <i class="fa-solid fa-rotate-left"></i> 재점검
+            </button>
+          `}
+        </div>
+
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  if (typeof loadProductThumbnails === "function") {
+    setTimeout(() => loadProductThumbnails(), 50);
+  }
+};
+
+// 8. Stepper Input Handlers
+window.changeCycleInputQty = function(cleanNo, delta) {
+  const item = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (!item || item.isCompleted) return;
+  const cur = parseInt(item.actualInputQty, 10) || 0;
+  const next = Math.max(0, cur + delta);
+  item.actualInputQty = next;
+  window.renderCycleCountingCards();
+};
+
+window.onCycleQtyInputChanged = function(cleanNo, val) {
+  const item = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (!item || item.isCompleted) return;
+  const num = parseInt(val, 10);
+  item.actualInputQty = isNaN(num) || num < 0 ? 0 : num;
+  window.renderCycleCountingCards();
+};
+
+window.resetCycleItemToRecheck = function(cleanNo) {
+  const item = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (!item) return;
+  item.isCompleted = false;
+  window.renderCycleCountingCards();
+};
+
+// 9. Quick Location Apply
+window.applyCycleLocation = async function(cleanNo, newLoc) {
+  let masterItem = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog.find(m => {
+    const mNo = String(m.artNo || m.artno || "").replace(/\D/g, '');
+    return mNo === cleanNo;
+  }) : null;
+
+  const nowIso = new Date().toISOString();
+  const workerUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '관리자';
+
+  if (masterItem) {
+    masterItem.location = newLoc;
+    masterItem.updatedAt = nowIso;
+    masterItem.updatedBy = workerUser;
+  } else {
+    masterItem = { artNo: cleanNo, artName: "창고 품목", location: newLoc, hfb: "기본 HFB", updatedAt: nowIso, updatedBy: workerUser };
+    if (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) masterCatalog.push(masterItem);
+  }
+
+  const activeObj = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (activeObj) activeObj.location = newLoc;
+
+  if (typeof saveMasterCatalog === "function") saveMasterCatalog();
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      await supabaseClient.from("master_catalog").update({ location: newLoc }).eq("artno", cleanNo);
+    } catch(e) {
+      console.warn("Cycle location supabase update error:", e);
+    }
+  }
+
+  showToast(`[${cleanNo}] 위치가 [${newLoc}](으)로 변경되었습니다.`, "success");
+  window.renderCycleCountingCards();
+  if (typeof renderStockLookup === "function") renderStockLookup();
+};
+
+// 10. Confirm Physical Stock Matches System Stock
+window.confirmCycleMatch = async function(cleanNo) {
+  const item = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (!item) return;
+
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+  const nowTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const workerUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '관리자';
+
+  const rec = {
+    artNo: item.artNo,
+    cleanNo: cleanNo,
+    artName: item.artName,
+    location: item.location,
+    systemStock: item.currentStock,
+    actualStock: item.currentStock,
+    discrepancy: 0,
+    status: "matched",
+    checkedAt: `${todayStr} ${nowTime}`,
+    checkedDate: todayStr,
+    checkedUser: workerUser
+  };
+
+  const rawStr = String(item.artNo || cleanNo).trim();
+  const digits = rawStr.replace(/\D/g, '');
+  const padded8 = (digits.length > 0 && digits.length <= 8) ? digits.padStart(8, '0') : digits;
+  const stripped = digits.replace(/^0+/, '');
+
+  window.cycleCountRecords = window.cycleCountRecords || {};
+  window.cycleCountRecords[cleanNo] = rec;
+  if (padded8) window.cycleCountRecords[padded8] = rec;
+  if (digits) window.cycleCountRecords[digits] = rec;
+  if (stripped) window.cycleCountRecords[stripped] = rec;
+  if (rawStr) window.cycleCountRecords[rawStr] = rec;
+
+  await window.saveCycleCountRecords();
+
+  item.isCompleted = true;
+  item.completionStatus = "matched";
+
+  showToast(`✅ [${cleanNo}] 실사 완료: 전산 재고(${item.currentStock}개)와 실제 수량이 일치합니다.`, "success");
+  window.renderCycleCountingCards();
+  if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+  else if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderSimplePicklist === "function") renderSimplePicklist();
+};
+
+// 11. Confirm Stock Discrepancy Adjustment (Inbound or Outbound)
+window.confirmCycleAdjust = async function(cleanNo) {
+  const item = window.activeCycleItems.find(i => i.cleanNo === cleanNo);
+  if (!item) return;
+
+  const actualQty = parseInt(item.actualInputQty, 10);
+  if (isNaN(actualQty) || actualQty < 0) {
+    showToast("실제 수량을 정확히 입력해주세요 (0 이상).", "warning");
+    return;
+  }
+
+  const systemQty = item.currentStock;
+  const diff = actualQty - systemQty;
+
+  if (diff === 0) {
+    return window.confirmCycleMatch(cleanNo);
+  }
+
+  const type = diff > 0 ? "입고" : "출고";
+  const absDiff = Math.abs(diff);
+  const actionText = diff > 0 ? `입고(+${absDiff}개)` : `출고(-${absDiff}개)`;
+
+  if (!confirm(`[${item.artName} (${cleanNo})]\n전산 재고: ${systemQty}개 ➔ 실제 수량: ${actualQty}개\n\n차이 수량 ${actionText} 보정 처리를 진행하시겠습니까?\n사유는 '[Cycle Counting 실사 차이 보정]'으로 자동 기록됩니다.`)) {
+    return;
+  }
+
+  const todayStr = (typeof getAppLocalDateString === "function") 
+    ? getAppLocalDateString() 
+    : new Date().toISOString().split('T')[0];
+  const nowTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const workerUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '관리자';
+
+  const newLog = {
+    date: todayStr,
+    type: type,
+    artNo: cleanNo,
+    artName: item.artName,
+    qty: absDiff,
+    reason: `[Cycle Counting 실사 보정] 실제: ${actualQty}개 (전산: ${systemQty}개, ${diff > 0 ? '+' : ''}${diff}개 보정)`,
+    user: workerUser,
+    created_at: new Date().toISOString()
+  };
+
+  if (typeof historyLogs !== "undefined") {
+    historyLogs.unshift(newLog);
+    try {
+      localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+    } catch(e) {}
+  }
+
+  if (typeof supabaseClient !== "undefined" && supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("inventory_logs")
+        .insert([{
+          date: newLog.date,
+          type: newLog.type,
+          artNo: newLog.artNo,
+          qty: newLog.qty,
+          user: newLog.user
+        }])
+        .select();
+
+      if (!error && data && data.length > 0) {
+        newLog.id = data[0].id;
+        newLog.created_at = data[0].created_at;
+        try {
+          localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs));
+        } catch(e) {}
+      }
+    } catch(err) {
+      console.warn("Cycle Counting Supabase log insert error:", err);
+    }
+  }
+
+  item.currentStock = actualQty;
+  item.isCompleted = true;
+  item.completionStatus = "adjusted";
+
+  const rec = {
+    artNo: item.artNo,
+    cleanNo: cleanNo,
+    artName: item.artName,
+    location: item.location,
+    systemStock: systemQty,
+    actualStock: actualQty,
+    discrepancy: diff,
+    status: "adjusted",
+    checkedAt: `${todayStr} ${nowTime}`,
+    checkedDate: todayStr,
+    checkedUser: workerUser
+  };
+
+  const rawStr = String(item.artNo || cleanNo).trim();
+  const digits = rawStr.replace(/\D/g, '');
+  const padded8 = (digits.length > 0 && digits.length <= 8) ? digits.padStart(8, '0') : digits;
+  const stripped = digits.replace(/^0+/, '');
+
+  window.cycleCountRecords = window.cycleCountRecords || {};
+  window.cycleCountRecords[cleanNo] = rec;
+  if (padded8) window.cycleCountRecords[padded8] = rec;
+  if (digits) window.cycleCountRecords[digits] = rec;
+  if (stripped) window.cycleCountRecords[stripped] = rec;
+  if (rawStr) window.cycleCountRecords[rawStr] = rec;
+
+  await window.saveCycleCountRecords();
+
+  if (typeof invalidateStockCache === "function") invalidateStockCache();
+  if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+  else if (typeof renderStockLookup === "function") renderStockLookup();
+  if (typeof renderHistoryLogs === "function") renderHistoryLogs();
+  if (typeof renderSimplePicklist === "function") renderSimplePicklist();
+
+  showToast(`✅ [${cleanNo}] ${actionText} 보정 완료! 실제 재고 ${actualQty}개로 동기화되었습니다.`, "success");
+  window.renderCycleCountingCards();
+};
+
+// 12. Supabase Realtime Listener for Cycle Count Records
+if (typeof window !== 'undefined') {
+  const initCycleCountingRealtime = () => {
+    if (typeof window.loadCycleCountRecords === "function") {
+      window.loadCycleCountRecords();
+    }
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && !window._cycleCountRealtimeSubscribed) {
+      window._cycleCountRealtimeSubscribed = true;
+      try {
+        supabaseClient
+          .channel('public:cycle_counting_records_channel')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'mfaq_logs', filter: 'id=eq.cycle_counting_records' }, payload => {
+            if (payload.new && payload.new.question) {
+              try {
+                const cloudRecords = JSON.parse(payload.new.question);
+                if (cloudRecords && typeof cloudRecords === "object") {
+                  window.cycleCountRecords = { ...window.cycleCountRecords, ...cloudRecords };
+                  localStorage.setItem("warehouse_cycle_counts", JSON.stringify(window.cycleCountRecords));
+                  if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+                  else if (typeof renderStockLookup === "function") renderStockLookup();
+                  if (typeof renderSimplePicklist === "function") renderSimplePicklist();
+                }
+              } catch(e) {}
+            }
+          })
+          .subscribe();
+      } catch(subErr) {
+        console.warn("Cycle count realtime subscription warning:", subErr);
+      }
+    }
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(initCycleCountingRealtime, 400));
+  } else {
+    setTimeout(initCycleCountingRealtime, 400);
   }
 }
 

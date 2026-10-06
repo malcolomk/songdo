@@ -96,10 +96,7 @@ async function loadStockAudits() {
 
   if (typeof supabaseClient !== "undefined" && supabaseClient) {
     try {
-      const { data, error } = await supabaseClient
-        .from("stock_audits")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await (typeof fetchAllRows === "function" ? fetchAllRows("stock_audits", "created_at", false) : supabaseClient.from("stock_audits").select("*").order("created_at", { ascending: false }));
 
       if (!error && data && data.length > 0) {
         // 병합

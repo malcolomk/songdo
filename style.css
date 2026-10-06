@@ -577,33 +577,6 @@ body {
   border-color: #94a3b8 !important;
 }
 
-/* Like Heart Button Animation */
-.btn-like-heart {
-  border: 1px solid #e2e8f0;
-  outline: none;
-}
-
-.btn-like-heart:hover {
-  border-color: #fca5a5 !important;
-  background: #fff1f2 !important;
-  color: #e11d48 !important;
-  transform: scale(1.06);
-}
-
-.btn-like-heart:active {
-  transform: scale(0.92);
-}
-
-.btn-like-heart.liked i {
-  animation: heartBounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes heartBounce {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.45); }
-  100% { transform: scale(1); }
-}
-
 /* Nav Badges (Bright Red) */
 #badge-order,
 #badge-picklist,

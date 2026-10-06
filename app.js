@@ -28,8 +28,33 @@ const ALLOWED_USER_IDS = [
 // --- Designated Admin Users List ---
 const ADMIN_USERS = ["jipar5", "hycho30", "junkoo", "minjong", "julee33"];
 
-// Initial default passwords (all '522')
-const INITIAL_PASSWORD = "522";
+// --- Supabase Auth: 로그인 아이디 → 내부용 이메일 주소 ---
+// 실제로 메일이 오가지 않는 내부용 주소입니다. SQL(1_계정생성.sql)의 도메인과 같아야 합니다.
+const AUTH_EMAIL_DOMAIN = "songdo-inventory.app";
+function loginIdToEmail(id) {
+  return String(id || "").trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+}
+// "아이디 기억하기" 체크 상태 (기본: 켜짐)
+function isRememberLoginIdOn() {
+  try { return localStorage.getItem("warehouse_remember_id") !== "0"; } catch (e) { return true; }
+}
+// 로그인 화면: 비밀번호 보기/숨기기, 임시 비밀번호 채우기
+function toggleLoginPwVisible(btn) {
+  const pw = document.getElementById("login-pw");
+  if (!pw) return;
+  const show = pw.type === "password";
+  pw.type = show ? "text" : "password";
+  if (btn) btn.innerHTML = show ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+}
+function fillTempLoginPw() {
+  const pw = document.getElementById("login-pw");
+  if (!pw) return;
+  pw.value = "songdo522";
+  const idEl = document.getElementById("login-id");
+  if (idEl && !idEl.value) idEl.focus(); else pw.focus();
+}
+// 비밀번호 변경이 막힌 공용 계정 (여러 명이 함께 쓰므로 한 사람이 바꾸면 다른 사람이 못 들어옴)
+const SHARED_ACCOUNT_IDS = ["guest1", "guest2", "viewer"];
 
 // --- Sample Initial Master Data ---
 const defaultMasterCatalog = [
@@ -90,14 +115,30 @@ function debounce(func, delay = 150) {
 document.addEventListener("DOMContentLoaded", async () => {
 
   initAuthDB();
-  try {
-    await loadDataFromSupabase();
-    initRealtimeSubscriptions();
-  } catch (err) {
-    console.warn("Data load error during init:", err);
+  const hasSession = await restoreAuthSession();
+  if (hasSession) {
+    // 로그인 세션이 있으면 데이터를 불러오는 동안 로그인 화면이 다시 보이지 않도록 먼저 숨김
+    const loginOverlayEarly = document.getElementById("login-overlay");
+    if (loginOverlayEarly) {
+      loginOverlayEarly.classList.remove("active");
+      loginOverlayEarly.style.display = "none";
+      loginOverlayEarly.style.visibility = "hidden";
+      loginOverlayEarly.style.opacity = "0";
+      loginOverlayEarly.style.pointerEvents = "none";
+    }
+    await loadAppDataAfterAuth();
   }
 
   checkLoginSession();
+  // 로그인 직후 새로고침된 경우에만 사용 안내 팝업 표시
+  try {
+    if (hasSession && sessionStorage.getItem("warehouse_show_login_prompt") === "1") {
+      sessionStorage.removeItem("warehouse_show_login_prompt");
+      setTimeout(() => {
+        if (typeof showManualLoginPrompt === "function") showManualLoginPrompt();
+      }, 350);
+    }
+  } catch (e) {}
   initFormDate();
   setupDebouncedInputs();
   initRegLocation();
@@ -161,38 +202,69 @@ function invalidateStockCache() {
   cachedStockMap = null;
 }
 
-// --- Auth DB & Session Management ---
+// --- Auth (Supabase 로그인) ---
+// 예전에는 비밀번호를 각 휴대폰의 브라우저에 저장했지만, 이제 Supabase 로그인으로 확인합니다.
 function initAuthDB() {
+  try { localStorage.removeItem("warehouse_user_passwords"); } catch (e) {}
+}
+
+function getLoginIdFromSession(session) {
+  const meta = (session && session.user && session.user.app_metadata) || {};
+  if (meta.login_id) return meta.login_id;
+  const email = (session && session.user && session.user.email) || "";
+  const local = email.split("@")[0];
+  return ALLOWED_USER_IDS.find(id => id.toLowerCase() === local) || local || null;
+}
+
+// 데이터 불러오는 동안 상단에 진행 표시
+function showAppLoading(on) {
+  let el = document.getElementById("app-loading-indicator");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app-loading-indicator";
+    el.innerHTML = '<div class="app-loading-bar"></div><div class="app-loading-pill"><i class="fa-solid fa-rotate fa-spin"></i> 최신 재고 불러오는 중…</div>';
+    document.body.appendChild(el);
+  }
+  el.classList.toggle("active", !!on);
+}
+
+// 로그인 직후 / 자동 로그인 시: 데이터를 불러오고 실시간 연결 시작 (새로고침 없이)
+async function loadAppDataAfterAuth() {
+  showAppLoading(true);
   try {
-    const savedPasswords = localStorage.getItem("warehouse_user_passwords");
-    if (savedPasswords) {
-      userPasswords = JSON.parse(savedPasswords);
-      ALLOWED_USER_IDS.forEach(id => {
-        if (!userPasswords[id]) {
-          userPasswords[id] = INITIAL_PASSWORD;
-        }
-      });
-      saveUserPasswords();
-    } else {
-      userPasswords = {};
-      ALLOWED_USER_IDS.forEach(id => {
-        userPasswords[id] = INITIAL_PASSWORD;
-      });
-      saveUserPasswords();
+    await loadDataFromSupabase();
+    if (!window.__realtimeStarted && typeof initRealtimeSubscriptions === "function") {
+      window.__realtimeStarted = true;
+      initRealtimeSubscriptions();
     }
   } catch (err) {
-    console.error("Auth DB initialization error:", err);
-    userPasswords = {};
-    ALLOWED_USER_IDS.forEach(id => { userPasswords[id] = INITIAL_PASSWORD; });
+    console.warn("Data load error:", err);
+  } finally {
+    showAppLoading(false);
   }
 }
 
-function saveUserPasswords() {
+// 저장된 Supabase 로그인 세션이 있으면 화면 로그인 상태와 맞춥니다.
+async function restoreAuthSession() {
+  if (!supabaseClient || !supabaseClient.auth) return false;
   try {
-    localStorage.setItem("warehouse_user_passwords", JSON.stringify(userPasswords));
+    const { data } = await supabaseClient.auth.getSession();
+    const session = data && data.session;
+    if (session) {
+      const loginId = getLoginIdFromSession(session);
+      if (loginId) {
+        try { sessionStorage.setItem("warehouse_current_user", loginId); } catch (e) {}
+        return true;
+      }
+    }
   } catch (err) {
-    console.error("Failed to save passwords to LocalStorage:", err);
+    console.warn("Auth session restore error:", err);
   }
+  // 세션이 없으면 화면상 로그인 정보도 지워서 로그인 화면이 나오게 함
+  try { sessionStorage.removeItem("warehouse_current_user"); } catch (e) {}
+  currentUser = null;
+  window.currentUser = null;
+  return false;
 }
 
 function checkLoginSession() {
@@ -219,7 +291,7 @@ function checkLoginSession() {
     window.currentUser = sessionUser;
     try {
       sessionStorage.setItem("warehouse_current_user", sessionUser);
-      localStorage.setItem("warehouse_saved_login_id", sessionUser);
+      if (isRememberLoginIdOn()) localStorage.setItem("warehouse_saved_login_id", sessionUser);
     } catch(e) {}
     isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === sessionUser.toLowerCase());
     window.isAdminUser = isAdminUser;
@@ -310,16 +382,19 @@ function checkLoginSession() {
     }
     if (userBadge) userBadge.style.display = "none";
 
-    const savedId = localStorage.getItem("warehouse_saved_login_id");
+    const rememberOn = isRememberLoginIdOn();
+    const savedId = rememberOn ? localStorage.getItem("warehouse_saved_login_id") : null;
     const loginIdElem = document.getElementById("login-id");
     const loginPwElem = document.getElementById("login-pw");
+    const rememberElem = document.getElementById("login-remember");
+    if (rememberElem) rememberElem.checked = rememberOn;
     if (savedId && loginIdElem && !loginIdElem.value) {
       loginIdElem.value = savedId;
     }
     if (loginPwElem) {
       loginPwElem.value = "";
       setTimeout(() => {
-        try { loginPwElem.focus(); } catch(e) {}
+        try { (loginIdElem && !loginIdElem.value ? loginIdElem : loginPwElem).focus(); } catch(e) {}
       }, 150);
     }
     try {
@@ -330,7 +405,7 @@ function checkLoginSession() {
   }
 }
 
-function handleLoginSubmit(e) {
+async function handleLoginSubmit(e) {
   if (e && e.preventDefault) e.preventDefault();
 
   const loginIdElem = document.getElementById("login-id");
@@ -360,10 +435,32 @@ function handleLoginSubmit(e) {
     return;
   }
 
-  const storedPw = userPasswords[matchedId] || userPasswords[rawInputId] || INITIAL_PASSWORD;
+  if (!supabaseClient || !supabaseClient.auth) {
+    showToast("서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.", "danger");
+    return;
+  }
 
-  if (inputPw !== storedPw) {
-    showToast(`비밀번호가 올바르지 않습니다. (기본 비밀번호: ${INITIAL_PASSWORD})`, "danger");
+  const submitBtn = e && e.target && e.target.querySelector ? e.target.querySelector('button[type="submit"]') : null;
+  if (submitBtn) submitBtn.disabled = true;
+  let authError = null;
+  try {
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email: loginIdToEmail(matchedId),
+      password: inputPw
+    });
+    authError = error;
+  } catch (err) {
+    authError = err;
+  }
+  if (submitBtn) submitBtn.disabled = false;
+
+  if (authError) {
+    const msg = String(authError.message || "");
+    if (/invalid login credentials/i.test(msg)) {
+      showToast("아이디 또는 비밀번호가 올바르지 않습니다.", "danger");
+    } else {
+      showToast("로그인 중 오류가 발생했습니다: " + msg, "danger");
+    }
     loginPwElem.focus();
     return;
   }
@@ -372,7 +469,11 @@ function handleLoginSubmit(e) {
   window.currentUser = matchedId;
   try {
     sessionStorage.setItem("warehouse_current_user", matchedId);
-    localStorage.setItem("warehouse_saved_login_id", matchedId);
+    const rememberElem = document.getElementById("login-remember");
+    const remember = rememberElem ? rememberElem.checked : true;
+    localStorage.setItem("warehouse_remember_id", remember ? "1" : "0");
+    if (remember) localStorage.setItem("warehouse_saved_login_id", matchedId);
+    else localStorage.removeItem("warehouse_saved_login_id");
     localStorage.removeItem("warehouse_current_user");
   } catch(e) {}
   isAdminUser = ADMIN_USERS.some(id => id.toLowerCase() === matchedId.toLowerCase());
@@ -402,17 +503,18 @@ function handleLoginSubmit(e) {
     Notification.requestPermission();
   }
 
+  // 로그인한 계정 권한으로 데이터를 불러와 화면을 채움 (새로고침 없이 바로)
+  await loadAppDataAfterAuth();
   checkLoginSession();
-
-  // Show manual login prompt modal
   setTimeout(() => {
-    if (typeof showManualLoginPrompt === "function") {
-      showManualLoginPrompt();
-    }
+    if (typeof showManualLoginPrompt === "function") showManualLoginPrompt();
   }, 350);
 }
 
-function handleLogout() {
+async function handleLogout() {
+  try {
+    if (supabaseClient && supabaseClient.auth) await supabaseClient.auth.signOut();
+  } catch (e) {}
   currentUser = null;
   window.currentUser = null;
   try {
@@ -423,11 +525,21 @@ function handleLogout() {
   isViewerUser = false;
   document.body.classList.remove("is-viewer-mode");
   showToast("로그아웃 되었습니다.", "success");
-  checkLoginSession();
+  // 화면에 남은 데이터를 지우기 위해 새로고침
+  setTimeout(() => { location.reload(); }, 500);
 }
 
 // Reset Password
 function openResetPasswordModal() {
+  // 로그인 화면에 입력해 둔 아이디가 있으면 미리 선택
+  const sel = document.getElementById("reset-id");
+  const loginIdEl = document.getElementById("login-id");
+  const typed = loginIdEl ? loginIdEl.value.trim().toLowerCase() : "";
+  if (sel && typed) {
+    const opt = Array.from(sel.options).find(o => o.value && o.value.toLowerCase() === typed);
+    if (opt) sel.value = opt.value;
+  }
+  ["reset-old-pw", "reset-new-pw"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   document.getElementById("reset-pw-modal").classList.add("active");
 }
 
@@ -435,7 +547,7 @@ function closeResetPasswordModal() {
   document.getElementById("reset-pw-modal").classList.remove("active");
 }
 
-function handleResetPasswordSubmit(e) {
+async function handleResetPasswordSubmit(e) {
   e.preventDefault();
   const selectId = document.getElementById("reset-id").value;
   const oldPw = document.getElementById("reset-old-pw").value.trim();
@@ -445,25 +557,52 @@ function handleResetPasswordSubmit(e) {
     showToast("아이디를 선택해 주세요.", "danger");
     return;
   }
-
-  const currentPw = userPasswords[selectId] || INITIAL_PASSWORD;
-
-  if (oldPw !== currentPw) {
-    showToast("현재 비밀번호가 일치하지 않습니다.", "danger");
+  if (SHARED_ACCOUNT_IDS.includes(selectId.toLowerCase())) {
+    showToast("여러 명이 함께 쓰는 공용 계정은 비밀번호를 바꿀 수 없습니다.", "danger");
     return;
   }
-
   if (!newPw) {
     showToast("새 비밀번호를 입력해 주세요.", "danger");
     return;
   }
+  if (newPw.length < 6) {
+    showToast("새 비밀번호는 6자 이상이어야 합니다.", "danger");
+    return;
+  }
+  if (!supabaseClient || !supabaseClient.auth) {
+    showToast("서버에 연결할 수 없습니다.", "danger");
+    return;
+  }
 
-  userPasswords[selectId] = newPw;
-  saveUserPasswords();
+  // 1) 현재 비밀번호 확인 (해당 아이디로 로그인)
+  const { error: signErr } = await supabaseClient.auth.signInWithPassword({
+    email: loginIdToEmail(selectId),
+    password: oldPw
+  });
+  if (signErr) {
+    showToast("현재 비밀번호가 일치하지 않습니다.", "danger");
+    return;
+  }
+  // 2) 새 비밀번호로 변경
+  const { error: updErr } = await supabaseClient.auth.updateUser({ password: newPw });
+  if (updErr) {
+    const msg = String(updErr.message || "");
+    showToast(/same/i.test(msg) ? "현재와 다른 비밀번호를 입력해 주세요." : "비밀번호 변경 실패: " + msg, "danger");
+    return;
+  }
+
+  // 비밀번호 확인 과정에서 로그인된 상태를 정리하고, 로그인 화면에 새 비밀번호를 바로 채워 줌
+  try { await supabaseClient.auth.signOut(); } catch (err) {}
+  try { sessionStorage.removeItem("warehouse_current_user"); } catch (err) {}
+  ["reset-old-pw", "reset-new-pw"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   closeResetPasswordModal();
-
-  showToast(`'${selectId}'의 비밀번호가 성공적으로 변경되었습니다!`, "success");
-  document.getElementById("login-pw").value = newPw;
+  const idEl = document.getElementById("login-id");
+  if (idEl) idEl.value = selectId;
+  const pwEl = document.getElementById("login-pw");
+  if (pwEl) pwEl.value = newPw;
+  showToast(`'${selectId}' 비밀번호가 변경되었습니다. 새 비밀번호가 입력되어 있으니 로그인을 눌러 주세요.`, "success");
+  const loginBtn = document.querySelector("#login-form .btn-login");
+  if (loginBtn) setTimeout(() => { try { loginBtn.focus(); } catch (e) {} }, 100);
 }
 
 // ==========================================
@@ -659,10 +798,75 @@ function initManualModalEvents() {
   });
 }
 
+// --- Paged fetch helper: Supabase returns at most 1,000 rows per request ---
+// Fetches every row of a table in 1,000-row pages (in parallel) and de-duplicates by id.
+async function fetchAllRows(table, orderCol, ascending = false) {
+  const PAGE = 1000;
+  const { count, error: countErr } = await supabaseClient
+    .from(table)
+    .select("*", { count: "exact", head: true });
+  if (countErr) return { data: null, error: countErr };
+  const total = typeof count === "number" ? count : 0;
+  // +1 page of headroom for rows inserted while loading
+  const pages = Math.max(1, Math.ceil(total / PAGE) + 1);
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) => {
+      let q = supabaseClient.from(table).select("*").order(orderCol, { ascending });
+      if (orderCol !== "id") q = q.order("id", { ascending });
+      return q.range(i * PAGE, i * PAGE + PAGE - 1);
+    })
+  );
+  const failed = results.find(r => r.error);
+  if (failed) return { data: null, error: failed.error };
+  const seen = new Set();
+  const data = [];
+  const addRows = rows => (rows || []).forEach(row => {
+    const key = row.id !== undefined && row.id !== null ? String(row.id) : null;
+    if (key !== null) {
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
+    data.push(row);
+  });
+  results.forEach(r => addRows(r.data));
+  // 서버가 한 번에 1,000건보다 적게 주도록 설정된 경우 등: 받은 건수가 전체보다 적으면 끝까지 이어서 받기
+  if (data.length < total) {
+    const serverPage = Math.max(1, (results[0] && results[0].data ? results[0].data.length : PAGE) || PAGE);
+    let offset = 0, guard = 0;
+    while (data.length < total && guard < 500) {
+      guard++;
+      let q = supabaseClient.from(table).select("*").order(orderCol, { ascending });
+      if (orderCol !== "id") q = q.order("id", { ascending });
+      const r = await q.range(offset, offset + serverPage - 1);
+      if (r.error) return { data: null, error: r.error };
+      if (!r.data || r.data.length === 0) break;
+      addRows(r.data);
+      offset += r.data.length;
+    }
+    if (data.length < total) {
+      return { data: null, error: new Error(`${table}: ${total}건 중 ${data.length}건만 받음`) };
+    }
+  }
+  return { data, error: null };
+}
+window.fetchAllRows = fetchAllRows;
+
 // --- Storage & Data Load Helpers ---
 async function loadDataFromSupabase() {
+  // 모든 테이블을 동시에 요청해 두고(병렬), 아래에서 순서대로 결과를 처리합니다.
+  let pMfaq = null;
+  // 불러오기에 실패하면 휴대폰에 남은 옛 사본 대신, 직전에 서버에서 받은 데이터를 유지하고 경고를 띄웁니다.
+  window.__dataLoadIncomplete = false;
+  const prevGood = window.__serverDataLoaded
+    ? { masterCatalog: masterCatalog, historyLogs: historyLogs, storeInboundLogs: storeInboundLogs }
+    : null;
   if (supabaseClient) {
     try {
+      const safeFetch = p => p.catch(err => ({ data: null, error: err }));
+      const pHistory = safeFetch(fetchAllRows("inventory_logs", "id", false));
+      const pOrders = safeFetch(fetchAllRows("order_requests", "id", false));
+      const pStoreInbound = safeFetch(fetchAllRows("store_inbound_logs", "id", false));
+      pMfaq = safeFetch(fetchAllRows("mfaq_logs", "last_updated", false));
       // Chunked master catalog fetch to retrieve all 13,800+ records (bypassing PostgREST 1,000 row limit)
       let catalog = [];
       try {
@@ -725,17 +929,14 @@ async function loadDataFromSupabase() {
         });
         masterCatalog = Array.from(catalogMap.values());
       } else {
-        const savedCatalog = localStorage.getItem("warehouse_master_catalog");
+        window.__dataLoadIncomplete = true; const savedCatalog = localStorage.getItem("warehouse_master_catalog");
         masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
       }
 
       rebuildMasterCatalogMap();
 
       const { data: history, error: histErr } =
-        await supabaseClient
-          .from("inventory_logs")
-          .select("*")
-          .order("id", { ascending: false });
+        await pHistory;
 
       if (!histErr && history) {
         historyLogs = history.map(row => {
@@ -758,15 +959,12 @@ async function loadDataFromSupabase() {
           };
         });
       } else {
-        const savedHistory = localStorage.getItem("warehouse_history_logs");
+        window.__dataLoadIncomplete = true; const savedHistory = localStorage.getItem("warehouse_history_logs");
         historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
       }
 
       const { data: orders, error: ordErr } =
-        await supabaseClient
-          .from("order_requests")
-          .select("*")
-          .order("id", { ascending: false });
+        await pOrders;
 
       if (!ordErr && orders) {
         orderLogs = orders.map(row => {
@@ -793,10 +991,7 @@ async function loadDataFromSupabase() {
         orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
       }
       const { data: storeInbounds, error: storeInboundErr } =
-        await supabaseClient
-          .from("store_inbound_logs")
-          .select("*")
-          .order("id", { ascending: false });
+        await pStoreInbound;
 
       if (!storeInboundErr && storeInbounds) {
         storeInboundLogs = storeInbounds.map(row => {
@@ -819,14 +1014,15 @@ async function loadDataFromSupabase() {
           };
         });
       } else {
+        window.__dataLoadIncomplete = true;
         const savedStore = localStorage.getItem("warehouse_store_inbound_logs");
         storeInboundLogs = savedStore ? JSON.parse(savedStore) : [];
       }
     } catch (err) {
       console.warn("Supabase data load error, fallback to local storage:", err);
-      const savedCatalog = localStorage.getItem("warehouse_master_catalog");
+      window.__dataLoadIncomplete = true; const savedCatalog = localStorage.getItem("warehouse_master_catalog");
       masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
-      const savedHistory = localStorage.getItem("warehouse_history_logs");
+      window.__dataLoadIncomplete = true; const savedHistory = localStorage.getItem("warehouse_history_logs");
       historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
       const savedOrders = localStorage.getItem("warehouse_order_logs");
       orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
@@ -834,9 +1030,9 @@ async function loadDataFromSupabase() {
       storeInboundLogs = savedStore ? JSON.parse(savedStore) : [];
     }
   } else {
-    const savedCatalog = localStorage.getItem("warehouse_master_catalog");
+    window.__dataLoadIncomplete = true; const savedCatalog = localStorage.getItem("warehouse_master_catalog");
     masterCatalog = savedCatalog ? JSON.parse(savedCatalog) : [...defaultMasterCatalog];
-    const savedHistory = localStorage.getItem("warehouse_history_logs");
+    window.__dataLoadIncomplete = true; const savedHistory = localStorage.getItem("warehouse_history_logs");
     historyLogs = savedHistory ? JSON.parse(savedHistory) : [...defaultHistoryLogs];
     const savedOrders = localStorage.getItem("warehouse_order_logs");
     orderLogs = savedOrders ? JSON.parse(savedOrders) : [...defaultOrderLogs];
@@ -846,10 +1042,7 @@ async function loadDataFromSupabase() {
 
   if (supabaseClient) {
     try {
-      const { data: mfaq, error: mfaqErr } = await supabaseClient
-        .from("mfaq_logs")
-        .select("*")
-        .order("last_updated", { ascending: false });
+      const { data: mfaq, error: mfaqErr } = await (pMfaq || fetchAllRows("mfaq_logs", "last_updated", false));
 
       if (!mfaqErr && mfaq) {
         const noticeRows = mfaq.filter(r => r.category === "공지사항" || String(r.id).startsWith("notice_"));
@@ -857,7 +1050,7 @@ async function loadDataFromSupabase() {
         if (typeof window.processLoadedNoticeLogs === "function") {
           window.processLoadedNoticeLogs(noticeRows);
         }
-        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_"));
+        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_") && !isMfaqSystemRow(r));
         let localData = [];
         try {
           const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");
@@ -915,12 +1108,27 @@ async function loadDataFromSupabase() {
     mfaqLogs = savedMfaq ? JSON.parse(savedMfaq) : [];
   }
 
+  if (window.__dataLoadIncomplete) {
+    if (prevGood) {
+      masterCatalog = prevGood.masterCatalog;
+      historyLogs = prevGood.historyLogs;
+      storeInboundLogs = prevGood.storeInboundLogs;
+    }
+    if (typeof showToast === "function") {
+      showToast("⚠️ 서버에서 최신 기록을 다 불러오지 못했습니다. 지금 보이는 재고가 최신이 아닐 수 있어요. 인터넷 연결 후 상단 새로고침을 눌러 주세요.", "danger");
+    }
+    window.__staleData = true;
+  } else {
+    window.__serverDataLoaded = true;
+    window.__staleData = false;
+  }
+  // 이전에 휴대폰에 저장된 목록에 시스템용 행이 섞여 있어도 MFAQ에서는 빼기
+  if (Array.isArray(mfaqLogs)) mfaqLogs = mfaqLogs.filter(r => !isMfaqSystemRow(r));
   rebuildMasterCatalogMap();
   invalidateStockCache();
   updateMfaqBadge();
-  if (typeof window.checkAndAutoCleanNegativeStock === 'function') {
-    window.checkAndAutoCleanNegativeStock();
-  }
+  // [자동 삭제 중지] 예전에는 데이터를 불러올 때마다 마이너스 재고 품목의 입출고 기록을 자동으로 전부 삭제했습니다.
+  // 정리가 필요하면 화면의 "마이너스 재고 정리" 버튼(확인 창 있음)을 사용하세요.
 }
 
 function saveMasterCatalog() {
@@ -1440,7 +1648,7 @@ async function handleAddRegCart(bypassUnregisteredCheck = false, bypassNegativeS
   if (type === "입고" && (!locVal || locVal === "미지정")) {
     if (typeof playWarningBeep === 'function') playWarningBeep();
     if (typeof playWarningHaptic === 'function') playWarningHaptic();
-    showToast("입고 시 보관할 창고 구역(B1, B2, B2 램프, B3)을 선택해 주세요! 📍", "warning");
+    showToast("입고 시 보관할 창고 구역(B1, B2, 램프, B3)을 선택해 주세요! 📍", "warning");
     if (locInput) {
       locInput.style.border = "2px solid #ef4444";
       locInput.focus();
@@ -1507,7 +1715,7 @@ async function handleSingleRegSave() {
   if (type === "입고" && (!locVal || locVal === "미지정")) {
     if (typeof playWarningBeep === 'function') playWarningBeep();
     if (typeof playWarningHaptic === 'function') playWarningHaptic();
-    showToast("입고 시 보관할 창고 구역(B1, B2, B2 램프, B3)을 선택해 주세요! 📍", "warning");
+    showToast("입고 시 보관할 창고 구역(B1, B2, 램프, B3)을 선택해 주세요! 📍", "warning");
     if (locInput) {
       locInput.style.border = "2px solid #ef4444";
       locInput.focus();
@@ -2265,6 +2473,7 @@ function renderStockLookup() {
               <span style="color:#64748b; font-weight:700; white-space:nowrap;">업데이트:</span>
               <strong style="color:#334155; font-weight:700; white-space:nowrap;">${updateInfo.text}</strong>
             </span>
+            ${typeof window.getCycleCheckedBadgeHtml === 'function' ? window.getCycleCheckedBadgeHtml(item.artNo) : ''}
             ${updateInfo.user ? `
               <span style="color:#cbd5e1;">·</span>
               <span style="display:inline-flex; align-items:center; gap:2px; background:#f8fafc; color:#334155; font-size:9.5px; font-weight:700; padding:0 4px; border-radius:3px; border:1px solid #e2e8f0; white-space:nowrap;">
@@ -3192,6 +3401,15 @@ function handleRealtimeStoreInbound(payload) {
   }
 }
 
+// MFAQ 표(mfaq_logs)에 함께 저장되는 시스템용 행(방문자 통계, 사이클카운팅 기록)은 MFAQ 목록에서 숨김
+function isMfaqSystemRow(r) {
+  if (!r) return false;
+  const id = String(r.id || "");
+  return id === "site_visitor_stats" || id === "cycle_counting_records" ||
+         r.category === "방문자통계" || r.category === "cycle_counting_records";
+}
+window.isMfaqSystemRow = isMfaqSystemRow;
+
 function handleRealtimeMfaq(payload) {
   const { eventType, new: newRow, old: oldRow } = payload;
   const row = newRow || oldRow;
@@ -3201,6 +3419,7 @@ function handleRealtimeMfaq(payload) {
     }
     return;
   }
+  if (isMfaqSystemRow(row)) return;
   if (eventType === 'INSERT') {
     let metaUser = "";
     let metaTap = "";
@@ -3315,7 +3534,14 @@ function handleRealtimeInventory(payload) {
   }
   
   if (changed) {
-    if (typeof saveHistoryLogs === 'function') saveHistoryLogs();
+    // NOTE: saveHistoryLogs() inserts a row into the DB. Calling it here (with no argument)
+    // re-sent an empty insert for every realtime event on every device. Only refresh the
+    // local cache instead (debounced in perf.js).
+    if (typeof window.scheduleHistoryCacheSave === 'function') {
+      window.scheduleHistoryCacheSave();
+    } else {
+      try { localStorage.setItem("warehouse_history_logs", JSON.stringify(historyLogs)); } catch (e) {}
+    }
     if (typeof invalidateStockCache === 'function') invalidateStockCache();
     try {
       if (typeof renderStockLookup === 'function') renderStockLookup();
@@ -3408,7 +3634,9 @@ function handleRealtimeOrder(payload) {
   }
 
   try {
-    saveOrderLogs();
+    // saveOrderLogs() with no argument sent an empty insert to the DB on every realtime event
+    // (and showed a warning toast to viewer accounts). Only refresh the local cache.
+    try { localStorage.setItem("warehouse_order_logs", JSON.stringify(orderLogs)); } catch (e2) {}
     if (typeof updateOrderBadge === 'function') updateOrderBadge();
     const activeTab = document.querySelector('.tab-page.active');
     if (activeTab && (activeTab.id === 'tab-order' || activeTab.id === 'tab-picklist')) {
@@ -3674,17 +3902,14 @@ async function refreshMfaqData() {
     if (btn) btn.classList.add("fa-spin");
     
     try {
-      const { data: mfaq, error: mfaqErr } = await supabaseClient
-        .from("mfaq_logs")
-        .select("*")
-        .order("last_updated", { ascending: false });
+      const { data: mfaq, error: mfaqErr } = await fetchAllRows("mfaq_logs", "last_updated", false);
 
       if (!mfaqErr && mfaq) {
         const noticeRows = mfaq.filter(r => r.category === "공지사항" || String(r.id).startsWith("notice_"));
         if (typeof window.processLoadedNoticeLogs === "function") {
           window.processLoadedNoticeLogs(noticeRows);
         }
-        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_") && r.category !== "방문자통계" && r.id !== "site_visitor_stats");
+        const customerMfaqRows = mfaq.filter(r => r.category !== "공지사항" && !String(r.id).startsWith("notice_") && !isMfaqSystemRow(r));
         let localData = [];
         try {
           const savedMfaq = localStorage.getItem("warehouse_mfaq_logs");

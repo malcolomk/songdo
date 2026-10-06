@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>세일즈 창고 입출고 & 재고 관리</title>
   
-  <!-- Google Fonts: Inter & Noto Sans KR & FontAwesome -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- 폰트: Pretendard (영문·숫자는 Inter 기반, 필요한 글자만 내려받는 방식) -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- SheetJS for Excel Import/Export -->
@@ -16,7 +15,8 @@
   <!-- HTML5 QR & Barcode Scanner -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
-  <link rel="stylesheet" href="style.css?v=2.3.6">
+  <link rel="stylesheet" href="style.css?v=2.5.0">
+  <link rel="stylesheet" href="mobile.css?v=2.6.0">
   <style>
   .selected-card {
     border: 2px solid #18181b !important;
@@ -173,79 +173,49 @@
       <span class="autumn-leaf leaf-6">🍁</span>
       <span class="autumn-leaf leaf-7">🍂</span>
       <span class="autumn-leaf leaf-8">🍁</span>
-      <span class="autumn-leaf leaf-9">🍂</span>
-      <span class="autumn-leaf leaf-10">🍁</span>
-      <span class="autumn-leaf leaf-11">🌾</span>
-      <span class="autumn-leaf leaf-12">🍂</span>
-      <span class="autumn-leaf leaf-13">🍁</span>
-      <span class="autumn-leaf leaf-14">🍂</span>
-      <span class="autumn-leaf leaf-15">🍁</span>
-      <span class="autumn-leaf leaf-16">🌾</span>
-      <span class="autumn-leaf leaf-17">🍂</span>
-      <span class="autumn-leaf leaf-18">🍁</span>
     </div>
 
     <div class="login-card">
-      <div class="autumn-edition-badge">
-        <i class="fa-solid fa-leaf"></i> 2026 가을 시즌 🍁
-      </div>
-      <div class="login-header">
-        <div class="login-logo">
-          <i class="fa-solid fa-boxes-stacked"></i>
+      <div class="login-brand">
+        <div class="login-logo"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <div class="login-brand-text">
+          <span class="autumn-edition-badge">🍁 2026 가을</span>
+          <h2>세일즈 창고</h2>
+          <p>송도 스토어 입출고 · 재고 관리</p>
         </div>
-        <h2>세일즈 창고 로그인</h2>
-        <p>허가된 아이디와 비밀번호로 로그인하세요 🍂</p>
       </div>
 
-      <form id="login-form" onsubmit="handleLoginSubmit(event)">
-        <div class="form-group">
-          <label for="login-id"><i class="fa-solid fa-user" style="color:#c2410c;"></i> 아이디</label>
-          <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required autocomplete="username" class="input-control">
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" autocomplete="on">
+        <label class="login-label" for="login-id">아이디</label>
+        <div class="login-input-wrap">
+          <i class="fa-solid fa-user"></i>
+          <input type="text" id="login-id" placeholder="네트워크 아이디 (예: jipar5)" required autocomplete="username" autocapitalize="off" spellcheck="false" class="input-control">
         </div>
 
-        <div class="form-group">
-          <label for="login-pw"><i class="fa-solid fa-lock" style="color:#c2410c;"></i> 비밀번호</label>
+        <label class="login-label" for="login-pw">비밀번호</label>
+        <div class="login-input-wrap">
+          <i class="fa-solid fa-lock"></i>
           <input type="password" id="login-pw" placeholder="비밀번호 입력" required autocomplete="current-password" class="input-control">
+          <button type="button" class="login-pw-toggle" onclick="toggleLoginPwVisible(this)" aria-label="비밀번호 보기"><i class="fa-solid fa-eye"></i></button>
+        </div>
+
+        <div class="login-options">
+          <label class="login-remember"><input type="checkbox" id="login-remember" checked> 아이디 기억하기</label>
+          <button type="button" class="btn-link" onclick="openResetPasswordModal()">비밀번호 재설정</button>
         </div>
 
         <button type="submit" class="btn-submit btn-login">
-          <i class="fa-solid fa-right-to-bracket"></i> 로그인
+          로그인 <i class="fa-solid fa-arrow-right"></i>
         </button>
       </form>
 
-      <div class="login-footer">
-        <button type="button" class="btn-link" onclick="openResetPasswordModal()">
-          <i class="fa-solid fa-key"></i> 비밀번호 재설정
-        </button>
-      </div>
-
-      <div class="allowed-users-info" style="text-align:left; padding:12px 14px; background:#fffaf5; border:1px solid #fed7aa; border-radius:12px; margin-top:14px; display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <span style="font-size:11.5px; color:#9a3412; font-weight:700;">
-            <i class="fa-solid fa-id-badge" style="color:#c2410c; margin-right:4px;"></i> 네트워크 아이디
-          </span>
-          <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">예시: jipar5</code>
+      <div class="login-temp-pw">
+        <div class="login-temp-pw-icon"><i class="fa-solid fa-key"></i></div>
+        <div class="login-temp-pw-body">
+          <b>처음 로그인하시나요?</b>
+          <span>임시 비밀번호 <button type="button" class="login-temp-pw-code" onclick="fillTempLoginPw()" title="눌러서 입력">songdo522</button></span>
+          <small>로그인 후 '비밀번호 재설정'에서 본인 비밀번호로 바꿔 주세요.</small>
         </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; border-top:1px dashed #fed7aa; padding-top:6px;">
-          <span style="font-size:11.5px; color:#9a3412; font-weight:700;">
-            <i class="fa-solid fa-users" style="color:#ea580c; margin-right:4px;"></i> 게스트 아이디
-          </span>
-          <div style="display:flex; gap:4px;">
-            <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">guest1</code>
-            <code style="background:#ffedd5; padding:1px 6px; border-radius:4px; font-weight:800; font-size:11px; color:#7c2d12;">guest2</code>
-          </div>
-        </div>
-      </div>
-
-      <!-- 로그인 화면 방문자수 카운터 -->
-      <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; margin-top:10px; font-size:11px; font-weight:700; color:#78350f;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <i class="fa-solid fa-users" style="color:#ea580c;"></i> 오늘 <strong class="val-visitor-today" style="color:#c2410c; font-weight:900;">18</strong>명
-        </span>
-        <span style="color:#fed7aa;">|</span>
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <i class="fa-solid fa-chart-line" style="color:#ea580c;"></i> 누적 <strong class="val-visitor-total" style="color:#9a3412; font-weight:900;">1,425</strong>명
-        </span>
       </div>
     </div>
   </div>
@@ -256,7 +226,7 @@
       <div class="logo-area">
         <i class="fa-solid fa-boxes-stacked logo-icon" style="color:#c2410c;"></i>
         <div>
-          <h1 class="app-title" style="display:flex; align-items:center; gap:4px;">세일즈 창고 입출고 <span style="font-size:12px;">🍁</span></h1>
+          <h1 class="app-title" style="display:flex; align-items:center; gap:4px;">세일즈 창고<span class="title-long">&nbsp;입출고</span> <span style="font-size:12px;">🍁</span></h1>
           <span class="app-subtitle">모바일 재고 관리 시스템</span>
         </div>
       </div>
@@ -399,7 +369,7 @@
               <input type="text" id="reg-location" placeholder="직접입력 또는 선택" class="input-control" style="font-size:12.5px; flex:1; min-width:60px; height:38px; padding:0 8px;">
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B1')">B1</button>
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B2')">B2</button>
-              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B2 램프')" style="padding:0 6px; font-size:11.5px;">B2 램프</button>
+              <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('램프')" style="padding:0 6px; font-size:11.5px;">램프</button>
               <button type="button" class="btn-secondary btn-loc-choice" onclick="toggleRegLocation('B3')">B3</button>
             </div>
           </div>
@@ -435,7 +405,7 @@
         </div>
       </div>
 
-      <!-- Realtime Warehouse Zone Dashboard (B1 / B2 / B2 램프 / B3 / 미지정 현황 카드) -->
+      <!-- Realtime Warehouse Zone Dashboard (B1 / B2 / 램프 / B3 / 미지정 현황 카드) -->
       <div id="stock-location-dashboard" style="margin: 8px 0 10px 0;">
         <!-- Rendered dynamically by renderStockLocationDashboard() -->
       </div>
@@ -868,88 +838,94 @@
 
     <section id="tab-menu" class="tab-page">
       <div style="padding: 2px 0 20px 0;">
-        <!-- Realtime Warehouse Zone Summary Widget for Menu Tab -->
-        <div id="menu-location-summary-widget" style="margin-bottom:12px;">
+        <!-- ① 오늘 할 일: 아침에 가장 먼저 처리할 업무 -->
+        <div class="menu-section-title">
+          <span><i class="fa-solid fa-sun"></i> 오늘 할 일</span>
+          <span id="menu-today-date" class="menu-section-sub"></span>
+        </div>
+        <div class="menu-task-list">
+          <!-- 매장 입고 (모든 계정 사용 가능) -->
+          <a class="menu-task" id="menu-item-store-inbound" onclick="handleStoreInboundMenuClick(document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-task-icon" style="background:#eff6ff; color:#0058a3;"><i class="fa-solid fa-barcode"></i></div>
+            <div class="menu-task-body">
+              <div class="menu-task-title">매장 입고 <span id="badge-store-inbound-lock" class="role-badge menu-task-chip">🚚 매장 직송</span></div>
+              <div class="menu-task-sub" id="menu-task-store-sub">바코드 스캔 · 아침 입고</div>
+            </div>
+            <span id="badge-store-inbound" class="nav-badge" style="display:none;">0</span>
+            <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
+          </a>
+
+          <!-- 송도 MFAQ -->
+          <a class="menu-task" onclick="switchTab('mfaq', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-task-icon" style="background:#ecfdf5; color:#059669;"><i class="fa-solid fa-clipboard-question"></i></div>
+            <div class="menu-task-body">
+              <div class="menu-task-title">송도 MFAQ</div>
+              <div class="menu-task-sub" id="menu-task-mfaq-sub">매장에서 자주 묻는 질문</div>
+            </div>
+            <span id="badge-mfaq" class="nav-badge" style="display:none;">0</span>
+            <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
+          </a>
+
+          <!-- Test Buy (매장 전시품 전시 여부 점검) -->
+          <a class="menu-task" id="menu-item-testbuy" onclick="openDevNotice('Test Buy', '매장 전시품이 제대로 전시되어 있는지 점검하고 기록하는 기능입니다.')">
+            <div class="menu-task-icon" style="background:#fdf4ff; color:#a21caf;"><i class="fa-solid fa-couch"></i></div>
+            <div class="menu-task-body">
+              <div class="menu-task-title">Test Buy <span class="menu-dev-chip">개발 중</span></div>
+              <div class="menu-task-sub" id="menu-task-testbuy-sub">매장 전시품 전시 여부 점검 · 곧 오픈</div>
+            </div>
+            <span id="badge-testbuy" class="nav-badge" style="display:none;">0</span>
+            <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
+          </a>
+        </div>
+
+        <!-- ② 구역별 창고 재고 현황 -->
+        <div id="menu-location-summary-widget" style="margin:14px 0 4px 0;">
           <!-- Rendered dynamically by renderMenuLocationWidget() -->
         </div>
 
-        <div class="menu-grid" style="padding: 0;">
-          <!-- 1. 매장 입고 (모든 계정 사용 가능) -->
-          <a class="menu-item" id="menu-item-store-inbound" onclick="handleStoreInboundMenuClick(document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
-              <i class="fa-solid fa-barcode"></i>
+        <!-- 재고 이상 경고 (마이너스 재고 / 위치 미지정) — 문제가 있을 때만 표시 -->
+        <div class="menu-task menu-task-alert" id="menu-task-alert" style="display:none; margin-top:12px;">
+          <div class="menu-task-icon" style="background:#fff1f2; color:#e11d48;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="menu-task-body">
+            <div class="menu-task-title">재고 이상 확인</div>
+            <div class="menu-alert-chips">
+              <button type="button" id="menu-alert-negative" class="menu-alert-chip neg" onclick="openMenuStockAlert('negative')">마이너스 <b>0</b>종</button>
+              <button type="button" id="menu-alert-noloc" class="menu-alert-chip noloc" onclick="openMenuStockAlert('noloc')">위치 미지정 <b>0</b>종</button>
             </div>
-            <span class="menu-text">매장 입고</span>
-            <span class="menu-subtext">바코드 스캔 · 아침 입고</span>
-            <span id="badge-store-inbound-lock" class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#eff6ff; color:#0058a3; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">🚚 매장 직송</span>
-            <span id="badge-store-inbound" class="nav-badge" style="display:none; background:#0058a3;">0</span>
-          </a>
+          </div>
+        </div>
 
-          <!-- 2. 창고 챙기기 -->
-          <a class="menu-item" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#fff1f2; color:#e11d48;">
-              <i class="fa-solid fa-box-open"></i>
-            </div>
-            <span class="menu-text">창고 챙기기</span>
-            <span class="menu-subtext">대기열 · 출고 처리</span>
+        <!-- ③ 기능 바로가기 -->
+        <div class="menu-section-title" style="margin-top:14px;">
+          <span><i class="fa-solid fa-grip"></i> 바로가기</span>
+        </div>
+        <div class="menu-tile-grid">
+          <a class="menu-tile" onclick="switchTab('picklist', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-tile-icon" style="background:#fff1f2; color:#e11d48;"><i class="fa-solid fa-box-open"></i></div>
+            <span class="menu-tile-text">창고 챙기기</span>
             <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
           </a>
-
-          <!-- 3. 재고 조회 -->
-          <a class="menu-item" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
-            <div class="menu-icon-box" style="background:#eff6ff; color:#2563eb;">
-              <i class="fa-solid fa-warehouse"></i>
-            </div>
-            <span class="menu-text">재고 조회</span>
-            <span class="menu-subtext">위치 · 수량 검색</span>
+          <a class="menu-tile" id="menu-item-cycle-counting" onclick="openCycleCountingModal()">
+            <div class="menu-tile-icon" style="background:#ffedd5; color:#ea580c;"><i class="fa-solid fa-clipboard-check"></i></div>
+            <span class="menu-tile-text">Cycle Counting</span>
+            <span id="menu-task-cycle-count" class="menu-tile-count">0/5</span>
           </a>
-
-          <!-- 4. Inventory -->
-          <a class="menu-item" onclick="switchTab('audit', document.querySelector('.bottom-nav .nav-item:first-child'))">
-            <div class="menu-icon-box" style="background:#f5f3ff; color:#7c3aed;">
-              <i class="fa-solid fa-user-secret"></i>
-            </div>
-            <span class="menu-text">Inventory</span>
-            <span class="menu-subtext">실재고 등록 · 조회</span>
+          <a class="menu-tile" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-tile-icon" style="background:#eff6ff; color:#2563eb;"><i class="fa-solid fa-warehouse"></i></div>
+            <span class="menu-tile-text">재고 조회</span>
           </a>
-
-          <!-- 5. 송도 MFAQ -->
-          <a class="menu-item" onclick="switchTab('mfaq', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#ecfdf5; color:#059669;">
-              <i class="fa-solid fa-clipboard-question"></i>
-            </div>
-            <span class="menu-text">송도 MFAQ</span>
-            <span class="menu-subtext">자주 묻는 질문</span>
-            <span id="badge-mfaq" class="nav-badge" style="display:none;">0</span>
-          </a>
-
-          <!-- 6. 오더 요청 -->
-          <a class="menu-item" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))" style="position:relative;">
-            <div class="menu-icon-box" style="background:#eef2ff; color:#4f46e5;">
-              <i class="fa-solid fa-cart-flatbed"></i>
-            </div>
-            <span class="menu-text">오더 요청</span>
-            <span class="menu-subtext">기존 및 신규 요청 접수</span>
+          <a class="menu-tile" onclick="switchTab('order', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-tile-icon" style="background:#eef2ff; color:#4f46e5;"><i class="fa-solid fa-cart-flatbed"></i></div>
+            <span class="menu-tile-text">오더 요청</span>
             <span id="badge-order" class="nav-badge" style="display:none;">0</span>
           </a>
-
-          <!-- 7. 사용자 매뉴얼 -->
-          <a class="menu-item" onclick="if(typeof openManualModal === 'function') openManualModal()" style="position:relative; border-color:#bfdbfe; background:linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);">
-            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
-              <i class="fa-solid fa-book-open"></i>
-            </div>
-            <span class="menu-text" style="color:#0058a3; font-weight:800;">사용자 매뉴얼</span>
-            <span class="menu-subtext">슬라이드 가이드 · 사용법</span>
-            <span class="role-badge" style="display:inline-block; position:absolute; top:8px; right:8px; font-size:9px; padding:1px 5px; background:#dbeafe; color:#1e40af; border-radius:6px; font-weight:800; border:1px solid #bfdbfe;">📘 가이드</span>
+          <a class="menu-tile" onclick="switchTab('audit', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-tile-icon" style="background:#f5f3ff; color:#7c3aed;"><i class="fa-solid fa-user-secret"></i></div>
+            <span class="menu-tile-text">Inventory</span>
           </a>
-
-          <!-- 8. 공지사항 & 업데이트 -->
-          <a class="menu-item" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child')); if(typeof renderNoticeBoard==='function') renderNoticeBoard();" style="position:relative;">
-            <div class="menu-icon-box" style="background:#eff6ff; color:#0058a3;">
-              <i class="fa-solid fa-bullhorn"></i>
-            </div>
-            <span class="menu-text">공지사항 & 업데이트</span>
-            <span class="menu-subtext">공지 및 시스템 내역</span>
+          <a class="menu-tile" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child')); if(typeof renderNoticeBoard==='function') renderNoticeBoard();">
+            <div class="menu-tile-icon" style="background:#fff7ed; color:#c2410c;"><i class="fa-solid fa-bullhorn"></i></div>
+            <span class="menu-tile-text">공지사항</span>
           </a>
         </div>
 
@@ -1001,6 +977,52 @@
             <i class="fa-solid fa-bug" style="color:#ef4444; margin-right:4px;"></i> 버그 발견 시 지인에게로 문의
           </div>
         </details>
+      </div>
+    </section>
+
+    <!-- TAB: Test Buy (매장 전시품 전시 여부 점검) -->
+    <section id="tab-testbuy" class="tab-page">
+      <div class="card-box tb-card">
+        <div class="tb-head">
+          <h2><i class="fa-solid fa-couch"></i> Test Buy <small>전시품 점검</small></h2>
+          <div class="tb-head-actions">
+            <button type="button" class="tb-btn-ghost" onclick="TestBuy.load(true)" title="새로고침"><i class="fa-solid fa-rotate-right"></i></button>
+            <button type="button" class="tb-btn-ghost" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))"><i class="fa-solid fa-arrow-left"></i> 메뉴</button>
+          </div>
+        </div>
+
+        <div class="tb-summary">
+          <button type="button" class="tb-stat" data-filter="today" onclick="TestBuy.setFilter('today')"><b id="tb-stat-today">0</b><span>오늘 점검</span></button>
+          <button type="button" class="tb-stat bad" data-filter="open" onclick="TestBuy.setFilter('open')"><b id="tb-stat-open">0</b><span>미전시·이상</span></button>
+          <button type="button" class="tb-stat" data-filter="all" onclick="TestBuy.setFilter('all')"><b id="tb-stat-all">0</b><span>최근 90일</span></button>
+        </div>
+
+        <form id="tb-form" class="tb-form viewer-hide" onsubmit="TestBuy.submit(event)">
+          <label class="tb-label" for="tb-artno">품번 / 품명</label>
+          <input type="text" id="tb-artno" class="input-control" placeholder="품번 또는 품명 일부 입력" autocomplete="off" oninput="TestBuy.onArtInput()" inputmode="search">
+          <div id="tb-suggest" class="tb-suggest"></div>
+          <div id="tb-picked" class="tb-picked" style="display:none;"></div>
+
+          <label class="tb-label" for="tb-area">매장 위치 <span class="tb-opt">(선택)</span></label>
+          <input type="text" id="tb-area" class="input-control" placeholder="예: 쇼룸 거실, 마켓홀 주방" list="tb-area-list">
+          <datalist id="tb-area-list"></datalist>
+
+          <label class="tb-label">전시 상태</label>
+          <div class="tb-status-group">
+            <button type="button" class="tb-status ok" data-status="displayed" onclick="TestBuy.pickStatus('displayed')"><i class="fa-solid fa-circle-check"></i>전시됨</button>
+            <button type="button" class="tb-status no" data-status="not_displayed" onclick="TestBuy.pickStatus('not_displayed')"><i class="fa-solid fa-circle-xmark"></i>미전시</button>
+            <button type="button" class="tb-status warn" data-status="issue" onclick="TestBuy.pickStatus('issue')"><i class="fa-solid fa-triangle-exclamation"></i>파손·이상</button>
+          </div>
+
+          <input type="text" id="tb-memo" class="input-control" placeholder="메모 (선택) 예: 가격표 없음, 재고만 있음" style="margin-top:10px;">
+          <button type="submit" id="tb-submit" class="btn-submit tb-submit"><i class="fa-solid fa-floppy-disk"></i> 점검 결과 저장</button>
+        </form>
+
+        <div class="tb-list-head">
+          <span id="tb-list-title">오늘 점검</span>
+          <input type="search" id="tb-search" placeholder="목록 검색" oninput="TestBuy.render()">
+        </div>
+        <div id="tb-list" class="tb-list"></div>
       </div>
     </section>
 
@@ -1286,28 +1308,36 @@
             <i class="fa-solid fa-file-excel" style="font-size:12px;"></i> 엑셀
           </button>
           <button type="button" onclick="openMfaqModal()" style="height:30px; min-height:30px; max-height:30px; padding:0 10px; border-radius:7px; background:#0058a3; color:#ffffff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; font-size:12px; font-weight:800; white-space:nowrap; box-shadow:0 2px 5px rgba(0,88,163,0.25); transition:all 0.15s;">
-            <i class="fa-solid fa-plus" style="font-size:11px;"></i> 등록
+            <i class="fa-solid fa-plus" style="font-size:11px;"></i> 질문 등록
           </button>
         </div>
       </div>
 
-      <!-- Compact Filter & Search Toolbar -->
-      <div style="display:flex; gap:5px; align-items:center; margin-bottom:8px;">
-        <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
-          <select id="mfaq-filter-category" onchange="renderMfaq()" style="width:105px; height:32px; min-height:32px; padding:0 6px; font-weight:800; font-size:12px; border-radius:7px; border:1.5px solid #cbd5e1; background:#ffffff; color:#0f172a; outline:none; box-sizing:border-box;">
-            <option value="all">전체 구분</option>
-            <option value="제품 질문/요청">제품 질문/요청</option>
-            <option value="매장 질문">매장 질문</option>
-          </select>
-          <button type="button" onclick="openMfaqCategoryMgrModal()" style="width:32px; height:32px; min-width:32px; min-height:32px; border-radius:7px; background:#f8fafc; border:1.5px solid #cbd5e1; color:#475569; display:inline-flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; padding:0; transition:all 0.15s;" title="카테고리 관리 (이름 변경/추가/삭제)">
-            <i class="fa-solid fa-gear"></i>
-          </button>
-        </div>
-        <div style="position:relative; flex:1; min-width:0;">
-          <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:9px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:11.5px;"></i>
-          <input type="text" id="mfaq-search" placeholder="품번, 제품명, HFB, 질문 검색..." oninput="renderMfaq()" style="width:100%; height:32px; min-height:32px; padding:0 8px 0 28px; border:1.5px solid #cbd5e1; border-radius:7px; font-size:12px; font-weight:600; outline:none; box-sizing:border-box; background:#ffffff; color:#0f172a;">
+      <!-- 검색 -->
+      <div class="mfaq-search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="mfaq-search" placeholder="질문, 품번, 제품명 검색" oninput="renderMfaq()" autocomplete="off">
+        <button type="button" id="mfaq-search-clear" class="mfaq-search-clear" onclick="clearMfaqSearch()" aria-label="검색어 지우기" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- 구분 칩 + 정렬 -->
+      <div class="mfaq-filter-row">
+        <div id="mfaq-chip-row" class="mfaq-chip-row"></div>
+        <button type="button" class="mfaq-gear" onclick="openMfaqCategoryMgrModal()" title="카테고리 관리 (이름 변경/추가/삭제)"><i class="fa-solid fa-gear"></i></button>
+      </div>
+      <div class="mfaq-sort-row">
+        <span id="mfaq-result-count" class="mfaq-result-count"></span>
+        <div class="mfaq-sort-toggle">
+          <button type="button" data-sort="count" class="active" onclick="setMfaqSort('count')">많이 물어본 순</button>
+          <button type="button" data-sort="recent" onclick="setMfaqSort('recent')">최근 순</button>
         </div>
       </div>
+      <!-- 기존 구분 선택(카테고리 관리 기능과 연결) — 화면에서는 위 칩으로 대신 -->
+      <select id="mfaq-filter-category" onchange="renderMfaq()" style="display:none;">
+        <option value="all">전체 구분</option>
+        <option value="제품 질문/요청">제품 질문/요청</option>
+        <option value="매장 질문">매장 질문</option>
+      </select>
 
       <!-- MFAQ Cards List -->
       <div id="mfaq-list-container" class="history-list" style="flex:1; overflow-y:auto;">
@@ -1318,7 +1348,7 @@
   </main>
 
   <!-- Bottom Navigation Bar for Mobile -->
-  <nav class="bottom-nav">
+  <nav class="bottom-nav bottom-nav-5">
     <button type="button" class="nav-item" onclick="switchTab('menu', this)" style="position:relative;">
       <i class="fa-solid fa-bars"></i>
       <span>메뉴</span>
@@ -1327,6 +1357,15 @@
     <button type="button" class="nav-item active" onclick="switchTab('register', this)">
       <i class="fa-solid fa-pen-to-square"></i>
       <span>입출고 등록</span>
+    </button>
+    <button type="button" class="nav-item" id="nav-picklist-btn" onclick="switchTab('picklist', this)" style="position:relative;">
+      <i class="fa-solid fa-dolly"></i>
+      <span>창고 챙기기</span>
+      <span id="badge-nav-picklist" class="nav-badge" style="display:none;">0</span>
+    </button>
+    <button type="button" class="nav-item" id="nav-stock-btn" onclick="switchTab('stock', this)">
+      <i class="fa-solid fa-magnifying-glass-location"></i>
+      <span>재고 조회</span>
     </button>
     <button type="button" class="nav-item" id="nav-history-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
@@ -1376,6 +1415,17 @@
   </div>
 
   <!-- MODAL 3: Reset Password Modal -->
+  <!-- 개발 중 안내 창 -->
+  <div id="dev-notice-modal" class="dev-notice-backdrop" onclick="closeDevNotice()">
+    <div class="dev-notice-box" onclick="event.stopPropagation()">
+      <div class="dev-notice-icon"><i class="fa-solid fa-person-digging"></i></div>
+      <h3 id="dev-notice-title">개발 중</h3>
+      <p id="dev-notice-desc"></p>
+      <p class="dev-notice-sub">지금 열심히 만들고 있어요. 준비되면 공지사항으로 알려드릴게요.</p>
+      <button type="button" class="dev-notice-btn" onclick="closeDevNotice()">확인</button>
+    </div>
+  </div>
+
   <div id="reset-pw-modal" class="modal-backdrop" onclick="closeResetPasswordModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -1393,8 +1443,6 @@
               <option value="jipar5">jipar5 (👑 관리자)</option>
               <option value="hycho30">hycho30 (👑 관리자)</option>
               <option value="julee33">julee33 (👑 관리자)</option>
-              <option value="guest1">guest1 (게스트 1)</option>
-              <option value="guest2">guest2 (게스트 2)</option>
               <option value="amseo">amseo</option>
               <option value="sulee21">sulee21</option>
               <option value="jocho16">jocho16</option>
@@ -1440,7 +1488,7 @@
         <div class="loc-multi-select" id="bulk-loc-checkboxes" style="justify-content:flex-start; margin-bottom: 20px;">
           <label><input type="checkbox" value="B1"> B1</label>
           <label><input type="checkbox" value="B2"> B2</label>
-          <label><input type="checkbox" value="B2 램프"> B2 램프</label>
+          <label><input type="checkbox" value="램프"> 램프</label>
           <label><input type="checkbox" value="B3"> B3</label>
         </div>
         <div style="display:flex; gap:10px;">
@@ -1588,7 +1636,7 @@
                 <div class="manual-step-num">1</div>
                 <div class="manual-step-info">
                   <strong>초기 기본 비밀번호</strong>
-                  모든 사용자 아이디의 초기 비밀번호는 <span class="manual-badge-pill primary">522</span> 로 설정되어 있습니다.
+                  처음 비밀번호는 관리자에게 받은 <span class="manual-badge-pill primary">공통 비밀번호</span>입니다. 비밀번호는 6자 이상이어야 합니다.
                 </div>
               </div>
               <div class="manual-step-item">
@@ -1950,7 +1998,7 @@
         <div id="single-loc-quick-buttons" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 16px;">
           <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B1')">B1</button>
           <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2')">B2</button>
-          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B2 램프')">B2 램프</button>
+          <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('램프')">램프</button>
           <button type="button" class="btn-secondary" style="flex:1; min-width:65px; padding:12px; font-weight:bold; font-size:15px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;" onclick="saveSingleLocation('B3')">B3</button>
         </div>
         <div style="border-top:1px dashed #cbd5e1; padding-top:14px; margin-top:10px;">
@@ -2442,6 +2490,74 @@
     </div>
   </div>
 
+  <!-- ======================================================== -->
+  <!-- MODAL: Cycle Counting (오늘의 5개 랜덤 실사 점검)           -->
+  <!-- ======================================================== -->
+  <div id="cycle-counting-modal" class="modal-backdrop" onclick="if(event.target === this) closeCycleCountingModal()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.65); z-index:99999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:480px; width:94%; max-height:88vh; display:flex; flex-direction:column; padding:0; border-radius:16px; overflow:hidden; background:#ffffff; box-shadow:0 20px 40px -10px rgba(0,0,0,0.35); border:1.5px solid #fed7aa;">
+      
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #ea580c 100%); color:white; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:15px;">
+            <i class="fa-solid fa-clipboard-check" style="color:#fff;"></i>
+          </div>
+          <div>
+            <h3 style="font-size:15px; font-weight:900; margin:0; color:white; line-height:1.2;">Cycle Counting</h3>
+            <span style="font-size:10.5px; opacity:0.9; color:#fef3c7;">오늘의 5개 랜덤 실사 · 스팟 재고 점검</span>
+          </div>
+        </div>
+        <button type="button" onclick="closeCycleCountingModal()" style="background:rgba(255,255,255,0.15); border:none; color:white; width:28px; height:28px; border-radius:6px; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Controls: Zone Selector & Re-Roll Button -->
+      <div style="padding:10px 14px; background:#fffaf5; border-bottom:1px solid #fed7aa; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0;">
+        <div id="cycle-zone-chips" style="display:flex; align-items:center; gap:4px; overflow-x:auto;">
+          <span style="font-size:11px; font-weight:800; color:#9a3412; white-space:nowrap; margin-right:2px;">구역:</span>
+          <button type="button" class="btn-cycle-zone active" data-zone="ALL" onclick="setCycleZone('ALL', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; border-radius:6px; border:1px solid #ea580c; background:#ea580c; color:#fff; cursor:pointer;">전체</button>
+          <button type="button" class="btn-cycle-zone" data-zone="B1" onclick="setCycleZone('B1', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; border-radius:6px; border:1px solid #fed7aa; background:#fff; color:#78350f; cursor:pointer;">B1</button>
+          <button type="button" class="btn-cycle-zone" data-zone="B2" onclick="setCycleZone('B2', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; border-radius:6px; border:1px solid #fed7aa; background:#fff; color:#78350f; cursor:pointer;">B2</button>
+          <button type="button" class="btn-cycle-zone" data-zone="램프" onclick="setCycleZone('램프', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; border-radius:6px; border:1px solid #fed7aa; background:#fff; color:#78350f; cursor:pointer;">램프</button>
+          <button type="button" class="btn-cycle-zone" data-zone="B3" onclick="setCycleZone('B3', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; border-radius:6px; border:1px solid #fed7aa; background:#fff; color:#78350f; cursor:pointer;">B3</button>
+        </div>
+        <button type="button" onclick="rollNewCycleCountItems()" style="background:#fff; border:1.5px solid #ea580c; color:#ea580c; font-size:11px; font-weight:800; padding:4px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+          <i class="fa-solid fa-dice"></i> 5개 새로 뽑기
+        </button>
+      </div>
+
+      <!-- Info & Progress Header -->
+      <div style="padding:8px 14px; background:#fff7ed; border-bottom:1px solid #ffedd5; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="font-size:11px; color:#78350f; font-weight:700;">
+            <i class="fa-solid fa-list-check" style="color:#ea580c;"></i> 진행 현황: <strong id="cycle-completed-count" style="color:#c2410c;">0</strong> / 5개 완료
+          </span>
+          <span style="font-size:9.5px; color:#9a3412; font-weight:700;">
+            <i class="fa-solid fa-arrow-down-wide-short" style="color:#c2410c;"></i> 전산 재고(1개+) 보유 품목 · 5일+ 미업데이트(1순위) ➔ 3일+(2순위) ➔ 유동
+          </span>
+        </div>
+        <span id="cycle-status-pill" style="font-size:10.5px; font-weight:800; background:#fef3c7; color:#b45309; padding:2px 7px; border-radius:10px; border:1px solid #fde68a;">
+          점검 진행 중
+        </span>
+      </div>
+
+      <!-- Cards Container (Scrollable) -->
+      <div id="cycle-counting-cards-list" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;">
+        <!-- Dynamically rendered by renderCycleCountingCards() -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding:10px 14px; background:#ffffff; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+        <span style="font-size:10.5px; color:#64748b; font-weight:600;">실사 완료 시 품목에 <strong style="color:#059669;">[✔ 랜덤 체크 완료]</strong> 뱃지가 표시됩니다.</span>
+        <button type="button" onclick="closeCycleCountingModal()" style="padding:6px 14px; font-size:12px; font-weight:800; border-radius:8px; background:#0f172a; color:#fff; border:none; cursor:pointer;">
+          닫기
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Bulletin Notice Modal (Write / Edit Notice) -->
   <div id="bulletin-notice-modal" class="modal-backdrop" onclick="if(event.target === this) { if(typeof window.closeBulletinNoticeModal==='function') window.closeBulletinNoticeModal(); else if(typeof closeBulletinNoticeModal==='function') closeBulletinNoticeModal(); }" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:99999; justify-content:center; align-items:center; backdrop-filter:blur(3px);">
     <div class="modal-content" onclick="event.stopPropagation()" style="max-width:440px; width:92%; max-height:85vh; display:flex; flex-direction:column; padding:0; border-radius:12px; overflow:hidden; background:#ffffff; box-shadow:0 15px 25px -5px rgba(0,0,0,0.3);">
@@ -2510,9 +2626,9 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="audit.js?v=1.7.76"></script>
-  <script src="app.js?v=1.7.79"></script>
-  <script src="custom.js?v=2.3.6"></script>
+  <script src="audit.js?v=2.5.0"></script>
+  <script src="app.js?v=2.5.7"></script>
+  <script src="custom.js?v=2.5.5"></script>
   
   <script>
     // Premium Wait List Override & Features
@@ -2794,19 +2910,6 @@
           if (mappedName) displayName = mappedName;
         }
 
-        const likesMap = (typeof getOrderLikesMap === 'function') ? getOrderLikesMap() : {};
-        const orderKey = String(item.id || `${item.artNo}_${item.date}_${item.user}`);
-        const userLikes = likesMap[orderKey] || (Array.isArray(item.likes) ? item.likes : []);
-        const likeCount = userLikes.length;
-        const myLiked = (typeof currentUser !== 'undefined' && currentUser) ? userLikes.includes(currentUser) : false;
-
-        const heartBtnHtml = `
-          <button type="button" class="btn-like-heart ${myLiked ? 'liked' : ''}" onclick="event.stopPropagation(); toggleOrderLike(${originalIndex})" title="${userLikes.length > 0 ? '공감한 동료: ' + userLikes.join(', ') : '오더 공감하기'}" style="background:${myLiked ? '#fee2e2' : '#ffffff'}; color:${myLiked ? '#e11d48' : '#64748b'}; border:1px solid ${myLiked ? '#fca5a5' : '#cbd5e1'}; padding:3px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
-            <i class="${myLiked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'}" style="font-size:11.5px; color:${myLiked ? '#e11d48' : '#94a3b8'};"></i>
-            <span style="font-size:11px;">${likeCount > 0 ? likeCount : '0'}</span>
-          </button>
-        `;
-
         return `
         <div class="history-item" style="border-left-color: #6366f1; display:flex; align-items:center; gap:10px;">
           ${typeof getProductThumbHtml === 'function' ? getProductThumbHtml(item.artNo, displayName, 44) : ''}
@@ -2819,9 +2922,6 @@
             ${statusHtml}
             <div class="hist-qty" style="color: #4338ca; margin-top:2px; font-size:15px; font-weight:900;">
               ${item.qty}개
-            </div>
-            <div style="margin-top:4px;">
-              ${heartBtnHtml}
             </div>
           </div>
         </div>
@@ -2852,13 +2952,18 @@
 
       if (tabId === "stock") {
         if (typeof stockDisplayLimit !== "undefined") stockDisplayLimit = typeof RENDER_LIMIT !== "undefined" ? RENDER_LIMIT : 20;
-        if (typeof renderStockLookup === "function") renderStockLookup();
+        if (typeof window.loadCycleCountRecords === "function") window.loadCycleCountRecords();
+        if (typeof window.renderStockLookup === "function") window.renderStockLookup();
+        else if (typeof renderStockLookup === "function") renderStockLookup();
       }
       if (tabId === "register" || tabId === "order" || tabId === "store-inbound") {
         if (typeof initFormDate === "function") initFormDate();
       }
       if (tabId === "order") {
         if (typeof renderOrderLogs === "function") renderOrderLogs();
+      }
+      if (tabId === "mfaq") {
+        if (typeof window.renderMfaq === "function") window.renderMfaq();
       }
       if (tabId === "picklist") {
         if (typeof renderStandardLocationButtons === "function") renderStandardLocationButtons();
@@ -2934,8 +3039,8 @@
           // Also update inventory_logs for this artno
           const { error: invErr } = await supabaseClient
             .from("inventory_logs")
-            .update({ artname: trimmedName })
-            .eq("artno", artNo);
+            .update({ artName: trimmedName })
+            .eq("artNo", artNo);
           if (invErr) console.warn("Could not update inventory_logs:", invErr);
         }
         
@@ -3000,8 +3105,8 @@
       if (window.currentStockLocationFilter && window.currentStockLocationFilter !== "ALL") {
         if (window.currentStockLocationFilter === "미지정") {
           filteredList = filteredList.filter(item => !item.location || item.location === "미지정" || item.location.trim() === "");
-        } else if (window.currentStockLocationFilter === "B2 램프") {
-          filteredList = filteredList.filter(item => item.location && (item.location.includes("B2 램프") || item.location.includes("램프")));
+        } else if (window.currentStockLocationFilter === "램프") {
+          filteredList = filteredList.filter(item => item.location && (item.location.includes("램프") || item.location.includes("램프")));
         } else {
           filteredList = filteredList.filter(item => item.location && item.location.includes(window.currentStockLocationFilter));
         }
@@ -3531,5 +3636,7 @@
       </div>
     </div>
   </div>
+  <script src="testbuy.js?v=1.0.1"></script>
+  <script src="enhance.js?v=2.5.3"></script>
 </body>
 </html>
