@@ -16,7 +16,7 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=2.5.0">
-  <link rel="stylesheet" href="mobile.css?v=2.6.0">
+  <link rel="stylesheet" href="mobile.css?v=2.7.3">
   <style>
   .selected-card {
     border: 2px solid #18181b !important;
@@ -867,13 +867,24 @@
           </a>
 
           <!-- Test Buy (매장 전시품 전시 여부 점검) -->
-          <a class="menu-task" id="menu-item-testbuy" onclick="openDevNotice('Test Buy', '매장 전시품이 제대로 전시되어 있는지 점검하고 기록하는 기능입니다.')">
+          <a class="menu-task" id="menu-item-testbuy" onclick="switchTab('testbuy', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-task-icon" style="background:#fdf4ff; color:#a21caf;"><i class="fa-solid fa-couch"></i></div>
             <div class="menu-task-body">
-              <div class="menu-task-title">Test Buy <span class="menu-dev-chip">개발 중</span></div>
-              <div class="menu-task-sub" id="menu-task-testbuy-sub">매장 전시품 전시 여부 점검 · 곧 오픈</div>
+              <div class="menu-task-title">Test Buy</div>
+              <div class="menu-task-sub" id="menu-task-testbuy-sub">매장 디스플레이 점검 · 1회 5개</div>
             </div>
             <span id="badge-testbuy" class="nav-badge" style="display:none;">0</span>
+            <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
+          </a>
+
+          <!-- Cycle Counting (창고 재고 실사 · B1/B2/B3 각 5개) -->
+          <a class="menu-task" id="menu-item-cycle-counting" onclick="switchTab('cyclecount', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-task-icon" style="background:#ffedd5; color:#ea580c;"><i class="fa-solid fa-clipboard-check"></i></div>
+            <div class="menu-task-body">
+              <div class="menu-task-title">Cycle Counting</div>
+              <div class="menu-task-sub" id="menu-task-cycle-sub">창고 재고 실사 · B1·B2·B3 각 5개</div>
+            </div>
+            <span id="menu-task-cycle-count" class="menu-task-count" style="display:none;">0/15</span>
             <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
           </a>
         </div>
@@ -884,15 +895,10 @@
         </div>
 
         <!-- 재고 이상 경고 (마이너스 재고 / 위치 미지정) — 문제가 있을 때만 표시 -->
-        <div class="menu-task menu-task-alert" id="menu-task-alert" style="display:none; margin-top:12px;">
-          <div class="menu-task-icon" style="background:#fff1f2; color:#e11d48;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="menu-task-body">
-            <div class="menu-task-title">재고 이상 확인</div>
-            <div class="menu-alert-chips">
-              <button type="button" id="menu-alert-negative" class="menu-alert-chip neg" onclick="openMenuStockAlert('negative')">마이너스 <b>0</b>종</button>
-              <button type="button" id="menu-alert-noloc" class="menu-alert-chip noloc" onclick="openMenuStockAlert('noloc')">위치 미지정 <b>0</b>종</button>
-            </div>
-          </div>
+        <div class="menu-alert-compact" id="menu-task-alert" style="display:none;">
+          <span class="menu-alert-label"><i class="fa-solid fa-triangle-exclamation"></i> 재고 이상</span>
+          <button type="button" id="menu-alert-negative" class="menu-alert-chip neg" onclick="openMenuStockAlert('negative')">마이너스 <b>0</b>종</button>
+          <button type="button" id="menu-alert-noloc" class="menu-alert-chip noloc" onclick="openMenuStockAlert('noloc')">위치 미지정 <b>0</b>종</button>
         </div>
 
         <!-- ③ 기능 바로가기 -->
@@ -904,11 +910,6 @@
             <div class="menu-tile-icon" style="background:#fff1f2; color:#e11d48;"><i class="fa-solid fa-box-open"></i></div>
             <span class="menu-tile-text">창고 챙기기</span>
             <span id="badge-picklist" class="nav-badge" style="display:none;">0</span>
-          </a>
-          <a class="menu-tile" id="menu-item-cycle-counting" onclick="openCycleCountingModal()">
-            <div class="menu-tile-icon" style="background:#ffedd5; color:#ea580c;"><i class="fa-solid fa-clipboard-check"></i></div>
-            <span class="menu-tile-text">Cycle Counting</span>
-            <span id="menu-task-cycle-count" class="menu-tile-count">0/5</span>
           </a>
           <a class="menu-tile" onclick="switchTab('stock', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-tile-icon" style="background:#eff6ff; color:#2563eb;"><i class="fa-solid fa-warehouse"></i></div>
@@ -926,6 +927,10 @@
           <a class="menu-tile" onclick="switchTab('update-history', document.querySelector('.bottom-nav .nav-item:first-child')); if(typeof renderNoticeBoard==='function') renderNoticeBoard();">
             <div class="menu-tile-icon" style="background:#fff7ed; color:#c2410c;"><i class="fa-solid fa-bullhorn"></i></div>
             <span class="menu-tile-text">공지사항</span>
+          </a>
+          <a class="menu-tile" onclick="if(typeof openManualModal === 'function') openManualModal();">
+            <div class="menu-tile-icon" style="background:#f0fdf4; color:#16a34a;"><i class="fa-solid fa-book-open"></i></div>
+            <span class="menu-tile-text">사용자 매뉴얼</span>
           </a>
         </div>
 
@@ -984,45 +989,60 @@
     <section id="tab-testbuy" class="tab-page">
       <div class="card-box tb-card">
         <div class="tb-head">
-          <h2><i class="fa-solid fa-couch"></i> Test Buy <small>전시품 점검</small></h2>
+          <h2><i class="fa-solid fa-couch"></i> Test Buy <small>1회 5개</small></h2>
           <div class="tb-head-actions">
             <button type="button" class="tb-btn-ghost" onclick="TestBuy.load(true)" title="새로고침"><i class="fa-solid fa-rotate-right"></i></button>
             <button type="button" class="tb-btn-ghost" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))"><i class="fa-solid fa-arrow-left"></i> 메뉴</button>
           </div>
         </div>
 
+        <!-- 현황 대시보드 -->
+        <div id="tb-stats"></div>
+
+        <!-- 진행 중인 테스트바이 / 새로 시작 -->
+        <div id="tb-session" class="tb-session-box"></div>
+
         <div class="tb-summary">
-          <button type="button" class="tb-stat" data-filter="today" onclick="TestBuy.setFilter('today')"><b id="tb-stat-today">0</b><span>오늘 점검</span></button>
-          <button type="button" class="tb-stat bad" data-filter="open" onclick="TestBuy.setFilter('open')"><b id="tb-stat-open">0</b><span>미전시·이상</span></button>
-          <button type="button" class="tb-stat" data-filter="all" onclick="TestBuy.setFilter('all')"><b id="tb-stat-all">0</b><span>최근 90일</span></button>
+          <button type="button" class="tb-stat bad" data-filter="open" onclick="TestBuy.setFilter('open')"><b id="tb-stat-open">0</b><span>수정 필요</span></button>
+          <button type="button" class="tb-stat pull" data-filter="pulled" onclick="TestBuy.setFilter('pulled')"><b id="tb-stat-pulled">0</b><span>디스플레이 빼둠</span></button>
+          <button type="button" class="tb-stat" data-filter="sessions" onclick="TestBuy.setFilter('sessions')"><b id="tb-stat-sessions">0</b><span>완료된 테스트바이</span></button>
         </div>
 
-        <form id="tb-form" class="tb-form viewer-hide" onsubmit="TestBuy.submit(event)">
-          <label class="tb-label" for="tb-artno">품번 / 품명</label>
-          <input type="text" id="tb-artno" class="input-control" placeholder="품번 또는 품명 일부 입력" autocomplete="off" oninput="TestBuy.onArtInput()" inputmode="search">
-          <div id="tb-suggest" class="tb-suggest"></div>
-          <div id="tb-picked" class="tb-picked" style="display:none;"></div>
+        <div id="tb-list-wrap">
+          <div class="tb-list-head"><span id="tb-list-title">수정 필요</span></div>
+          <div id="tb-list" class="tb-list"></div>
+        </div>
+        <div id="tb-history-wrap" style="display:none;">
+          <div class="tb-list-head"><span>완료된 테스트바이 (시작·완료한 사람)</span></div>
+          <div id="tb-history" class="tb-list"></div>
+        </div>
+      </div>
+    </section>
 
-          <label class="tb-label" for="tb-area">매장 위치 <span class="tb-opt">(선택)</span></label>
-          <input type="text" id="tb-area" class="input-control" placeholder="예: 쇼룸 거실, 마켓홀 주방" list="tb-area-list">
-          <datalist id="tb-area-list"></datalist>
-
-          <label class="tb-label">전시 상태</label>
-          <div class="tb-status-group">
-            <button type="button" class="tb-status ok" data-status="displayed" onclick="TestBuy.pickStatus('displayed')"><i class="fa-solid fa-circle-check"></i>전시됨</button>
-            <button type="button" class="tb-status no" data-status="not_displayed" onclick="TestBuy.pickStatus('not_displayed')"><i class="fa-solid fa-circle-xmark"></i>미전시</button>
-            <button type="button" class="tb-status warn" data-status="issue" onclick="TestBuy.pickStatus('issue')"><i class="fa-solid fa-triangle-exclamation"></i>파손·이상</button>
+    <!-- TAB: Cycle Counting (창고 재고 실사 · B1/B2/B3 각 5개) -->
+    <section id="tab-cyclecount" class="tab-page">
+      <div class="card-box tb-card cc-card">
+        <div class="tb-head">
+          <h2><i class="fa-solid fa-clipboard-check"></i> Cycle Counting <small>구역별 5개</small></h2>
+          <div class="tb-head-actions">
+            <button type="button" class="tb-btn-ghost" onclick="CycleCount.load(true)" title="새로고침"><i class="fa-solid fa-rotate-right"></i></button>
+            <button type="button" class="tb-btn-ghost" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))"><i class="fa-solid fa-arrow-left"></i> 메뉴</button>
           </div>
-
-          <input type="text" id="tb-memo" class="input-control" placeholder="메모 (선택) 예: 가격표 없음, 재고만 있음" style="margin-top:10px;">
-          <button type="submit" id="tb-submit" class="btn-submit tb-submit"><i class="fa-solid fa-floppy-disk"></i> 점검 결과 저장</button>
-        </form>
-
-        <div class="tb-list-head">
-          <span id="tb-list-title">오늘 점검</span>
-          <input type="search" id="tb-search" placeholder="목록 검색" oninput="TestBuy.render()">
         </div>
-        <div id="tb-list" class="tb-list"></div>
+
+        <!-- 현황 대시보드 -->
+        <div id="cc-stats"></div>
+
+        <!-- 진행 중인 사이클카운팅 / 새로 시작 -->
+        <div id="cc-session" class="tb-session-box"></div>
+
+        <div class="tb-summary cc-summary">
+          <button type="button" class="tb-stat bad" data-filter="adjusted" onclick="CycleCount.setFilter('adjusted')"><b id="cc-stat-adjusted">0</b><span>이번 달 수량 보정</span></button>
+          <button type="button" class="tb-stat" data-filter="sessions" onclick="CycleCount.setFilter('sessions')"><b id="cc-stat-sessions">0</b><span>완료된 사이클카운팅</span></button>
+        </div>
+
+        <div class="tb-list-head"><span id="cc-list-title">이번 달 수량 보정 내역</span></div>
+        <div id="cc-list" class="tb-list"></div>
       </div>
     </section>
 
@@ -1312,6 +1332,9 @@
           </button>
         </div>
       </div>
+
+      <!-- 오늘 현황 -->
+      <div id="mfaq-stats"></div>
 
       <!-- 검색 -->
       <div class="mfaq-search-wrap">
@@ -2627,8 +2650,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
-  <script src="app.js?v=2.5.7"></script>
-  <script src="custom.js?v=2.5.5"></script>
+  <script src="app.js?v=2.5.8"></script>
+  <script src="custom.js?v=2.5.7"></script>
   
   <script>
     // Premium Wait List Override & Features
@@ -3636,7 +3659,9 @@
       </div>
     </div>
   </div>
-  <script src="testbuy.js?v=1.0.1"></script>
-  <script src="enhance.js?v=2.5.3"></script>
+  <script src="testbuy_l2.js?v=20261007"></script>
+  <script src="testbuy.js?v=4.5.3"></script>
+  <script src="cyclecount.js?v=1.0.1"></script>
+  <script src="enhance.js?v=2.6.1"></script>
 </body>
 </html>

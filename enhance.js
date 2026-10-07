@@ -206,23 +206,8 @@
       setText("menu-task-store-sub", cnt > 0 ? ("오늘 " + cnt + "건 · " + qty.toLocaleString() + "개 입고됨") : "오늘 입고 기록 없음 · 바코드 스캔");
     } catch (e) {}
 
-    // 2) Cycle Counting: 오늘 점검한 품목 수 (같은 기록이 여러 품번 형식으로 저장되므로 중복 제거)
-    try {
-      var recs = window.cycleCountRecords || {};
-      var seen = new Set();
-      Object.keys(recs).forEach(function (k) {
-        var r = recs[k];
-        if (r && r.checkedDate === today) seen.add(String(r.cleanNo || r.artNo || k));
-      });
-      var done = Math.min(seen.size, 5);
-      var isDone = seen.size >= 5;
-      setText("menu-task-cycle-count", seen.size + "/5");
-      setText("menu-task-cycle-sub", isDone ? "오늘 실사 완료 👍" : ("오늘의 5개 랜덤 실사 · " + (5 - done) + "개 남음"));
-      var bar = document.getElementById("menu-task-cycle-bar");
-      if (bar) { bar.style.width = (done / 5 * 100) + "%"; bar.classList.toggle("done", isDone); }
-      var cc = document.getElementById("menu-task-cycle-count");
-      if (cc) cc.classList.toggle("done", isDone);
-    } catch (e) {}
+    // 2) Cycle Counting 요약은 cyclecount.js가 갱신
+    try { if (window.CycleCount) window.CycleCount.updateDashboard(); } catch (e) {}
 
     // Test Buy 요약은 testbuy.js가 갱신
     try { if (window.TestBuy) window.TestBuy.updateDashboard(); } catch (e) {}
@@ -312,3 +297,110 @@ window.closeDevNotice = function () {
   var m = document.getElementById("dev-notice-modal");
   if (m) m.classList.remove("active");
 };
+
+// ===== 송도 MFAQ 현황 (오늘 / 이번 달 누적 · 등록된 / 새로운 / 중복된) + 누가 등록·+1 했는지 =====
+// · 새로운 MFAQ: 처음 등록된 질문 수 (mfaq_logs.created_at 기준)
+// · 중복된 MFAQ: 이미 있던 질문을 또 받은 횟수 (+1 탭 · 같은 질문 재등록) → mfaq_events 에 기록
+// · 등록된 MFAQ: 받은 질문 전체 = 새로운 + 중복된
+(function () {
+  "use strict";
+  var events = [], loaded = false;
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function today() { return typeof window.getTodayDateString === "function" ? window.getTodayDateString() : ymd(new Date()); }
+  function me() { try { return (window.currentUser || (typeof currentUser !== "undefined" ? currentUser : "") || "").trim(); } catch (e) { return ""; } }
+  function client() { try { return typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { return null; } }
+  function logs() {
+    try { return (typeof mfaqLogs !== "undefined" && Array.isArray(mfaqLogs) ? mfaqLogs : []).filter(function (l) {
+      return l && l.category !== "공지사항" && l.category !== "방문자통계" && !String(l.id).startsWith("notice_") && l.id !== "site_visitor_stats" && l.id !== "cycle_counting_records";
+    }); } catch (e) { return []; }
+  }
+  function createdDay(l) { var c = l.createdAt || l.created_at; if (!c) return ""; var d = new Date(c); return isNaN(d) ? "" : ymd(d); }
+  function counts(match) {
+    var nw = logs().filter(function (l) { return match(createdDay(l)); }).length;
+    var nwEv = events.filter(function (e) { return e.type === "new" && match(String(e.event_date)); }).length;
+    var dup = events.filter(function (e) { return e.type === "dup" && match(String(e.event_date)); }).length;
+    nw = Math.max(nw, nwEv);
+    return { all: nw + dup, nw: nw, dup: dup };
+  }
+
+  function render() {
+    var box = document.getElementById("mfaq-stats"); if (!box) return;
+    var now = new Date(), t = today(), month = t.slice(0, 7), ml = (now.getMonth() + 1) + "월";
+    var td = counts(function (d) { return d === t; }), mo = counts(function (d) { return d.slice(0, 7) === month; });
+    function tile(n, l, cls) { return '<div class="tb-kpi' + (cls ? " " + cls : "") + '"><b>' + n + '</b><span>' + l + '</span></div>'; }
+    function row(c) { return '<div class="tb-kpis">' + tile(c.all, "등록된 MFAQ", "main") + tile(c.nw, "새로운 MFAQ", "ok") + tile(c.dup, "중복된 MFAQ", "fix") + '</div>'; }
+    box.innerHTML = '<div class="tb-dash mfaq-dash"><div class="tb-dash-title"><span><i class="fa-solid fa-chart-simple"></i> MFAQ 현황</span><small>' + ml + " " + now.getDate() + '일 기준</small></div>' +
+      '<div class="tb-dash-label">오늘</div>' + row(td) +
+      '<div class="tb-dash-label">' + ml + ' 누적</div>' + row(mo) +
+      '<div class="tb-dash-sub">전체 등록된 질문 ' + logs().length + '개</div></div>';
+  }
+
+  // 질문 한 줄 아래: 등록 아이디 · +1 누른 아이디(횟수)
+  function whoHtml(id, creator, lastTap) {
+    var tally = {}, order = [];
+    events.forEach(function (e) {
+      if (e.type !== "dup" || String(e.mfaq_id) !== String(id)) return;
+      var u = String(e.user || "-"); if (!tally[u]) { tally[u] = 0; order.push(u); } tally[u]++;
+    });
+    var taps = order.sort(function (a, b) { return tally[b] - tally[a]; }).map(function (u) { return '<b>' + esc(u) + '</b>' + (tally[u] > 1 ? '<em>×' + tally[u] + '</em>' : ''); });
+    if (!taps.length && lastTap && lastTap.user) taps = ['<b>' + esc(lastTap.user) + '</b>'];
+    return '<div class="mfaq-who"><span><i class="fa-solid fa-user-pen"></i>등록 <b>' + esc(creator || "-") + '</b></span>' +
+      (taps.length ? '<span><i class="fa-solid fa-hand-pointer"></i>+1 ' + taps.join(", ") + '</span>' : '') + '</div>';
+  }
+
+  async function load() {
+    var c = client(); if (!c) { render(); return; }
+    try {
+      var r = await c.from("mfaq_events").select("mfaq_id,type,user,event_date").order("id", { ascending: true }).limit(20000);
+      if (!r.error && r.data) { events = r.data; loaded = true; }
+    } catch (e) {}
+    render();
+    try { var tab = document.getElementById("tab-mfaq"); if (tab && tab.classList.contains("active") && typeof window.renderMfaq === "function") window.renderMfaq(); } catch (e) {}
+  }
+
+  async function record(type, id) {
+    var row = { mfaq_id: id ? String(id) : null, type: type, event_date: today(), user: me() || null };
+    events.push(row);
+    var c = client(); if (!c || !me()) return;
+    try { await c.from("mfaq_events").insert([row]); } catch (e) { console.warn("mfaq_events", e); }
+  }
+
+  function snapshot() { var m = new Map(); logs().forEach(function (l) { m.set(String(l.id), Number(l.count) || 0); }); return m; }
+  function diffAndRecord(before) {
+    var changed = false;
+    logs().forEach(function (l) {
+      var k = String(l.id), c = Number(l.count) || 0;
+      if (!before.has(k)) { record("new", k); changed = true; }
+      else if (c > before.get(k)) { record("dup", k); changed = true; }
+    });
+    if (changed) { render(); try { if (typeof window.renderMfaq === "function") window.renderMfaq(); } catch (e) {} }
+  }
+
+  function wrap() {
+    var add = window.handleAddMfaqSubmit, inc = window.incrementMfaqCount;
+    if (typeof add === "function" && !add.__mfaqDash) {
+      var w1 = async function (ev) { var b = snapshot(); var r = await add.apply(this, arguments); diffAndRecord(b); return r; };
+      w1.__mfaqDash = true; window.handleAddMfaqSubmit = w1;
+    }
+    if (typeof inc === "function" && !inc.__mfaqDash) {
+      var w2 = async function (id) { var b = snapshot(); var r = await inc.apply(this, arguments); diffAndRecord(b); return r; };
+      w2.__mfaqDash = true; window.incrementMfaqCount = w2;
+    }
+    var rm = window.renderMfaq;
+    if (typeof rm === "function" && !rm.__mfaqDash) {
+      var w3 = function () { var r = rm.apply(this, arguments); try { render(); } catch (e) {} return r; };
+      w3.__mfaqDash = true; window.renderMfaq = w3;
+    }
+  }
+
+  function init() {
+    wrap();
+    window.addEventListener("load", function () { setTimeout(wrap, 0); });
+    var tab = document.getElementById("tab-mfaq");
+    if (tab) new MutationObserver(function () { if (tab.classList.contains("active")) { wrap(); load(); } }).observe(tab, { attributes: true, attributeFilter: ["class"] });
+    var tries = 0, boot = setInterval(function () { tries++; if (client() && me()) { clearInterval(boot); load(); try { client().channel("public:mfaq_events").on("postgres_changes", { event: "INSERT", schema: "public", table: "mfaq_events" }, function () { load(); }).subscribe(); } catch (e) {} } else if (tries > 90) clearInterval(boot); }, 1000);
+  }
+  window.MfaqDash = { load: load, render: render, whoHtml: whoHtml };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();

@@ -6454,20 +6454,19 @@ window.handleAddMfaqSubmit = async function(event) {
 
     showToast(`이미 등록된 항목입니다. ${activeUser}님의 탭으로 질문 횟수가 +1 (${existing.count}건) 증가했습니다!`, "success");
 
-    const existingCreator = (existing.createdBy && existing.createdBy !== 'system') ? existing.createdBy : activeUser;
+    const existingCreator = (existing.createdBy && existing.createdBy !== 'system' && existing.createdBy !== '-') ? existing.createdBy : "";
     let baseQ = String(existing.question || "").replace(/<!--by:.*?-->/g, '').trim();
-    const supabaseUpdatedQ = `${baseQ} <!--by:${existingCreator}|tap:${activeUser}-->`;
+    const supabaseUpdatedQ = existingCreator ? `${baseQ} <!--by:${existingCreator}|tap:${activeUser}-->` : baseQ;
 
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
         const { error: upErr } = await supabaseClient
           .from("mfaq_logs")
-          .update({ 
+          .update(Object.assign({ 
             count: existing.count, 
             last_updated: existing.lastUpdated,
-            user: existingCreator,
             question: supabaseUpdatedQ
-          })
+          }, existingCreator ? { user: existingCreator } : {}))
           .eq("id", existing.id);
         if (upErr) {
           await supabaseClient
@@ -6661,7 +6660,7 @@ window.renderMfaq = function() {
     const parsed = window.parseMfaqItem(log);
     const itemCreator = (log.createdBy && log.createdBy !== "system") 
       ? log.createdBy 
-      : (parsed.metaUser || (log.createdBy === "system" ? "jipar5" : (log.createdBy || "jipar5")));
+      : (parsed.metaUser || "-");
     let history = log.history || log.tapHistory || [];
     if (!history || history.length === 0) {
       history = [{
@@ -6749,7 +6748,7 @@ window.renderMfaq = function() {
     const historyList = item._history || [];
     const creatorUser = (item.createdBy && item.createdBy !== "system") 
       ? item.createdBy 
-      : (p.metaUser || (historyList[0] && historyList[0].user && historyList[0].user !== "system" ? historyList[0].user : "jipar5"));
+      : (p.metaUser || (historyList[0] && historyList[0].user && historyList[0].user !== "system" ? historyList[0].user : "-"));
     
     // Find last tap action
     const tapActions = historyList.filter(h => h.type === 'tap');
@@ -6821,6 +6820,9 @@ window.renderMfaq = function() {
               </div>
             ` : ''}
 
+            <!-- 누가 등록 / 누가 +1 했는지 -->
+            ${window.MfaqDash && window.MfaqDash.whoHtml ? window.MfaqDash.whoHtml(item.id, creatorUser, lastTap) : ''}
+
             <!-- Subtitle & Action Buttons Row -->
             <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; margin-top:1px;">
               <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0; line-height:1.2;">
@@ -6887,7 +6889,8 @@ window.incrementMfaqCount = async function(id) {
     log.count = (log.count || 1) + 1;
     log.lastUpdated = now;
 
-    const creator = (log.createdBy && log.createdBy !== 'system') ? log.createdBy : "jipar5";
+    // 등록자를 모르면 DB의 등록자(user)는 건드리지 않음
+    const creator = (log.createdBy && log.createdBy !== 'system' && log.createdBy !== '-') ? log.createdBy : "";
     if (!log.history) {
       log.history = [{ user: creator, time: log.createdAt || now, type: 'create', label: '최초 등록' }];
     }
@@ -6899,18 +6902,17 @@ window.incrementMfaqCount = async function(id) {
     });
 
     const cleanBaseQ = String(log.question || "").replace(/<!--by:.*?-->/g, '').trim();
-    const updatedSupabaseQ = `${cleanBaseQ} <!--by:${creator}|tap:${activeUser}-->`;
+    const updatedSupabaseQ = creator ? `${cleanBaseQ} <!--by:${creator}|tap:${activeUser}-->` : cleanBaseQ;
 
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
         const { error: upErr } = await supabaseClient
           .from("mfaq_logs")
-          .update({ 
+          .update(Object.assign({ 
             count: log.count, 
             last_updated: log.lastUpdated,
-            user: creator,
             question: updatedSupabaseQ
-          })
+          }, creator ? { user: creator } : {}))
           .eq("id", id);
         if (upErr) {
           await supabaseClient

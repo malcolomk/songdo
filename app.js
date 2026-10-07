@@ -1069,10 +1069,10 @@ async function loadDataFromSupabase() {
               if (byMatch[2]) metaTap = byMatch[2].trim();
             }
           }
-          const authorUser = (row.created_by && row.created_by !== 'system')
-            || (row.createdBy && row.createdBy !== 'system')
-            || metaUser
-            || (local.createdBy && local.createdBy !== 'system' ? local.createdBy : "jipar5");
+          // 등록자: 질문 속 <!--by:아이디--> → DB user 칸 → 이 기기에 남은 기록 순
+          const okUser = v => (v && v !== 'system' && v !== true) ? String(v).trim() : "";
+          const authorUser = okUser(row.created_by) || okUser(row.createdBy) || okUser(metaUser)
+            || okUser(row.user) || okUser(local.createdBy) || "-";
           let history = row.history || local.history || local.tapHistory;
           if (!history || history.length === 0) {
             history = [
@@ -3431,7 +3431,7 @@ function handleRealtimeMfaq(payload) {
       }
     }
     const cleanQ = String(newRow.question || "").replace(/<!--by:.*?-->/g, '').trim();
-    const authorUser = metaUser || "jipar5";
+    const authorUser = metaUser || ((newRow.user && newRow.user !== "system") ? String(newRow.user).trim() : "-");
     const history = [
       { user: authorUser, time: newRow.created_at || new Date().toISOString(), type: "create", label: "최초 등록" }
     ];
@@ -3928,10 +3928,10 @@ async function refreshMfaqData() {
               if (byMatch[2]) metaTap = byMatch[2].trim();
             }
           }
-          const authorUser = (row.created_by && row.created_by !== 'system')
-            || (row.createdBy && row.createdBy !== 'system')
-            || metaUser
-            || (local.createdBy && local.createdBy !== 'system' ? local.createdBy : "jipar5");
+          // 등록자: 질문 속 <!--by:아이디--> → DB user 칸 → 이 기기에 남은 기록 순
+          const okUser = v => (v && v !== 'system' && v !== true) ? String(v).trim() : "";
+          const authorUser = okUser(row.created_by) || okUser(row.createdBy) || okUser(metaUser)
+            || okUser(row.user) || okUser(local.createdBy) || "-";
           let history = row.history || local.history || local.tapHistory;
           if (!history || history.length === 0) {
             history = [
