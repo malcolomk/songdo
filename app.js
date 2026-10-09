@@ -22,7 +22,8 @@ const ALLOWED_USER_IDS = [
   "sulee21", "jocho16", "jipar5", "hycho30", "julee33", 
   "tabae3", "goyoo", "suahn2", "yehan1", "secho12",
   "junkoo", "minjong", "micho51", "sekim63", "szpar19", 
-  "sukim68", "yonoh", "yocho36", "Viewer"
+  "sukim68", "yonoh", "yocho36", "Viewer",
+  "test"   // 기능 시험용 (기록은 DB설정/8_test계정_기록정리.sql 로 한 번에 지울 수 있음)
 ];
 
 // --- Designated Admin Users List ---
@@ -54,7 +55,7 @@ function fillTempLoginPw() {
   if (idEl && !idEl.value) idEl.focus(); else pw.focus();
 }
 // 비밀번호 변경이 막힌 공용 계정 (여러 명이 함께 쓰므로 한 사람이 바꾸면 다른 사람이 못 들어옴)
-const SHARED_ACCOUNT_IDS = ["guest1", "guest2", "viewer"];
+const SHARED_ACCOUNT_IDS = ["guest1", "guest2", "viewer", "test"];
 
 // --- Sample Initial Master Data ---
 const defaultMasterCatalog = [
@@ -1310,6 +1311,10 @@ function updateTypeToggle() {
     labelOut.className = "toggle-option active-out";
   }
 
+  // 출고 때는 창고 구역 선택칸을 숨김 (출고는 위치를 바꾸지 않음)
+  const locGroup = document.getElementById("reg-loc-group");
+  if (locGroup) locGroup.style.display = "none";   // 구역은 입고 저장 때 팝업으로 선택
+
   const reqBadge = document.getElementById("reg-loc-req-badge");
   if (reqBadge) {
     if (selectedType === "입고") {
@@ -1679,7 +1684,8 @@ async function handleAddRegCart(bypassUnregisteredCheck = false, bypassNegativeS
     ? product.artName
     : (artName || "기타 품목");
 
-  regCartList.push({ date, type, artNo: finalArtNo, artName: resolvedName, qty });
+  // 창고 구역은 입고일 때만 저장 (출고는 위치를 바꾸지 않음)
+  regCartList.push({ date, type, artNo: finalArtNo, artName: resolvedName, qty, loc: type === "입고" ? locVal : "" });
   renderRegCart();
   
   document.getElementById("reg-artno").value = "";
@@ -1781,7 +1787,9 @@ window.confirmAddRegUnregisteredProduct = async function() {
     if (!ok) return;
   }
 
-  regCartList.push({ date, type, artNo, artName: customName, qty });
+  const unregLocEl = document.getElementById("reg-location");
+  const unregLoc = (type === "입고" && unregLocEl) ? unregLocEl.value.trim() : "";
+  regCartList.push({ date, type, artNo, artName: customName, qty, loc: unregLoc });
   renderRegCart();
 
   document.getElementById("reg-artno").value = "";
@@ -1903,33 +1911,30 @@ async function processRegCart() {
       });
       populateArticleFilterDropdown();
       
-      const locInput = document.getElementById("reg-location");
-      const locVal = locInput ? locInput.value.trim() : "";
-      
-      if (locVal && supabaseClient) {
-        const uniqueArtNos = [...new Set(regCartList.map(item => item.artNo))];
-        let masterUpdated = false;
-        
-        uniqueArtNos.forEach(artNo => {
+      // 창고 구역 변경은 "입고" 항목에만 적용 (출고는 위치를 건드리지 않음)
+      const locByArt = new Map();
+      regCartList.forEach(item => {
+        if (item.type !== "입고") return;
+        const lv = String(item.loc || "").trim();
+        if (lv && lv !== "미지정") locByArt.set(item.artNo, lv);
+      });
+
+      if (locByArt.size && supabaseClient) {
+        locByArt.forEach((lv, artNo) => {
           let mItem = masterCatalog.find(m => m.artNo === artNo);
           if (!mItem) {
             mItem = { artNo: artNo, artName: "신규 품목" };
             masterCatalog.push(mItem);
           }
-          mItem.location = locVal;
-          masterUpdated = true;
+          mItem.location = lv;
         });
-        
-        if (masterUpdated) {
-          saveMasterCatalog();
-          rebuildMasterCatalogMap();
-        }
-        
-        for (const artNo of uniqueArtNos) {
-          supabaseClient.from("master_catalog").update({ location: locVal }).eq("artno", artNo).then(({error}) => {
+        saveMasterCatalog();
+        rebuildMasterCatalogMap();
+        locByArt.forEach((lv, artNo) => {
+          supabaseClient.from("master_catalog").update({ location: lv }).eq("artno", artNo).then(({error}) => {
             if (error) console.warn("Failed to update location for " + artNo, error);
           });
-        }
+        });
       }
     }
     
@@ -2703,7 +2708,7 @@ function quickActionRegister(artNo, type) {
 
   onArtNoInput(artNo);
 
-  const regNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[0];
+  const regNavBtn = document.querySelector(".bottom-nav .nav-item[onclick*=\"'register'\"]");
   switchTab("register", regNavBtn);
   showToast(`'${artNo}' 품목 [${type}] 등록 화면으로 이동했습니다.`, "success");
 }
@@ -2714,7 +2719,7 @@ function quickActionOrder(artNo) {
   
   onOrderArtNoInput(artNo);
 
-  const orderNavBtn = document.querySelectorAll(".bottom-nav .nav-item")[2];
+  const orderNavBtn = document.querySelector(".bottom-nav .nav-item:first-child");
   switchTab("order", orderNavBtn);
   showToast(`'${artNo}' 품목 오더 요청 화면으로 이동했습니다.`, "success");
 }

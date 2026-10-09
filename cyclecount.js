@@ -1,4 +1,4 @@
-// cyclecount.js — Cycle Counting: 창고 재고 실사 (1회 15개 = B1·B2·B3 구역별 랜덤 5개)
+// cyclecount.js — Cycle Counting: 창고 재고 실사 (1회 B2 구역 랜덤 10개)
 // · 배정: 창고 재고가 있는 품목 중 오래 확인 안 한 품목 우선 (5일+ → 3일+ → 나머지), 최근 7일 안에 센 품목 제외
 // · 시작한 사람만 끝까지 진행 · 동시에 시작해도 품목이 겹치지 않음 · 카드를 왼쪽으로 밀면 교체(개수 미포함)
 // · 실사: 전산 재고와 실제 수량 비교 → 일치 / 차이 보정(입출고 기록에 보정 입고·출고 추가)
@@ -7,8 +7,8 @@
   "use strict";
 
   var T_CHECKS = "cycle_count_checks", T_SESSIONS = "cycle_count_sessions";
-  var ZONES = ["B1", "B2", "B3"];
-  var PER_ZONE = 5;
+  var ZONES = ["B2"];        // B2만 실사
+  var PER_ZONE = 10;
   var RECENT_DAYS = 7;   // 최근 이 기간 안에 센 품목은 배정 제외
 
   var state = { logs: [], sessions: [], loaded: false, loading: false, filter: "adjusted", sheet: null };
@@ -114,7 +114,7 @@
   function updateDashboard() {
     var sub = document.getElementById("menu-task-cycle-sub");
     var cnt = document.getElementById("menu-task-cycle-count");
-    if (!state.loaded) { if (sub) sub.textContent = "창고 재고 실사 · B1·B2·B3 각 5개"; if (cnt) cnt.style.display = "none"; return; }
+    if (!state.loaded) { if (sub) sub.textContent = "창고 재고 실사 · B2 10개"; if (cnt) cnt.style.display = "none"; return; }
     var a = activeSession(), t = today();
     var doneToday = state.sessions.filter(function (s) { return s.status === "done" && s.completed_at && ymd(new Date(s.completed_at)) === t; }).length;
     if (sub) {
@@ -123,7 +123,7 @@
       else sub.textContent = doneToday ? "오늘 " + doneToday + "회 완료" : "오늘 진행한 사이클카운팅 없음";
     }
     if (cnt) {
-      if (a) { var d = sessionDoneCount(a.id), tg = a.target || 15; cnt.textContent = d + "/" + tg; cnt.classList.toggle("done", d >= tg); cnt.style.display = ""; }
+      if (a) { var d = sessionDoneCount(a.id), tg = a.target || 10; cnt.textContent = d + "/" + tg; cnt.classList.toggle("done", d >= tg); cnt.style.display = ""; }
       else cnt.style.display = "none";
     }
   }
@@ -187,13 +187,13 @@
   async function maybeFinish(sid, quiet) {
     var s = state.sessions.find(function (x) { return x.id === sid; });
     if (!s || s.status !== "in_progress" || !isMine(s)) return;
-    if (sessionDoneCount(sid) < (s.target || 15)) return;
+    if (sessionDoneCount(sid) < (s.target || 10)) return;
     var patch = { status: "done", completed_by: me() || null, completed_at: new Date().toISOString() };
     try {
       var res = await client().from(T_SESSIONS).update(patch).eq("id", sid).eq("status", "in_progress").select();
       if (res.error) throw res.error;
       Object.assign(s, patch);
-      if (!quiet || true) toast("🎉 사이클카운팅 " + (s.target || 15) + "개를 모두 끝냈습니다!", "success");
+      if (!quiet || true) toast("🎉 사이클카운팅 " + (s.target || 10) + "개를 모두 끝냈습니다!", "success");
     } catch (err) { console.warn("finish cycle session error", err); }
     render(); updateDashboard();
   }
@@ -310,7 +310,7 @@
   function renderSheet() {
     var s = state.sheet; if (!s) return;
     var sess = state.sessions.find(function (x) { return x.id === s.sessionId; });
-    document.getElementById("cc-sheet-step").textContent = s.zone + " 구역 실사" + (sess ? " · " + sessionDoneCount(sess.id) + "/" + (sess.target || 15) : "");
+    document.getElementById("cc-sheet-step").textContent = s.zone + " 구역 실사" + (sess ? " · " + sessionDoneCount(sess.id) + "/" + (sess.target || 10) : "");
     var diff = s.actual - s.system;
     document.getElementById("cc-sheet-body").innerHTML =
       '<div class="tb-sheet-product"><div class="tb-sheet-thumb">' + thumb(s.artNo, s.artName, 96) + '</div><div class="tb-sheet-info">' +
@@ -411,14 +411,21 @@
     function row(list) { var a = list.filter(isAdj).length; return '<div class="tb-kpis">' + tile(list.length, "체크된 아티클", "main") + tile(list.length - a, "정상 재고 아티클", "ok") + tile(a, "수정된 재고 아티클", "fix") + '</div>'; }
     var adj = mc.filter(isAdj);
     var plus = adj.reduce(function (a, r) { return a + Math.max(0, r.discrepancy || 0); }, 0), minus = adj.reduce(function (a, r) { return a + Math.min(0, r.discrepancy || 0); }, 0);
+    var ts = state.sessions.filter(function (x) { return x.status === "done" && x.completed_at && ymd(new Date(x.completed_at)) === t; })
+      .sort(function (a, b) { return new Date(a.completed_at) - new Date(b.completed_at); });
+    var dc = {}, dorder = [];
+    ts.forEach(function (x) { var u = String(x.completed_by || x.created_by || "-"); if (!dc[u]) { dc[u] = 0; dorder.push(u); } dc[u]++; });
+    var doneHtml = '<div class="tb-done-today"><span class="tb-done-label"><i class="fa-solid fa-circle-check"></i> 오늘 완료</span>' +
+      (dorder.length ? dorder.map(function (u) { return '<span class="tb-done-id">' + esc(u) + (dc[u] > 1 ? '<em>×' + dc[u] + '</em>' : '') + '</span>'; }).join("")
+                     : '<span class="tb-done-none">아직 완료한 사람이 없어요</span>') + '</div>';
     box.innerHTML = '<div class="tb-dash cc-dash"><div class="tb-dash-title"><span><i class="fa-solid fa-chart-simple"></i> Cycle Counting 현황</span><small>' + esc(ml + " " + now.getDate() + "일 기준") + '</small></div>' +
-      '<div class="tb-dash-label">오늘</div>' + row(tc) +
+      '<div class="tb-dash-label">오늘</div>' + row(tc) + doneHtml +
       '<div class="tb-dash-label">' + esc(ml) + ' 누적</div>' + row(mc) +
       (adj.length ? '<div class="tb-dash-sub">' + esc(ml) + ' 보정 수량 +' + plus + ' / ' + minus + '개</div>' : '') + '</div>';
   }
 
   function sessionCardHtml(a, readOnly) {
-    var latest = sessionLatest(a.id), done = latest.size, target = a.target || 15;
+    var latest = sessionLatest(a.id), done = latest.size, target = a.target || 10;
     var swaps = state.logs.filter(function (r) { return r.session_id === a.id && r.skip_reason; }).length;
     var html = '<div class="tb-sess cc-sess' + (readOnly ? " readonly" : "") + '">' +
       '<div class="tb-sess-head"><div><b>' + (readOnly ? esc(a.created_by || "-") + " 님 진행 중" : "사이클카운팅 진행 중") + '</b><span>시작 <b class="tb-who">' + esc(a.created_by || "-") + '</b> · ' + esc(fmtTime(a.created_at)) + (swaps ? " · 교체 " + swaps + "건" : "") + '</span></div>' +
@@ -452,7 +459,7 @@
     var a = activeSession(), others = othersActive(), html = "";
     if (a) html += sessionCardHtml(a, false);
     else if (!isViewer()) html += '<button type="button" class="tb-start-btn cc-start-btn" onclick="CycleCount.startSession()"><i class="fa-solid fa-clipboard-check"></i>' +
-      '<span><b>새 사이클카운팅 시작</b><small>B1 · B2 · B3 구역에서 5개씩, 총 15개 품목을 배정합니다 · 시작한 사람이 끝까지 진행</small></span></button>';
+      '<span><b>새 사이클카운팅 시작</b><small>B2 구역에서 10개 품목을 랜덤으로 배정합니다 · 시작한 사람이 끝까지 진행</small></span></button>';
     if (others.length) html += '<details class="tb-others"' + (isViewer() ? " open" : "") + '><summary><i class="fa-solid fa-users"></i> 다른 사람이 진행 중인 사이클카운팅 ' + others.length + '건 <span>(보기만 가능)</span></summary>' +
       others.map(function (o) { return sessionCardHtml(o, true); }).join("") + '</details>';
     box.innerHTML = html || '<div class="tb-empty">진행 중인 사이클카운팅이 없습니다.</div>';
@@ -486,7 +493,7 @@
         var rows = state.logs.filter(function (r) { return r.session_id === s.id; });
         var adj = rows.filter(function (r) { return r.status === "adjusted"; }).length, ok = rows.filter(function (r) { return r.status === "matched"; }).length;
         return '<div class="tb-hist"><button type="button" class="tb-hist-head" onclick="CycleCount.toggle(' + s.id + ')">' +
-          '<div class="tb-hist-main"><b>' + esc(fmtTime(s.completed_at || s.created_at)) + ' 완료</b><span>시작 <b class="tb-who">' + esc(s.created_by || "-") + '</b> → 완료 <b class="tb-who">' + esc(s.completed_by || "-") + '</b> · ' + (s.target || 15) + '개</span></div>' +
+          '<div class="tb-hist-main"><b>' + esc(fmtTime(s.completed_at || s.created_at)) + ' 완료</b><span>시작 <b class="tb-who">' + esc(s.created_by || "-") + '</b> → 완료 <b class="tb-who">' + esc(s.completed_by || "-") + '</b> · ' + (s.target || 10) + '개</span></div>' +
           '<div class="tb-hist-stats"><span class="ok">일치 ' + ok + '</span><span class="warn">보정 ' + adj + '</span></div></button>' +
           '<div id="cc-sess-detail-' + s.id + '" class="tb-hist-detail" style="display:none;">' + rows.map(rowHtml).join("") + '</div></div>';
       }).join("") : '<div class="tb-empty">완료된 사이클카운팅이 아직 없습니다.</div>';

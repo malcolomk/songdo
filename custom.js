@@ -1301,7 +1301,7 @@ window.renderStockLocationDashboard = function() {
 window.filterStockByLocation = function(locStr) {
   window.currentStockLocationFilter = locStr;
   if (typeof switchTab === 'function') {
-    const stockNavBtn = document.querySelector('.bottom-nav .nav-item:nth-child(2)');
+    const stockNavBtn = document.getElementById('nav-stock-btn');
     switchTab('stock', stockNavBtn);
   }
   if (typeof renderStockLookup === 'function') {
@@ -2656,14 +2656,7 @@ window.renderSimplePicklist = function() {
 
   // Update badge in tab menu
   const badgePicklist = document.getElementById("badge-picklist");
-  if (badgePicklist) {
-    if (pendingOrders.length > 0) {
-      badgePicklist.textContent = pendingOrders.length;
-      badgePicklist.style.display = "inline-flex";
-    } else {
-      badgePicklist.style.display = "none";
-    }
-  }
+  if (badgePicklist) badgePicklist.style.display = "none";   // 대기열 없음
 
   // Update tab texts
   const queueTabText = document.getElementById("picklist-queue-tab-text");
@@ -2671,11 +2664,9 @@ window.renderSimplePicklist = function() {
   if (queueTabText) queueTabText.textContent = `챙길 대기열 (${zoneQueueOrders.length}건)`;
   if (stockTabText) stockTabText.textContent = `${selectedZone} 실재고 (${zoneStockItems.length}종)`;
 
-  if (window.currentPicklistMode === "queue") {
-    renderPicklistQueueView(container, selectedZone, zoneQueueOrders);
-  } else {
-    renderPicklistStockView(container, selectedZone, zoneStockItems);
-  }
+  // 챙길 대기열은 없앰 → 항상 실재고 화면
+  window.currentPicklistMode = "stock";
+  renderPicklistStockView(container, selectedZone, zoneStockItems);
 };
 
 function renderPicklistQueueView(container, selectedZone, items) {
@@ -2880,7 +2871,7 @@ function renderPicklistStockView(container, selectedZone, items) {
               </button>
               <span style="font-size:11.5px; font-weight:bold; color:#64748b; font-family:monospace;">${cleanNo}</span>
             </div>
-            <span style="font-size:11px; color:#64748b; font-weight:700;">재고 <strong style="color:#0f172a; font-size:13px; font-weight:900;">${currentStock}</strong>개</span>
+            <span class="pk-stock"><small>현재 재고</small><b>${currentStock}</b><em>개</em></span>
           </div>
 
           <div style="font-size:13.5px; font-weight:900; color:#0f172a; line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">
@@ -2910,23 +2901,13 @@ function renderPicklistStockView(container, selectedZone, items) {
             ` : ''}
           </div>
 
-          <!-- Bottom: Pick Quantity Controls & Direct Pick Button -->
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed #f1f5f9;">
-            <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
-              <button type="button" onclick="adjustDirectPickQty('${cleanNo}', -1)" style="width:26px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:13px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center; flex-shrink:0;">-</button>
-              <input type="number" id="direct-pick-qty-${cleanNo}" value="${initialQty}" min="1" max="${currentStock}" style="width:38px; height:28px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:900; color:#0f172a; outline:none; padding:0;" onfocus="this.style.borderColor='#0058a3'" onblur="this.style.borderColor='#cbd5e1'">
-              <button type="button" onclick="adjustDirectPickQty('${cleanNo}', 1, ${currentStock})" style="width:26px; height:28px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px; font-size:13px; font-weight:900; cursor:pointer; color:#334155; display:flex; align-items:center; justify-content:center; flex-shrink:0;">+</button>
-              <button type="button" onclick="setDirectPickQtyMax('${cleanNo}', ${currentStock})" style="font-size:10.5px; font-weight:800; background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; border-radius:4px; padding:0 6px; height:28px; line-height:28px; cursor:pointer; white-space:nowrap; flex-shrink:0;">최대</button>
-            </div>
-
-            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-              <button type="button" id="btn-queue-add-${cleanNo}" onclick="handleQueueAddFromStock('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#ffffff; color:#0058a3; font-weight:800; font-size:12px; border:1.5px solid #0058a3; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; transition:all 0.15s ease;" title="챙길 대기열에 담기">
-                <i class="fa-solid fa-cart-plus"></i> 담기
-              </button>
-              <button type="button" onclick="handleDirectPickSubmit('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')" style="background:#0058a3; color:#ffffff; font-weight:800; font-size:12px; border:none; border-radius:8px; padding:0 10px; height:28px; cursor:pointer; box-shadow:0 2px 4px rgba(0,88,163,0.25); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
-                <i class="fa-solid fa-bolt"></i> 바로 챙기기
-              </button>
-            </div>
+          <!-- Bottom: 수량 입력(크게) · 최대 · 바로 챙기기 -->
+          <div class="pk-actions">
+            <input type="number" id="direct-pick-qty-${cleanNo}" class="pk-qty" value="${initialQty}" min="1" max="${currentStock}" inputmode="numeric" onfocus="this.select()" aria-label="챙길 수량">
+            <button type="button" class="pk-max" onclick="setDirectPickQtyMax('${cleanNo}', ${currentStock})">최대</button>
+            <button type="button" class="pk-go" onclick="handleDirectPickSubmit('${cleanNo}', '${displayName.replace(/'/g, "\\'")}')">
+              <i class="fa-solid fa-bolt"></i> 바로 챙기기
+            </button>
           </div>
         </div>
       </div>
@@ -4773,7 +4754,8 @@ let storeInboundPendingBtnElem = null;
 // Handle Store Inbound Menu Click (Direct switch to Store Inbound tab)
 window.handleStoreInboundMenuClick = function(btnElement) {
   storeInboundPendingBtnElem = btnElement;
-  switchTab('store-inbound', btnElement || document.querySelector('.bottom-nav .nav-item:first-child'));
+  // 들어가기 전에 안내 팝업(사진 포함)을 먼저 보여줌 → '확인' 누르면 매장 입고 화면으로
+  openStoreInboundNoticeModal();
 };
 
 window.openStoreInboundNoticeModal = function() {

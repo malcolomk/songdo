@@ -1,9 +1,10 @@
 // testbuy.js — Test Buy: 매장 디스플레이 점검 (회차당 5개)
 // · 대상: testbuy_l2.js 의 L2 아티클 목록(TESTBUY_L2.xlsx)에서 랜덤 배정
 // · 회차: 5개를 "점검 완료"해야 끝. 미입고로 교체한 아티클은 개수에 포함 안 됨
-// · 아티클별: [L2 아티클이지만 송도 미입고? 네=다른 아티클로 교체 / 테스트바이 시작]
-//            → 질문 6개(네/아니요) → 모두 네=통과 / 아니요 있으면 수정 안내
-//            · "해당 장소에서 구입할 수 있습니까?" 아니요 → 디스플레이 잠시 빼두기
+// · 배정: 창고 입고 또는 매장 입고 기록이 한 번이라도 있는 아티클 중 랜덤 (L2 목록과 무관)
+// · 아티클별: [송도 미입고? 네=다른 아티클로 교체 / 테스트바이 시작]
+//            → 질문 7개(네/아니요) → 모두 네=통과 / 아니요 있으면 수정 안내
+//            · "해당 장소에서 구입 가능한 재고가 있습니까?" 아니요 → 디스플레이 잠시 빼두기
 // · 기록: 회차를 만든 사람, 아티클별 점검한 사람, 5개째를 끝낸 사람
 (function () {
   "use strict";
@@ -15,10 +16,11 @@
   var RECENT_SKIPPED_DAYS = 60;  // 미입고로 넘긴 아티클은 배정 제외
 
   var QUESTIONS = [
-    { key: "pickup", icon: "fa-solid fa-location-dot", title: "해당 장소에서 구입할 수 있습니까?", short: "구입 가능", fix: "지금 구입할 수 없는 제품입니다. 고객 혼선이 없도록 디스플레이를 잠시 빼 두세요.", pull: true },
+    { key: "pickup", icon: "fa-solid fa-location-dot", title: "해당 장소에서 구입 가능한 재고가 있습니까?", short: "구입 가능 재고", fix: "지금 구입할 수 있는 재고가 없습니다. 고객 혼선이 없도록 디스플레이를 잠시 빼 두세요.", pull: true },
     { key: "display", icon: "fa-regular fa-eye", title: "제품이 진열/전시 되어 있나요?", short: "진열/전시", fix: "제품을 지정된 자리에 진열/전시해 주세요." },
     { key: "condition", icon: "fa-solid fa-wand-magic-sparkles", title: "제품 상태가 청결하고 완벽한 상태인가요?", short: "제품 상태", fix: "제품을 깨끗이 닦고, 빠진 부품이나 잘못된 조립을 바로잡아 주세요." },
     { key: "price_tag", icon: "fa-solid fa-tag", title: "가격표가 깔끔하고 올바르게 배치되어 있습니까?", short: "가격표", fix: "가격표를 올바른 위치에 깔끔하게 다시 붙여 주세요." },
+    { key: "rack_label", icon: "fa-solid fa-barcode", title: "렉라벨이 붙어 있나요?", short: "렉라벨", fix: "렉라벨을 확인해서 올바른 위치에 붙여 주세요." },
     { key: "buying_instruction", icon: "fa-solid fa-file-invoice", title: "바잉인스트럭션이 제품에 맞게 게시되어 있나요?", short: "바잉인스트럭션", fix: "제품에 맞는 바잉인스트럭션으로 바꿔 게시해 주세요." },
     { key: "range_area", icon: "fa-solid fa-table-cells-large", title: "고객이 찾기를 기대하는 범위 영역에 배치하고 분류합니까?", short: "범위 영역", fix: "고객이 찾기 쉬운 범위 영역으로 옮겨 분류해 주세요." }
   ];
@@ -29,7 +31,7 @@
     skip: { label: "미입고 교체", cls: "skip", icon: "fa-arrows-rotate" },
     swap: { label: "미리 교체", cls: "skip", icon: "fa-right-left" }
   };
-  var SKIP_TEXT = { not_received: "L2 아티클 · 송도 미입고", swapped: "지금 점검이 어려워 미리 교체" };
+  var SKIP_TEXT = { not_received: "송도 미입고", swapped: "지금 점검이 어려워 미리 교체" };
 
   var state = { logs: [], sessions: [], loaded: false, loading: false, filter: "open", sheet: null };
 
@@ -69,7 +71,7 @@
   function computeResult(a, fixes, pulled) {
     var nos = noKeys(a);
     if (!nos.length) return "pass";
-    return nos.every(function (k) { return k === "pickup" ? pulled : (fixes && fixes[k]); }) ? "fixed" : "fail";
+    return nos.every(function (k) { return k === "pickup" ? (pulled || (fixes && fixes.pickup === "absent")) : (fixes && fixes[k]); }) ? "fixed" : "fail";
   }
   // 구입할 수 없는 제품(첫 질문 아니요)이면 나머지 질문은 해당 없음
   function activeQuestions(a) { return a && a.pickup === "no" ? QUESTIONS.filter(function (q) { return q.key === "pickup"; }) : QUESTIONS; }
@@ -97,8 +99,38 @@
   function pulledItems() { return latestPerArticle(function (r) { return !!r.display_pulled; }); }
 
   // ---------- 배정 ----------
+  // 입고 기록(창고 입고 또는 매장 입고)이 한 번이라도 있는 아티클 전체에서 배정 (L2 목록 기준 아님)
+  var inboundSet = new Set(), inboundLoaded = false;
+  function inboundArtNos() {
+    var set = new Set(inboundSet);
+    try { if (typeof storeInboundLogs !== "undefined" && Array.isArray(storeInboundLogs)) storeInboundLogs.forEach(function (r) { var k = pad8(r.artNo || r.artno); if (k) set.add(k); }); } catch (e) {}
+    // 창고 입고 (입출고 기록의 '입고')
+    try { if (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) historyLogs.forEach(function (r) { if (r && r.type === "입고") { var k = pad8(r.artNo || r.artno); if (k) set.add(k); } }); } catch (e) {}
+    return set;
+  }
+  async function loadInbound() {
+    if (inboundLoaded) return;
+    try {
+      var res = typeof fetchAllRows === "function" ? await fetchAllRows("store_inbound_logs", "id", false) : await client().from("store_inbound_logs").select("artno").limit(10000);
+      if (res && !res.error && Array.isArray(res.data)) { res.data.forEach(function (r) { var k = pad8(r.artno || r.artNo); if (k) inboundSet.add(k); }); inboundLoaded = true; }
+    } catch (e) { console.warn("Test Buy: 매장 입고 목록을 불러오지 못했습니다", e); }
+  }
+  function eligibleList() {
+    var set = inboundArtNos();
+    if (!set.size) return l2List();   // 입고 기록을 전혀 못 불러온 경우에만 예비로 L2 목록 사용
+    var l2 = {}; l2List().forEach(function (x) { l2[pad8(x.a)] = x; });
+    var hfb = {};
+    try { (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog) ? masterCatalog : []).forEach(function (m) { var k = pad8(m.artNo || m.artno); if (k && m.hfb) hfb[k] = m.hfb; }); } catch (e) {}
+    var out = [];
+    set.forEach(function (k) {
+      if (!/^\d{8}$/.test(k)) return;
+      var name = displayName(k, (l2[k] && l2[k].n) || "");
+      out.push({ a: k, n: name === "(품명 없음)" ? "" : name, h: hfb[k] || (l2[k] && l2[k].h) || null });
+    });
+    return out;
+  }
   function pickArticles(n, extraExclude) {
-    var list = l2List();
+    var list = eligibleList();
     var testedCut = daysAgo(RECENT_TESTED_DAYS), skipCut = daysAgo(RECENT_SKIPPED_DAYS);
     var exclude = new Set(extraExclude || []);
     // 지금 진행 중인 모든 회차(다른 사람 포함)에 배정된 아티클은 제외 → 동시에 시작해도 겹치지 않음
@@ -135,6 +167,7 @@
       var r2 = await c.from(T_SESSIONS).select("*").gte("created_at", daysAgo(95) + "T00:00:00").order("id", { ascending: false }).limit(2000);
       if (r2.error) throw r2.error;
       state.logs = r1.data || []; state.sessions = r2.data || []; state.loaded = true;
+      await loadInbound();
     } catch (err) {
       console.warn("Test Buy load error:", err);
       if (force) toast("Test Buy 기록을 불러오지 못했습니다. 로그인 상태를 확인해 주세요.", "danger");
@@ -302,49 +335,76 @@
     document.getElementById("tb-sheet-product").innerHTML = productHtml(s);
     var body = document.getElementById("tb-sheet-body"), foot = document.getElementById("tb-sheet-footer"), stepEl = document.getElementById("tb-sheet-step");
     if (s.step === "precheck") {
-      stepEl.textContent = "1 / 3  확인";
-      body.innerHTML =
-        '<div class="tb-pre"><div class="tb-q-head"><i class="fa-solid fa-truck-ramp-box"></i><div><div class="tb-q-title">해당 제품은 L2 아티클이지만 송도에는 입고 안되었나요?</div>' +
-        '<div class="tb-q-sub">입고가 안 된 제품이면 \'네\'를 누르세요. 다른 아티클로 자동 교체되며, 5개 개수에는 포함되지 않습니다.</div></div></div>' +
-        '<div class="tb-pre-btns">' +
-          '<button type="button" class="tb-pre-yes" onclick="TestBuy.notReceived()"><i class="fa-solid fa-arrows-rotate"></i> 네 <small>다른 아티클로 교체</small></button>' +
+      // 입고 기록 있는 아티클만 배정되므로 미입고 확인 없이 바로 시작
+      stepEl.textContent = "1 / 3  시작";
+      body.innerHTML = '<div class="tb-pre"><div class="tb-pre-btns">' +
           '<button type="button" class="tb-pre-start" onclick="TestBuy.begin()"><i class="fa-solid fa-play"></i> 테스트바이 시작</button>' +
         '</div></div>';
       foot.innerHTML = "";
     } else if (s.step === "questions") {
       stepEl.textContent = "2 / 3  디스플레이 점검";
-      body.innerHTML = '<div class="tb-sheet-quick"><button type="button" onclick="TestBuy.allYes()"><i class="fa-solid fa-check-double"></i> 전부 \'네\'로 체크</button></div>' +
-        activeQuestions(s.answers).map(function (q) {
-          var v = s.answers[q.key];
-          return '<div class="tb-q' + (v ? " answered" : "") + (q.key === "pickup" ? " first" : "") + '" data-key="' + q.key + '">' +
-            '<div class="tb-q-head"><i class="' + q.icon + '"></i><div><div class="tb-q-title">' + esc(q.title) + '</div></div></div>' +
-            '<button type="button" class="tb-a yes' + (v === "yes" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'yes\')"><span>네</span><span class="tb-radio"></span></button>' +
-            '<button type="button" class="tb-a no' + (v === "no" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'no\')"><span>아니요</span><span class="tb-radio"></span></button>' +
-            (v === "no" ? '<div class="tb-inline-fix' + (q.pull ? " pull" : "") + '"><i class="fa-solid ' + (q.pull ? "fa-hand" : "fa-screwdriver-wrench") + '"></i>' +
-              (q.pull ? "<b>디스플레이 잠시 빼두기</b> — " : "<b>수정 필요</b> — ") + esc(q.fix) + '</div>' : '') +
-            (q.key === "pickup" && v === "no" ? '<div class="tb-skip-note"><i class="fa-solid fa-forward"></i> 구입할 수 없는 제품이라 나머지 질문 5개는 건너뜁니다.</div>' : '') +
-          '</div>';
-        }).join("") +
-        '<div class="tb-sheet-memo"><label for="tb-sheet-memo-input"><i class="fa-regular fa-pen-to-square"></i> 메모 <span>(선택)</span></label>' +
-        '<textarea id="tb-sheet-memo-input" rows="2" placeholder="특이사항이 있으면 적어 주세요">' + esc(s.memo || "") + '</textarea></div>';
       var aq = activeQuestions(s.answers);
-      var n = aq.filter(function (q) { return s.answers[q.key]; }).length, nos = noKeys(s.answers).length;
-      var label = n < aq.length ? "완료 (" + n + "/" + aq.length + ")"
-        : s.answers.pickup === "no" ? "완료 · 디스플레이 빼러 가기"
-        : nos ? "완료 · 아니요 " + nos + "개 수정하러 가기" : "완료 · 통과";
-      foot.innerHTML = '<button type="button" id="tb-sheet-done" class="tb-sheet-done" onclick="TestBuy.submit()"' + (n < aq.length ? " disabled" : "") + '>' + label + '</button>';
+      if (s.qIdx == null) s.qIdx = 0;
+      if (s.qIdx > aq.length) s.qIdx = aq.length;
+      var dots = '<div class="tbc-dots">' + aq.map(function (q, i) {
+        var v = s.answers[q.key];
+        return '<button type="button" class="tbc-dot' + (i === s.qIdx ? " cur" : "") + (v === "yes" ? " yes" : v === "no" ? " no" : "") + '" onclick="TestBuy.goQ(' + i + ')" aria-label="질문 ' + (i + 1) + '"></button>';
+      }).join("") + '</div>';
+      if (s.qIdx < aq.length) {
+        // 한 번에 질문 하나: 누르면 다음 카드
+        var q = aq[s.qIdx], v = s.answers[q.key];
+        body.innerHTML = dots +
+          '<div class="tbc-card" key="' + q.key + '">' +
+            '<div class="tbc-num">질문 ' + (s.qIdx + 1) + ' / ' + aq.length + '</div>' +
+            '<div class="tbc-icon"><i class="' + q.icon + '"></i></div>' +
+            '<div class="tbc-title">' + esc(q.title) + '</div>' +
+            '<div class="tbc-btns">' +
+              '<button type="button" class="tbc-yes' + (v === "yes" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'yes\')"><i class="fa-solid fa-check"></i> 네</button>' +
+              '<button type="button" class="tbc-no' + (v === "no" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'no\')"><i class="fa-solid fa-xmark"></i> 아니요</button>' +
+            '</div>' +
+            (q.key === "pickup" ? '<div class="tbc-hint">아니요를 누르면 오더 요청이 자동으로 등록되고, 나머지 질문은 건너뛰어요</div>' : '') +
+          '</div>' +
+          '<div class="tbc-nav">' + (s.qIdx > 0 ? '<button type="button" class="tbc-back" onclick="TestBuy.goQ(' + (s.qIdx - 1) + ')"><i class="fa-solid fa-chevron-left"></i> 이전 질문</button>' : '<span></span>') +
+            '</div>';
+        foot.innerHTML = "";
+      } else {
+        // 모두 답함 → 요약 카드 + 메모 + 완료
+        var nos = noKeys(s.answers);
+        body.innerHTML = dots +
+          '<div class="tbc-sum"><div class="tbc-sum-title">' + (nos.length ? '<i class="fa-solid fa-triangle-exclamation"></i> 아니요 ' + nos.length + '개' : '<i class="fa-solid fa-circle-check"></i> 모두 \'네\' — 통과') + '</div>' +
+          aq.map(function (q, i) {
+            var v = s.answers[q.key];
+            return '<button type="button" class="tbc-sum-row ' + (v === "no" ? "no" : "yes") + '" onclick="TestBuy.goQ(' + i + ')"><i class="' + q.icon + '"></i><span>' + esc(q.short) + '</span><b>' + (v === "no" ? "아니요" : "네") + '</b></button>' +
+              (v === "no" ? '<div class="tbc-sum-fix">' + (q.pull ? "디스플레이 잠시 빼두기 — " : "수정 필요 — ") + esc(q.fix) + '</div>' : '');
+          }).join("") +
+          (s.answers.pickup === "no" ? '<div class="tb-skip-note"><i class="fa-solid fa-forward"></i> 구입할 수 없는 제품이라 나머지 질문은 건너뛰었어요.</div>' : '') +
+          '<div class="tbc-sum-tip">항목을 누르면 그 질문으로 돌아가 고칠 수 있어요</div></div>' +
+          '<div class="tb-sheet-memo"><label for="tb-sheet-memo-input"><i class="fa-regular fa-pen-to-square"></i> 메모 <span>(선택)</span></label>' +
+          '<textarea id="tb-sheet-memo-input" rows="2" placeholder="특이사항이 있으면 적어 주세요">' + esc(s.memo || "") + '</textarea></div>';
+        var label = s.answers.pickup === "no" ? "완료 · 디스플레이 처리하러 가기" : nos.length ? "완료 · 아니요 " + nos.length + "개 수정하러 가기" : "완료 · 통과";
+        foot.innerHTML = '<button type="button" id="tb-sheet-done" class="tb-sheet-done" onclick="TestBuy.submit()">' + label + '</button>';
+      }
     } else {
       stepEl.textContent = "3 / 3  수정하기";
       var keys = noKeys(s.answers);
-      var doneCnt = keys.filter(function (k) { return k === "pickup" ? s.pulled : s.fixes[k]; }).length;
+      var doneCnt = keys.filter(function (k) { return k === "pickup" ? (s.pulled || s.fixes.pickup === "absent") : s.fixes[k]; }).length;
       body.innerHTML = '<div class="tb-fix-head"><i class="fa-solid fa-screwdriver-wrench"></i><div><b>아니요 ' + keys.length + '개를 바로 고쳐 주세요</b>' +
-        '<span>고친 항목은 \'수정 완료\'를 눌러 체크하세요. 이 아티클의 점검은 이미 저장되어 5개 개수에 들어갔고, 지금 못 고치면 나중에 목록에서 이어서 할 수 있어요.</span></div></div>' +
+        '<span>고친 항목은 \'수정 완료\'를 눌러 주세요. 지금 못 고치면 나중에 목록에서 이어서 할 수 있어요.</span></div></div>' +
         keys.map(function (k) {
-          var q = QUESTIONS.find(function (x) { return x.key === k; }), done = q.pull ? s.pulled : !!s.fixes[k];
-          return '<div class="tb-fix-item' + (done ? " done" : "") + (q.pull ? " pull" : "") + '"><div class="tb-fix-title"><i class="' + q.icon + '"></i>' + esc(q.title) + '</div>' +
+          var q = QUESTIONS.find(function (x) { return x.key === k; });
+          if (q.pull) {
+            var absent = s.fixes.pickup === "absent", pulledNow = !!s.pulled, dn = absent || pulledNow;
+            return '<div class="tb-fix-item pull' + (dn ? " done" : "") + '"><div class="tb-fix-title"><i class="' + q.icon + '"></i>' + esc(q.title) + '</div>' +
+              '<div class="tb-fix-guide">' + esc(q.fix) + '</div><div class="tb-pull-btns">' +
+              '<button type="button" class="tb-fix-btn' + (pulledNow ? " done" : "") + '" onclick="TestBuy.setPickup(\'pulled\')">' + (pulledNow ? '<i class="fa-solid fa-circle-check"></i> 디스플레이 빼둠' : '<i class="fa-solid fa-hand"></i> 디스플레이 뺐어요') + '</button>' +
+              '<button type="button" class="tb-fix-btn alt' + (absent ? " done" : "") + '" onclick="TestBuy.setPickup(\'absent\')">' + (absent ? '<i class="fa-solid fa-circle-check"></i> 원래 디스플레이 없음' : '<i class="fa-solid fa-ban"></i> 이미 디스플레이가 없어요') + '</button>' +
+              '</div></div>';
+          }
+          var done = !!s.fixes[k];
+          return '<div class="tb-fix-item' + (done ? " done" : "") + '"><div class="tb-fix-title"><i class="' + q.icon + '"></i>' + esc(q.title) + '</div>' +
             '<div class="tb-fix-guide">' + esc(q.fix) + '</div>' +
             '<button type="button" class="tb-fix-btn' + (done ? " done" : "") + '" onclick="TestBuy.toggleFix(\'' + k + '\')">' +
-              (done ? '<i class="fa-solid fa-circle-check"></i> ' + (q.pull ? "디스플레이 빼둠" : "수정 완료") : (q.pull ? '<i class="fa-solid fa-hand"></i> 디스플레이 뺐어요' : '<i class="fa-regular fa-circle"></i> 수정 완료')) +
+              (done ? '<i class="fa-solid fa-circle-check"></i> 수정 완료' : '<i class="fa-regular fa-circle"></i> 수정 완료') +
             '</button></div>';
         }).join("");
       foot.innerHTML = '<div class="tb-fix-foot"><button type="button" class="tb-later" onclick="TestBuy.saveFix(true)">나중에 할게요</button>' +
@@ -460,19 +520,40 @@
   function answer(key, v) {
     var s = state.sheet; if (!s) return;
     keepMemo();
-    var sc = document.querySelector("#tb-sheet .tb-sheet-scroll"), top = sc ? sc.scrollTop : 0;
-    s.answers[key] = v; renderSheet(); if (sc) sc.scrollTop = top;
-    if (v === "yes") {
-      var aq = activeQuestions(s.answers);
-      var idx = aq.findIndex(function (q) { return q.key === key; });
-      var next = aq.find(function (q, i) { return i > idx && !s.answers[q.key]; });
-      if (next) { var node = document.querySelector('#tb-sheet .tb-q[data-key="' + next.key + '"]'); if (node) setTimeout(function () { node.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100); }
-    }
+    s.answers[key] = v;
+    if (key === "pickup" && v === "no") { QUESTIONS.forEach(function (q) { if (q.key !== "pickup") delete s.answers[q.key]; }); }
+    var aq = activeQuestions(s.answers);
+    var idx = aq.findIndex(function (q) { return q.key === key; });
+    // 다음: 아직 답 안 한 질문 → 없으면 요약
+    var next = aq.findIndex(function (q, i) { return i > idx && !s.answers[q.key]; });
+    if (next === -1) next = aq.findIndex(function (q) { return !s.answers[q.key]; });
+    s.qIdx = next === -1 ? aq.length : next;
+    renderSheet();
+    var card = document.querySelector("#tb-sheet .tbc-card, #tb-sheet .tbc-sum"); if (card) { card.classList.add("tbc-in"); }
+    var sc = document.querySelector("#tb-sheet .tb-sheet-scroll"); if (sc) sc.scrollTop = 0;
   }
+  function goQ(i) { var s = state.sheet; if (!s) return; keepMemo(); s.qIdx = i; renderSheet(); var c = document.querySelector("#tb-sheet .tbc-card"); if (c) c.classList.add("tbc-in"); }
   function allYes() {
     var s = state.sheet; if (!s) return;
-    keepMemo(); QUESTIONS.forEach(function (q) { s.answers[q.key] = "yes"; }); renderSheet();
-    var d = document.getElementById("tb-sheet-done"); if (d) d.scrollIntoView({ behavior: "smooth", block: "end" });
+    keepMemo(); QUESTIONS.forEach(function (q) { s.answers[q.key] = "yes"; }); s.qIdx = QUESTIONS.length; renderSheet();
+  }
+
+  // 구입 가능한 재고가 없으면 → 오더 요청에 자동 등록 (이미 처리 안 된 같은 오더가 있으면 중복 등록 안 함)
+  async function requestOrder(s) {
+    try {
+      var logs = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs)) ? orderLogs : null;
+      var openSt = ["요청됨", "요청", "보류", "대기", "출고대기", "승인", "수락"];
+      if (logs && logs.some(function (o) { return pad8(o.artNo || o.artno) === s.artNo && openSt.indexOf(o.status) !== -1; })) {
+        toast("[" + fmtArt(s.artNo) + "] 이미 오더 요청이 들어가 있어요.", "info"); return;
+      }
+      var order = { date: today(), artNo: s.artNo, artName: s.artName || "기타 품목", qty: 1, user: me() || null, status: "요청됨" };
+      var r = await client().from("order_requests").insert([order]).select();
+      if (r.error) throw r.error;
+      if (r.data && r.data[0]) { order.id = r.data[0].id; order.created_at = r.data[0].created_at; }
+      if (logs) logs.unshift(order);
+      try { if (typeof renderOrderLogs === "function") renderOrderLogs(); if (typeof window.updateAllBadges === "function") window.updateAllBadges(); } catch (e) {}
+      toast("[" + fmtArt(s.artNo) + "] 재고가 없어 오더 요청에 등록했어요.", "info");
+    } catch (err) { toast("오더 요청 등록 실패: " + (err.message || err), "danger"); }
   }
 
   async function submit() {
@@ -492,6 +573,7 @@
       var res = await c.from(T_CHECKS).insert([row]).select();
       if (res.error) throw res.error;
       var saved = res.data && res.data[0]; if (saved) state.logs.unshift(saved);
+      if (s.answers.pickup === "no") await requestOrder(s);
       render(); updateDashboard();
       if (result === "pass") {
         toast("[" + fmtArt(s.artNo) + "] 통과! 👍", "success");
@@ -504,6 +586,13 @@
   }
 
   function toggleFix(k) { var s = state.sheet; if (!s) return; if (k === "pickup") s.pulled = !s.pulled; else s.fixes[k] = !s.fixes[k]; renderSheet(); }
+  // 구입 불가: 디스플레이를 뺐거나(pulled) / 원래 디스플레이가 없었거나(absent) — 다시 누르면 취소
+  function setPickup(mode) {
+    var s = state.sheet; if (!s) return;
+    if (mode === "pulled") { s.pulled = !s.pulled; if (s.pulled) delete s.fixes.pickup; }
+    else { if (s.fixes.pickup === "absent") delete s.fixes.pickup; else { s.fixes.pickup = "absent"; s.pulled = false; } }
+    renderSheet();
+  }
 
   async function saveFix(later) {
     var s = state.sheet; if (!s) return;
@@ -516,7 +605,7 @@
         if (r) { r.fixes = Object.assign({}, s.fixes); r.display_pulled = !!s.pulled; r.result = result; }
       } catch (err) { toast("저장 실패: " + (err.message || err), "danger"); return; }
     }
-    if (result === "fixed") toast("[" + fmtArt(s.artNo) + "] 수정 완료로 저장했습니다." + (s.pulled ? " (디스플레이 빼둠)" : ""), "success");
+    if (result === "fixed") toast("[" + fmtArt(s.artNo) + "] 수정 완료로 저장했습니다." + (s.pulled ? " (디스플레이 빼둠)" : s.fixes.pickup === "absent" ? " (원래 디스플레이 없음)" : ""), "success");
     else if (later) toast("저장했습니다. 남은 항목은 목록의 '수정하기'에서 이어서 할 수 있어요.", "info");
     var sid = s.sessionId; closeSheet(); render(); updateDashboard();
     if (sid) await maybeFinishSession(sid);
@@ -542,7 +631,7 @@
     var rr = rowResult(r), res = RESULT[rr], ans = r.answers || {}, fx = r.fixes || {};
     var issues = noKeys(ans).map(function (k) {
       var qq = QUESTIONS.find(function (x) { return x.key === k; });
-      if (k === "pickup") return '<span class="tb-issue pull">' + (r.display_pulled ? "디스플레이 빼둠" : "구입 불가 · 디스플레이 빼야 함") + '</span>';
+      if (k === "pickup") return '<span class="tb-issue pull">' + (r.display_pulled ? "디스플레이 빼둠" : fx.pickup === "absent" ? "구입 불가 · 원래 디스플레이 없음" : "구입 불가 · 디스플레이 빼야 함") + '</span>';
       return '<span class="tb-issue ' + (fx[k] ? "fixed" : "no") + '">' + esc(qq.short) + (fx[k] ? " ✓ 수정" : " ✕") + '</span>';
     }).join("");
     var actions = "";
@@ -600,7 +689,18 @@
     var passMonth = monthChecks.filter(function (r) { return rowResult(r) === "pass"; }).length;
 
     var fixedToday = todayChecks.filter(function (r) { return rowResult(r) === "fixed"; }).length;
+    var passToday = todayChecks.filter(function (r) { return rowResult(r) === "pass"; }).length;
 
+    // 오늘 테스트바이를 완료한 아이디 (완료한 사람 기준, 여러 번이면 ×횟수)
+    function todayDoneHtml() {
+      var cnt = {}, order = [];
+      todaySessions.slice().sort(function (a, b) { return new Date(a.completed_at) - new Date(b.completed_at); }).forEach(function (x) {
+        var u = String(x.completed_by || x.created_by || "-"); if (!cnt[u]) { cnt[u] = 0; order.push(u); } cnt[u]++;
+      });
+      return '<div class="tb-done-today"><span class="tb-done-label"><i class="fa-solid fa-circle-check"></i> 오늘 완료</span>' +
+        (order.length ? order.map(function (u) { return '<span class="tb-done-id">' + esc(u) + (cnt[u] > 1 ? '<em>×' + cnt[u] + '</em>' : '') + '</span>'; }).join("")
+                      : '<span class="tb-done-none">아직 완료한 사람이 없어요</span>') + '</div>';
+    }
     function tile(num, label, cls) { return '<div class="tb-kpi' + (cls ? " " + cls : "") + '"><b>' + num + '</b><span>' + label + '</span></div>'; }
     box.innerHTML =
       '<div class="tb-dash">' +
@@ -608,16 +708,18 @@
         '<div class="tb-dash-label">오늘</div>' +
         '<div class="tb-kpis">' +
           tile(todayChecks.length, "전체 아티클", "main") +
-          tile(todaySessions.length, "완료된 테스트바이") +
-          tile(fixedToday, "수정된 테스트바이", "fix") +
+          tile(passToday, "바로 통과한 아티클", "ok") +
+          tile(fixedToday, "수정된 아티클", "fix") +
         '</div>' +
+        todayDoneHtml() +
         '<div class="tb-dash-label">' + esc(monthLabel) + ' 누적</div>' +
         '<div class="tb-kpis">' +
           tile(monthChecks.length, "전체 아티클", "main") +
-          tile(monthSessions.length, "완료된 테스트바이") +
-          tile(fixedMonth, "수정된 테스트바이", "fix") +
+          tile(passMonth, "바로 통과한 아티클", "ok") +
+          tile(fixedMonth, "수정된 아티클", "fix") +
         '</div>' +
-        (monthChecks.length ? '<div class="tb-dash-sub">통과 ' + passMonth + ' · 수정 완료 ' + fixedMonth + ' · 수정 필요 ' + (monthChecks.length - passMonth - fixedMonth) + '</div>' : '') +
+        (monthChecks.length || monthSessions.length ? '<div class="tb-dash-sub">완료된 테스트바이 ' + monthSessions.length + '회' + (monthChecks.length - passMonth - fixedMonth > 0 ? ' · 아직 수정 필요 ' + (monthChecks.length - passMonth - fixedMonth) + '개' : '') + '</div>' : '') +
+        '<div class="tb-dash-note">바로 통과 = 점검 질문에 모두 \'네\'로 답해 수정 없이 끝난 아티클 · 수정된 = 문제가 있어 고친 뒤 완료한 아티클</div>' +
       '</div>';
   }
 
@@ -628,7 +730,7 @@
     if (a) html += sessionCardHtml(a, false);
     else html += isViewer() ? "" :
       '<button type="button" class="tb-start-btn" onclick="TestBuy.startSession()"><i class="fa-solid fa-shuffle"></i>' +
-      '<span><b>새 Test Buy 시작</b><small>L2 아티클 ' + l2List().length + '개 중 5개를 랜덤으로 배정합니다 · 시작한 사람이 끝까지 진행</small></span></button>';
+      '<span><b>새 Test Buy 시작</b><small>입고 기록 있는 아티클 ' + eligibleList().length + '개에서 5개를 랜덤으로 배정 · 시작한 사람이 끝까지 진행</small></span></button>';
     if (others.length) {
       html += '<details class="tb-others"' + (isViewer() ? " open" : "") + '><summary><i class="fa-solid fa-users"></i> 다른 사람이 진행 중인 Test Buy ' + others.length + '건 <span>(보기만 가능)</span></summary>' +
         others.map(function (o) { return sessionCardHtml(o, true); }).join("") + '</details>';
@@ -686,7 +788,7 @@
 
   window.TestBuy = {
     load: load, render: render, setFilter: setFilter, startSession: startSession, openSlot: openSlot, openFix: openFix,
-    closeSheet: closeSheet, notReceived: notReceived, begin: begin, answer: answer, allYes: allYes, submit: submit,
+    closeSheet: closeSheet, notReceived: notReceived, begin: begin, answer: answer, allYes: allYes, submit: submit, goQ: goQ, setPickup: setPickup,
     toggleFix: toggleFix, saveFix: saveFix, restoreDisplay: restoreDisplay, toggleSession: toggleSession, updateDashboard: updateDashboard, swapSlot: swapSlot
   };
 

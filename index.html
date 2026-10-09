@@ -16,7 +16,7 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=2.5.0">
-  <link rel="stylesheet" href="mobile.css?v=2.7.3">
+  <link rel="stylesheet" href="mobile.css?v=2.9.4">
   <style>
   .selected-card {
     border: 2px solid #18181b !important;
@@ -298,6 +298,7 @@
             <div class="form-group">
               <label for="reg-date"><i class="fa-regular fa-calendar" style="color:#0058a3;"></i> 날짜</label>
               <input type="date" id="reg-date" required class="input-control">
+              <div id="reg-date-warn" class="reg-date-warn" style="display:none;"></div>
             </div>
 
             <div class="form-group">
@@ -327,8 +328,11 @@
             </div>
           </div>
 
-          <!-- Row 3: 아티클 이름 및 사진 미리보기 -->
-          <div class="form-group">
+          <!-- 제품 카드 (품번을 찾으면 사진·이름·위치 표시) -->
+          <div id="reg-product-card" class="reg-product-card" style="display:none;"></div>
+
+          <!-- Row 3: 아티클 이름 (미등록 제품일 때만 표시) -->
+          <div class="form-group" id="reg-name-group">
             <label for="reg-artname"><i class="fa-solid fa-tag" style="color:#0058a3;"></i> 아티클 이름</label>
             <div style="display:flex; gap:8px; align-items:center;">
               <div id="reg-thumb-container" style="display:none; flex-shrink:0;"></div>
@@ -345,20 +349,19 @@
           <!-- Location Guide Banner (대형 보관 구역 하이라이트 & 안내) -->
           <div id="reg-location-guide-banner" style="display:none; margin:0 0 10px 0; border-radius:12px; transition:all 0.2s ease;"></div>
 
-          <!-- Row 4: 수량 (50%) + 현재 남은 재고 (50%) -->
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-            <div class="form-group">
-              <label for="reg-qty"><i class="fa-solid fa-layer-group" style="color:#0058a3;"></i> 수량</label>
-              <input type="number" id="reg-qty" min="1" placeholder="수량 입력" required class="input-control qty-input" style="font-size:15px; font-weight:800;">
-            </div>
-            <div class="form-group">
-              <label><i class="fa-solid fa-warehouse" style="color:#0058a3;"></i> 현재 남은 재고</label>
-              <div id="reg-current-stock" class="stock-preview-box" style="font-weight:800; font-size:14px;">- 개</div>
+          <!-- Row 4: 수량 (크게) + 최대(출고) -->
+          <div class="form-group">
+            <label for="reg-qty"><i class="fa-solid fa-layer-group" style="color:#0058a3;"></i> 수량</label>
+            <div class="reg-qty-row">
+              <input type="number" id="reg-qty" min="1" placeholder="수량 입력" required class="input-control qty-input reg-qty-big" inputmode="numeric">
+              <button type="button" id="reg-qty-max" class="reg-qty-max" style="display:none;">최대</button>
             </div>
           </div>
+          <!-- 현재 재고 → 저장 후 재고 -->
+          <div id="reg-current-stock" class="stock-preview-box reg-stock-big">- 개</div>
 
-          <!-- Row 5: 창고 구역 지정 (단독 행) -->
-          <div class="form-group">
+          <!-- Row 5: 창고 구역 — 입고 저장 때 팝업으로 선택 (이 칸은 숨김, 값 전달용) -->
+          <div class="form-group" id="reg-loc-group" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <label for="reg-location" style="margin:0; font-size:12px; font-weight:800; color:#0f172a;">
                 <i class="fa-solid fa-location-dot" style="color:#0058a3;"></i> 창고 구역 지정 <span id="reg-loc-req-badge" style="color:#ef4444; font-size:11px; font-weight:900;">(입고 시 필수)</span>
@@ -380,7 +383,7 @@
               <i class="fa-solid fa-plus"></i> 항목 담기
             </button>
             <button type="button" class="btn-direct-save" onclick="handleSingleRegSave()" style="background-color:#0058a3; color:#ffffff; font-size:13px; font-weight:900; box-shadow:0 3px 8px rgba(0,88,163,0.3);">
-              <i class="fa-solid fa-bolt"></i> 바로 입출고 저장
+              <i class="fa-solid fa-bolt"></i> <span id="reg-save-label">바로 입출고 저장</span>
             </button>
           </div>
           
@@ -392,6 +395,9 @@
             <i class="fa-solid fa-floppy-disk"></i> 담긴 항목 일괄 저장
           </button>
         </form>
+
+        <!-- 내 최근 등록 5건 (오늘 기록은 바로 취소 가능) -->
+        <div id="reg-recent" class="reg-recent"></div>
       </div>
     </section>
 
@@ -591,8 +597,8 @@
           <!-- Dynamically populated by renderPicklistZoneTabs() -->
         </div>
 
-        <!-- 2. View Mode Toggle (창고실재고 vs 챙길대기열) -->
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; background:#e2e8f0; padding:4px; border-radius:10px; margin-bottom:12px;">
+        <!-- 2. View Mode Toggle (창고실재고 vs 챙길대기열) — 대기열 기능 삭제로 숨김 -->
+        <div style="display:none !important; grid-template-columns: 1fr 1fr; gap:6px; background:#e2e8f0; padding:4px; border-radius:10px; margin-bottom:12px;">
           <button type="button" id="picklist-mode-stock-btn" class="btn-picklist-mode active" onclick="setPicklistMode('stock')" style="border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:#ffffff; color:#0058a3; box-shadow:0 1px 3px rgba(0,0,0,0.1); transition:all 0.15s ease;">
             <i class="fa-solid fa-boxes-stacked"></i> <span id="picklist-stock-tab-text">창고 실재고</span>
           </button>
@@ -870,7 +876,7 @@
           <a class="menu-task" id="menu-item-testbuy" onclick="switchTab('testbuy', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-task-icon" style="background:#fdf4ff; color:#a21caf;"><i class="fa-solid fa-couch"></i></div>
             <div class="menu-task-body">
-              <div class="menu-task-title">Test Buy</div>
+              <div class="menu-task-title">Test Buy <span class="menu-task-desc">디스플레이 점검</span></div>
               <div class="menu-task-sub" id="menu-task-testbuy-sub">매장 디스플레이 점검 · 1회 5개</div>
             </div>
             <span id="badge-testbuy" class="nav-badge" style="display:none;">0</span>
@@ -881,8 +887,8 @@
           <a class="menu-task" id="menu-item-cycle-counting" onclick="switchTab('cyclecount', document.querySelector('.bottom-nav .nav-item:first-child'))">
             <div class="menu-task-icon" style="background:#ffedd5; color:#ea580c;"><i class="fa-solid fa-clipboard-check"></i></div>
             <div class="menu-task-body">
-              <div class="menu-task-title">Cycle Counting</div>
-              <div class="menu-task-sub" id="menu-task-cycle-sub">창고 재고 실사 · B1·B2·B3 각 5개</div>
+              <div class="menu-task-title">Cycle Counting <span class="menu-task-desc">창고 재고 랜덤 체크 10개 (B2 기준)</span></div>
+              <div class="menu-task-sub" id="menu-task-cycle-sub">창고 재고 실사 · B2 10개</div>
             </div>
             <span id="menu-task-cycle-count" class="menu-task-count" style="display:none;">0/15</span>
             <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
@@ -1023,7 +1029,7 @@
     <section id="tab-cyclecount" class="tab-page">
       <div class="card-box tb-card cc-card">
         <div class="tb-head">
-          <h2><i class="fa-solid fa-clipboard-check"></i> Cycle Counting <small>구역별 5개</small></h2>
+          <h2><i class="fa-solid fa-clipboard-check"></i> Cycle Counting <small>B2 · 1회 10개</small></h2>
           <div class="tb-head-actions">
             <button type="button" class="tb-btn-ghost" onclick="CycleCount.load(true)" title="새로고침"><i class="fa-solid fa-rotate-right"></i></button>
             <button type="button" class="tb-btn-ghost" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))"><i class="fa-solid fa-arrow-left"></i> 메뉴</button>
@@ -1377,6 +1383,10 @@
       <span>메뉴</span>
       <span id="badge-menu-main" class="nav-badge" style="display:none; right:15px;">0</span>
     </button>
+    <button type="button" class="nav-item" id="nav-stock-btn" onclick="switchTab('stock', this)">
+      <i class="fa-solid fa-magnifying-glass-location"></i>
+      <span>재고 조회</span>
+    </button>
     <button type="button" class="nav-item active" onclick="switchTab('register', this)">
       <i class="fa-solid fa-pen-to-square"></i>
       <span>입출고 등록</span>
@@ -1385,10 +1395,6 @@
       <i class="fa-solid fa-dolly"></i>
       <span>창고 챙기기</span>
       <span id="badge-nav-picklist" class="nav-badge" style="display:none;">0</span>
-    </button>
-    <button type="button" class="nav-item" id="nav-stock-btn" onclick="switchTab('stock', this)">
-      <i class="fa-solid fa-magnifying-glass-location"></i>
-      <span>재고 조회</span>
     </button>
     <button type="button" class="nav-item" id="nav-history-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
@@ -2650,8 +2656,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
-  <script src="app.js?v=2.5.8"></script>
-  <script src="custom.js?v=2.5.7"></script>
+  <script src="app.js?v=2.6.2"></script>
+  <script src="custom.js?v=2.6.0"></script>
   
   <script>
     // Premium Wait List Override & Features
@@ -3660,8 +3666,8 @@
     </div>
   </div>
   <script src="testbuy_l2.js?v=20261007"></script>
-  <script src="testbuy.js?v=4.5.3"></script>
-  <script src="cyclecount.js?v=1.0.1"></script>
-  <script src="enhance.js?v=2.6.1"></script>
+  <script src="testbuy.js?v=4.6.7"></script>
+  <script src="cyclecount.js?v=1.1.1"></script>
+  <script src="enhance.js?v=2.9.1"></script>
 </body>
 </html>
