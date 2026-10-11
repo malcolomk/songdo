@@ -622,7 +622,7 @@ window.closeDevNotice = function () {
   // ---------- 2) 재고 미리보기 (크게) ----------
   function stockPreview() {
     var box = $("reg-current-stock"); if (!box) return;
-    var no = ($("reg-artno") || {}).value || ""; no = no.trim();
+    var no = (($("reg-artno") || {}).value || "").trim();
     if (!no) { box.className = "stock-preview-box reg-stock-big"; box.innerHTML = '<span class="rs-label">현재 재고</span><b class="rs-now">-</b>'; return; }
     var cur = stockOf(no), t = regType(), q = parseInt(($("reg-qty") || {}).value, 10) || 0;
     var cls = "stock-preview-box reg-stock-big", html = '<span class="rs-label">현재 재고</span><b class="rs-now">' + cur + '</b><span class="rs-unit">개</span>';
@@ -722,16 +722,17 @@ window.closeDevNotice = function () {
     document.body.appendChild(el); return el;
   }
   // 오늘이 아닌 날짜면 팝업에도 표시
-  function dateNote() {
+  function dateNote(verb) {
     var d = ($("reg-date") || {}).value || "";
     if (!d || d === today()) return "";
     var dd = new Date(d + "T00:00:00");
-    return '<div class="rz-date"><i class="fa-solid fa-triangle-exclamation"></i> 오늘이 아니에요! ' + (dd.getMonth() + 1) + '월 ' + dd.getDate() + '일 ' + (d < today() ? "(지난 날짜)" : "(미래 날짜)") + '로 입고돼요</div>';
+    return '<div class="rz-date"><i class="fa-solid fa-triangle-exclamation"></i> 오늘이 아니에요! ' + (dd.getMonth() + 1) + '월 ' + dd.getDate() + '일 ' + (d < today() ? "(지난 날짜)" : "(미래 날짜)") + '로 ' + (verb || "입고") + '돼요</div>';
   }
   function askZone(no, qty) {
     return new Promise(function (resolve) {
       var p = findProduct(no), cur = p ? p.location : "", name = p ? p.artName : ((($("reg-artname") || {}).value || "").trim() || "미등록 품목");
       var el = ensureSheet(), body = $("rz-body"), done = false;
+      var stepEl = el.querySelector(".rz-step"); if (stepEl) stepEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> 입고 구역 지정';
       function finish(v) { if (done) return; done = true; el.classList.remove("active"); document.body.classList.remove("tb-sheet-open"); el.onclick = null; resolve(v); }
       el.onclick = function (e) { if (e.target === el || e.target.closest(".tb-sheet-close")) finish(null); };
       function step1() {
@@ -758,18 +759,49 @@ window.closeDevNotice = function () {
       el.classList.add("active"); document.body.classList.add("tb-sheet-open");
     });
   }
+  // 저장 누르면 먼저 "입고 / 출고" 팝업
+  function askType(no, qty) {
+    return new Promise(function (resolve) {
+      var p = findProduct(no), name = p ? p.artName : ((($("reg-artname") || {}).value || "").trim() || "미등록 품목");
+      var cur = stockOf(no), afterIn = cur + qty, afterOut = cur - qty, canOut = cur > 0 && afterOut >= 0;
+      var el = ensureSheet(), body = $("rz-body"), done = false;
+      var step = el.querySelector(".rz-step"); if (step) step.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> 입고 / 출고 선택';
+      function finish(v) { if (done) return; done = true; el.classList.remove("active"); document.body.classList.remove("tb-sheet-open"); el.onclick = null; resolve(v); }
+      el.onclick = function (e) { if (e.target === el || e.target.closest(".tb-sheet-close")) finish(null); };
+      body.innerHTML = '<div class="rz-prod">' + (p ? '<div class="rz-thumb">' + thumb(p.artNo, name, 52) + '</div>' : '') + '<div><div class="rz-name">' + esc(name) + '</div><div class="rz-meta">' + esc(p ? p.artNo : pad8(no)) + ' · 수량 <b>' + esc(qty) + '개</b> · 현재 재고 ' + cur + '개' + (p && p.location ? ' · ' + esc(p.location) : '') + '</div></div></div>' +
+        dateNote("등록") +
+        '<div class="rz-q">입고인가요, 출고인가요?</div>' +
+        '<div class="rt-grid">' +
+          '<button type="button" class="rt-btn in" data-t="입고"><i class="fa-solid fa-arrow-down"></i><b>입고</b><small>재고 ' + cur + ' → ' + afterIn + '개</small></button>' +
+          '<button type="button" class="rt-btn out" data-t="출고"' + (canOut ? '' : ' disabled') + '><i class="fa-solid fa-arrow-up"></i><b>출고</b><small>' + (canOut ? '재고 ' + cur + ' → ' + afterOut + '개' : (cur <= 0 ? '재고가 없어요' : '재고 부족 (' + (qty - cur) + '개 모자람)')) + '</small></button>' +
+        '</div>' +
+        (canOut || cur <= 0 ? '' : '') +
+        '<button type="button" class="rz-cancel">취소</button>';
+      Array.prototype.forEach.call(body.querySelectorAll(".rt-btn:not([disabled])"), function (b) { b.addEventListener("click", function () { finish(b.dataset.t); }); });
+      body.querySelector(".rz-cancel").addEventListener("click", function () { finish(null); });
+      loadThumbs();
+      el.classList.add("active"); document.body.classList.add("tb-sheet-open");
+    });
+  }
+  function setType(t) {
+    var r = document.querySelector('input[name="reg-type"][value="' + t + '"]');
+    if (r) { r.checked = true; if (typeof updateTypeToggle === "function") { try { updateTypeToggle(); } catch (e) {} } }
+  }
   function gate(orig) {
     if (typeof orig !== "function" || orig.__zoneGate) return orig;
     var w = async function () {
       var args = arguments, ctx = this;
-      if (regType() !== "입고" || zoneChosen) return orig.apply(ctx, args);
+      if (zoneChosen) return orig.apply(ctx, args);
       var no = (($("reg-artno") || {}).value || "").trim(), q = Number(($("reg-qty") || {}).value);
       if (!no || !q || q <= 0) return orig.apply(ctx, args);   // 원래 안내(번호·수량 입력) 그대로
-      var z = await askZone(no, q);
-      if (!z) return;
-      var li = $("reg-location"); if (li) li.value = z;
+      var t = regType();
+      if (t === "입고") {
+        var z = await askZone(no, q);
+        if (!z) return;
+        var li = $("reg-location"); if (li) li.value = z;
+      }
       zoneChosen = true;
-      try { return await orig.apply(ctx, args); } finally { zoneChosen = false; }
+      try { return await orig.apply(ctx, args); } finally { zoneChosen = false; applyMode(); }
     };
     w.__zoneGate = true; return w;
   }
@@ -796,6 +828,33 @@ window.closeDevNotice = function () {
     Array.prototype.forEach.call(document.querySelectorAll('input[name="reg-type"]'), function (r) { if (!r.dataset.mode) { r.dataset.mode = "1"; r.addEventListener("change", function () { applyMode(); productCard(); stockPreview(); }); } });
   }
 
+  // ---------- 처음 화면: 입고 / 출고 큰 버튼 → 누르면 해당 모드의 등록 폼 ----------
+  function ensureChooser() {
+    var c = $("reg-chooser"); if (c) return c;
+    var f = $("register-form"); if (!f) return null;
+    c = document.createElement("div"); c.id = "reg-chooser";
+    c.innerHTML = '<div class="rc-title">무엇을 등록할까요?</div><div class="rc-grid">' +
+      '<button type="button" class="rc-btn in" data-t="입고"><i class="fa-solid fa-arrow-down"></i><b>입고</b><small>창고에 넣기</small></button>' +
+      '<button type="button" class="rc-btn out" data-t="출고"><i class="fa-solid fa-arrow-up"></i><b>출고</b><small>창고에서 꺼내기</small></button></div>';
+    f.parentNode.insertBefore(c, f);
+    Array.prototype.forEach.call(c.querySelectorAll(".rc-btn"), function (b) { b.addEventListener("click", function () { choose(b.dataset.t); }); });
+    // 폼 위에 '다시 고르기'
+    var back = document.createElement("button"); back.type = "button"; back.id = "reg-back-chooser"; back.className = "reg-back-chooser";
+    back.innerHTML = '<i class="fa-solid fa-chevron-left"></i> 입고 / 출고 다시 고르기';
+    back.addEventListener("click", function () { showChooser(true); });
+    f.parentNode.insertBefore(back, f);
+    return c;
+  }
+  function showChooser(on) {
+    var c = ensureChooser(), f = $("register-form"), back = $("reg-back-chooser"); if (!c || !f) return;
+    c.style.display = on ? "" : "none"; f.style.display = on ? "none" : ""; if (back) back.style.display = on ? "none" : "";
+  }
+  function choose(t) {
+    setType(t); showChooser(false); applyMode(); productCard(); stockPreview();
+    var a = $("reg-artno"); if (a) setTimeout(function () { try { a.focus(); } catch (e) {} }, 50);
+  }
+  window.RegChooser = { show: function () { showChooser(true); }, choose: choose };
+
   function tick() {
     var tab = $("tab-register"); if (!tab || !tab.classList.contains("active")) return;
     var sig = [(($("reg-artno") || {}).value || ""), (($("reg-artname") || {}).value || ""), regType(), (($("reg-qty") || {}).value || ""), (($("reg-date") || {}).value || ""),
@@ -807,6 +866,18 @@ window.closeDevNotice = function () {
 
   function init() {
     wrapAll(); bindOnce(); applyMode();
+    var tabR = $("tab-register");
+    if (tabR) {
+      var wasActive = tabR.classList.contains("active");
+      var cartEmpty = function () { try { return !(typeof regCartList !== "undefined" && regCartList.length); } catch (e) { return true; } };
+      if (wasActive) showChooser(true);
+      new MutationObserver(function () {
+        var act = tabR.classList.contains("active");
+        // 탭에 새로 들어왔고, 폼이 비어 있으면(다른 화면에서 품번을 넘겨받은 경우 제외) 입고/출고부터 고르기
+        if (act && !wasActive) { var a = $("reg-artno"); if ((!a || !a.value.trim()) && cartEmpty()) showChooser(true); else showChooser(false); }
+        wasActive = act;
+      }).observe(tabR, { attributes: true, attributeFilter: ["class"] });
+    }
     window.addEventListener("load", function () { setTimeout(function () { wrapAll(); bindOnce(); tick(); }, 0); });
     setInterval(tick, 400);
   }
@@ -977,15 +1048,52 @@ window.closeDevNotice = function () {
     c.__sandboxPatched = true;
     return true;
   }
+  // 시험 계정: 로그인하면 안내 팝업 → 5분 사용 → 자동 로그아웃
+  var LIMIT_MS = 5 * 60 * 1000, START_KEY = "warehouse_test_sandbox_start", ended = false;
+  function startTime() {
+    var v = 0; try { v = Number(sessionStorage.getItem(START_KEY)) || 0; } catch (e) {}
+    if (!v) { v = Date.now(); try { sessionStorage.setItem(START_KEY, String(v)); } catch (e) {} showIntro(); }
+    return v;
+  }
+  function popup(id, icon, cls, title, desc, btn, onClick) {
+    if (document.getElementById(id)) return;
+    var el = document.createElement("div"); el.id = id; el.className = "tb-sheet-backdrop active";
+    el.style.alignItems = "center"; el.style.padding = "16px"; el.style.zIndex = "100002";
+    el.innerHTML = '<div class="auth-exp-card"><div class="auth-exp-icon ' + cls + '"><i class="fa-solid ' + icon + '"></i></div>' +
+      '<div class="auth-exp-title">' + title + '</div><div class="auth-exp-desc">' + desc + '</div>' +
+      '<button type="button" class="auth-exp-btn">' + btn + '</button></div>';
+    el.querySelector(".auth-exp-btn").addEventListener("click", function () { el.remove(); if (onClick) onClick(); });
+    document.body.appendChild(el);
+  }
+  function showIntro() {
+    popup("test-sandbox-intro", "fa-flask", "sandbox", "시험용 계정이에요",
+      "여기서 저장·수정·삭제한 내용은 <b>실제 데이터에 들어가지 않아요.</b><br>" +
+      "<b>5분 동안</b> 자유롭게 눌러볼 수 있고, 시간이 지나면 자동으로 로그아웃돼요.", "확인했어요");
+  }
+  function endSession() {
+    if (ended) return; ended = true;
+    try { sessionStorage.removeItem(START_KEY); } catch (e) {}
+    popup("test-sandbox-end", "fa-hourglass-end", "sandbox", "시험 시간이 끝났어요",
+      "5분이 지나서 자동으로 로그아웃돼요.<br>다시 써 보려면 test 로 다시 로그인하세요.", "확인", function () {});
+    setTimeout(function () {
+      if (typeof handleLogout === "function") handleLogout();
+      else { window.__appLoggingOut = true; try { sessionStorage.removeItem("warehouse_current_user"); } catch (e) {} location.reload(); }
+    }, 2500);
+  }
+  function fmtLeft(ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
   function banner() {
     var b = document.getElementById("test-sandbox-banner");
+    if (ended) { if (b) b.innerHTML = '<i class="fa-solid fa-hourglass-end"></i> 시험 시간이 끝났어요 · 로그아웃 중…'; return; }
     if (isTest()) {
       if (!b) {
         b = document.createElement("div"); b.id = "test-sandbox-banner";
-        b.innerHTML = '<i class="fa-solid fa-flask"></i> 시험 모드 · 저장해도 실제 데이터에 안 들어가요';
         document.body.insertBefore(b, document.body.firstChild);
       }
+      var left = LIMIT_MS - (Date.now() - startTime());
+      b.innerHTML = '<i class="fa-solid fa-flask"></i> 시험 모드 · 저장 안 됨 · 남은 시간 <b>' + fmtLeft(left) + '</b>';
+      b.classList.toggle("ending", left <= 60000);
       document.body.classList.add("test-sandbox");
+      if (left <= 0) endSession();
     } else if (b) { b.remove(); document.body.classList.remove("test-sandbox"); }
   }
   // 시험 모드에서는 기기 저장소(캐시)에도 데이터를 남기지 않음 → 다른 사람이 같은 기기로 로그인해도 섞이지 않음
@@ -998,5 +1106,45 @@ window.closeDevNotice = function () {
 
   var tries = 0, t = setInterval(function () { tries++; if (patch() || tries > 200) clearInterval(t); }, 50);
   patch();
-  setInterval(banner, 1000);
+  setInterval(banner, 1000);   // 1초마다 남은 시간 갱신
+})();
+
+// ===== 로그인 만료 감지: 서버 로그인이 끊겼는데 화면은 로그인된 것처럼 보이는 상태 방지 =====
+// (예: 같은 아이디로 다른 곳에서 로그아웃 → 저장이 조용히 실패하던 문제)
+(function () {
+  "use strict";
+  var shown = false;
+  function loggedInUi() { try { return !!(window.currentUser || sessionStorage.getItem("warehouse_current_user")); } catch (e) { return !!window.currentUser; } }
+  function showExpired() {
+    if (shown || window.__appLoggingOut || !loggedInUi()) return;
+    shown = true;
+    var el = document.createElement("div");
+    el.id = "auth-expired"; el.className = "tb-sheet-backdrop active";
+    el.style.alignItems = "center"; el.style.padding = "16px"; el.style.zIndex = "100001";
+    el.innerHTML = '<div class="auth-exp-card"><div class="auth-exp-icon"><i class="fa-solid fa-user-lock"></i></div>' +
+      '<div class="auth-exp-title">로그인이 만료됐어요</div>' +
+      '<div class="auth-exp-desc">같은 아이디로 다른 곳에서 로그아웃했거나 오래 켜 두어서 로그인이 끊겼어요.<br>지금은 저장이 안 되니 다시 로그인해 주세요.</div>' +
+      '<button type="button" class="auth-exp-btn">다시 로그인</button></div>';
+    el.querySelector(".auth-exp-btn").addEventListener("click", function () {
+      try { sessionStorage.removeItem("warehouse_current_user"); } catch (e) {}
+      location.reload();
+    });
+    document.body.appendChild(el);
+  }
+  window.showAuthExpired = showExpired;
+  function bind() {
+    var c; try { c = typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { c = null; }
+    if (!c || !c.auth || c.__authWatch) return !!(c && c.__authWatch);
+    c.__authWatch = true;
+    c.auth.onAuthStateChange(function (event, session) {
+      if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) setTimeout(showExpired, 300);
+    });
+    // 탭을 다시 볼 때도 확인
+    document.addEventListener("visibilitychange", async function () {
+      if (document.hidden || !loggedInUi() || window.__appLoggingOut) return;
+      try { var r = await c.auth.getSession(); if (!r || !r.data || !r.data.session) showExpired(); } catch (e) {}
+    });
+    return true;
+  }
+  var n = 0, t = setInterval(function () { n++; if (bind() || n > 100) clearInterval(t); }, 100);
 })();

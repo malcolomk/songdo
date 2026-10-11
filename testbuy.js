@@ -362,7 +362,7 @@
               '<button type="button" class="tbc-yes' + (v === "yes" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'yes\')"><i class="fa-solid fa-check"></i> 네</button>' +
               '<button type="button" class="tbc-no' + (v === "no" ? " active" : "") + '" onclick="TestBuy.answer(\'' + q.key + '\',\'no\')"><i class="fa-solid fa-xmark"></i> 아니요</button>' +
             '</div>' +
-            (q.key === "pickup" ? '<div class="tbc-hint">아니요를 누르면 오더 요청이 자동으로 등록되고, 나머지 질문은 건너뛰어요</div>' : '') +
+            (q.key === "pickup" ? '<div class="tbc-hint">아니요를 누르면 나머지 질문은 건너뛰고, 다음 화면에서 입고 요청을 할 수 있어요</div>' : '') +
           '</div>' +
           '<div class="tbc-nav">' + (s.qIdx > 0 ? '<button type="button" class="tbc-back" onclick="TestBuy.goQ(' + (s.qIdx - 1) + ')"><i class="fa-solid fa-chevron-left"></i> 이전 질문</button>' : '<span></span>') +
             '</div>';
@@ -398,7 +398,12 @@
               '<div class="tb-fix-guide">' + esc(q.fix) + '</div><div class="tb-pull-btns">' +
               '<button type="button" class="tb-fix-btn' + (pulledNow ? " done" : "") + '" onclick="TestBuy.setPickup(\'pulled\')">' + (pulledNow ? '<i class="fa-solid fa-circle-check"></i> 디스플레이 빼둠' : '<i class="fa-solid fa-hand"></i> 디스플레이 뺐어요') + '</button>' +
               '<button type="button" class="tb-fix-btn alt' + (absent ? " done" : "") + '" onclick="TestBuy.setPickup(\'absent\')">' + (absent ? '<i class="fa-solid fa-circle-check"></i> 원래 디스플레이 없음' : '<i class="fa-solid fa-ban"></i> 이미 디스플레이가 없어요') + '</button>' +
-              '</div></div>';
+              '</div>' + (function () {
+                var ord = !!s.ordered || hasOpenOrder(s.artNo);
+                return '<div class="tb-order-box"><div class="tb-order-text"><i class="fa-solid fa-truck-ramp-box"></i> 재고를 채워야 하면 입고를 요청해 주세요</div>' +
+                  '<button type="button" class="tb-order-btn' + (ord ? " done" : "") + '"' + (ord || s.ordering ? " disabled" : "") + ' onclick="TestBuy.requestStock()">' +
+                  (ord ? '<i class="fa-solid fa-circle-check"></i> 입고 요청 완료' : s.ordering ? '요청 중…' : '<i class="fa-solid fa-paper-plane"></i> 입고 요청 하기') + '</button></div>';
+              })() + '</div>';
           }
           var done = !!s.fixes[k];
           return '<div class="tb-fix-item' + (done ? " done" : "") + '"><div class="tb-fix-title"><i class="' + q.icon + '"></i>' + esc(q.title) + '</div>' +
@@ -538,22 +543,33 @@
     keepMemo(); QUESTIONS.forEach(function (q) { s.answers[q.key] = "yes"; }); s.qIdx = QUESTIONS.length; renderSheet();
   }
 
-  // 구입 가능한 재고가 없으면 → 오더 요청에 자동 등록 (이미 처리 안 된 같은 오더가 있으면 중복 등록 안 함)
+  // 구입 가능한 재고가 없을 때 '입고 요청 하기' 버튼 → 오더 요청에 등록 (처리 안 된 같은 오더가 있으면 중복 등록 안 함)
+  var OPEN_ORDER_ST = ["요청됨", "요청", "보류", "대기", "출고대기", "승인", "수락"];
+  function hasOpenOrder(artNo) {
+    var logs = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs)) ? orderLogs : [];
+    return logs.some(function (o) { return pad8(o.artNo || o.artno) === pad8(artNo) && OPEN_ORDER_ST.indexOf(o.status) !== -1; });
+  }
+  async function requestStock() {
+    var s = state.sheet; if (!s || s.ordering) return;
+    if (isViewer()) { toast("Viewer(읽기 전용) 계정은 요청할 수 없습니다.", "warning"); return; }
+    if (s.ordered || hasOpenOrder(s.artNo)) { s.ordered = true; toast("[" + fmtArt(s.artNo) + "] 이미 입고 요청이 들어가 있어요.", "info"); renderSheet(); return; }
+    s.ordering = true; renderSheet();
+    var ok = await requestOrder(s);
+    s.ordering = false; if (ok) s.ordered = true; renderSheet();
+  }
   async function requestOrder(s) {
     try {
       var logs = (typeof orderLogs !== "undefined" && Array.isArray(orderLogs)) ? orderLogs : null;
-      var openSt = ["요청됨", "요청", "보류", "대기", "출고대기", "승인", "수락"];
-      if (logs && logs.some(function (o) { return pad8(o.artNo || o.artno) === s.artNo && openSt.indexOf(o.status) !== -1; })) {
-        toast("[" + fmtArt(s.artNo) + "] 이미 오더 요청이 들어가 있어요.", "info"); return;
-      }
+      if (hasOpenOrder(s.artNo)) { toast("[" + fmtArt(s.artNo) + "] 이미 입고 요청이 들어가 있어요.", "info"); return true; }
       var order = { date: today(), artNo: s.artNo, artName: s.artName || "기타 품목", qty: 1, user: me() || null, status: "요청됨" };
       var r = await client().from("order_requests").insert([order]).select();
       if (r.error) throw r.error;
       if (r.data && r.data[0]) { order.id = r.data[0].id; order.created_at = r.data[0].created_at; }
       if (logs) logs.unshift(order);
       try { if (typeof renderOrderLogs === "function") renderOrderLogs(); if (typeof window.updateAllBadges === "function") window.updateAllBadges(); } catch (e) {}
-      toast("[" + fmtArt(s.artNo) + "] 재고가 없어 오더 요청에 등록했어요.", "info");
-    } catch (err) { toast("오더 요청 등록 실패: " + (err.message || err), "danger"); }
+      toast("[" + fmtArt(s.artNo) + "] 입고 요청을 보냈어요. (오더 요청 화면에서 확인)", "success");
+      return true;
+    } catch (err) { toast("입고 요청 실패: " + (err.message || err), "danger"); return false; }
   }
 
   async function submit() {
@@ -573,7 +589,6 @@
       var res = await c.from(T_CHECKS).insert([row]).select();
       if (res.error) throw res.error;
       var saved = res.data && res.data[0]; if (saved) state.logs.unshift(saved);
-      if (s.answers.pickup === "no") await requestOrder(s);
       render(); updateDashboard();
       if (result === "pass") {
         toast("[" + fmtArt(s.artNo) + "] 통과! 👍", "success");
@@ -788,7 +803,7 @@
 
   window.TestBuy = {
     load: load, render: render, setFilter: setFilter, startSession: startSession, openSlot: openSlot, openFix: openFix,
-    closeSheet: closeSheet, notReceived: notReceived, begin: begin, answer: answer, allYes: allYes, submit: submit, goQ: goQ, setPickup: setPickup,
+    closeSheet: closeSheet, notReceived: notReceived, begin: begin, answer: answer, allYes: allYes, submit: submit, goQ: goQ, setPickup: setPickup, requestStock: requestStock,
     toggleFix: toggleFix, saveFix: saveFix, restoreDisplay: restoreDisplay, toggleSession: toggleSession, updateDashboard: updateDashboard, swapSlot: swapSlot
   };
 

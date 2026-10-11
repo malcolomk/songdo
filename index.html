@@ -16,7 +16,8 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=2.5.0">
-  <link rel="stylesheet" href="mobile.css?v=2.9.4">
+  <link rel="stylesheet" href="mobile.css?v=2.9.16">
+  <link rel="stylesheet" href="design.css?v=1.1.1">
   <style>
   .selected-card {
     border: 2px solid #18181b !important;
@@ -301,7 +302,7 @@
               <div id="reg-date-warn" class="reg-date-warn" style="display:none;"></div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="reg-type-group">
               <label><i class="fa-solid fa-arrows-left-right" style="color:#0058a3;"></i> 구분</label>
               <div class="toggle-segmented">
                 <label class="toggle-option active-in" id="label-type-in">
@@ -893,6 +894,17 @@
             <span id="menu-task-cycle-count" class="menu-task-count" style="display:none;">0/15</span>
             <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
           </a>
+
+          <!-- 매장 재고 체크 (매장 입고 아티클 랜덤 5개 · 프락타 제외) -->
+          <a class="menu-task" id="menu-item-storecheck" onclick="switchTab('storecheck', document.querySelector('.bottom-nav .nav-item:first-child'))">
+            <div class="menu-task-icon" style="background:#ccfbf1; color:#0f766e;"><i class="fa-solid fa-store"></i></div>
+            <div class="menu-task-body">
+              <div class="menu-task-title">매장 재고 체크 <span class="menu-task-desc sc-desc">매장 재고 랜덤 체크 5개/10개</span></div>
+              <div class="menu-task-sub" id="menu-task-storecheck-sub">매장 입고 아티클 · 5개/10개 선택</div>
+            </div>
+            <span id="menu-task-storecheck-count" class="menu-task-count" style="display:none;">0/5</span>
+            <i class="fa-solid fa-chevron-right menu-task-arrow"></i>
+          </a>
         </div>
 
         <!-- ② 구역별 창고 재고 현황 -->
@@ -1049,6 +1061,34 @@
 
         <div class="tb-list-head"><span id="cc-list-title">이번 달 수량 보정 내역</span></div>
         <div id="cc-list" class="tb-list"></div>
+      </div>
+    </section>
+
+    <!-- TAB: 매장 재고 체크 (매장 입고 아티클 랜덤 5개 · 프락타 제외) -->
+    <section id="tab-storecheck" class="tab-page">
+      <div class="card-box tb-card sc-card">
+        <div class="tb-head">
+          <h2><i class="fa-solid fa-store"></i> 매장 재고 체크 <small>5개/10개</small></h2>
+          <div class="tb-head-actions">
+            <button type="button" class="tb-btn-ghost" onclick="StoreCheck.load(true)" title="새로고침"><i class="fa-solid fa-rotate-right"></i></button>
+            <button type="button" class="tb-btn-ghost sc-excel" onclick="StoreCheck.exportExcel()" title="엑셀 추출"><i class="fa-solid fa-file-excel"></i> 엑셀</button>
+            <button type="button" class="tb-btn-ghost" onclick="switchTab('menu', document.querySelector('.bottom-nav .nav-item:first-child'))"><i class="fa-solid fa-arrow-left"></i> 메뉴</button>
+          </div>
+        </div>
+
+        <!-- 현황 대시보드 -->
+        <div id="sc-stats"></div>
+
+        <!-- 진행 중 / 새로 시작 -->
+        <div id="sc-session" class="tb-session-box"></div>
+
+        <div class="tb-summary sc-summary">
+          <button type="button" class="tb-stat bad" data-filter="none" onclick="StoreCheck.setFilter('none')"><b id="sc-stat-none">0</b><span>이번 달 재고 없음</span></button>
+          <button type="button" class="tb-stat" data-filter="sessions" onclick="StoreCheck.setFilter('sessions')"><b id="sc-stat-sessions">0</b><span>완료된 매장 재고 체크</span></button>
+        </div>
+
+        <div class="tb-list-head"><span id="sc-list-title">이번 달 매장 재고 없음 내역</span></div>
+        <div id="sc-list" class="tb-list"></div>
       </div>
     </section>
 
@@ -2656,7 +2696,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
-  <script src="app.js?v=2.6.2"></script>
+  <script src="app.js?v=2.6.4"></script>
   <script src="custom.js?v=2.6.0"></script>
   
   <script>
@@ -3666,8 +3706,9 @@
     </div>
   </div>
   <script src="testbuy_l2.js?v=20261007"></script>
-  <script src="testbuy.js?v=4.6.7"></script>
-  <script src="cyclecount.js?v=1.1.1"></script>
-  <script src="enhance.js?v=2.9.1"></script>
+  <script src="testbuy.js?v=4.7.0"></script>
+  <script src="cyclecount.js?v=1.1.2"></script>
+  <script src="storecheck.js?v=1.7.0"></script>
+  <script src="enhance.js?v=2.9.5"></script>
 </body>
 </html>

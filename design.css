@@ -1,0 +1,226 @@
+/* design.css — 앱 전체 디자인 통일 (가장 마지막에 로드)
+   원칙: 한 가지 브랜드 색(파랑) · 회색 바탕 위 흰 카드 · 같은 크기의 버튼/입력칸 · 정돈된 글자 크기
+   업무별 색(Test Buy 보라, Cycle Counting 주황 등)은 아이콘·포인트에만 사용 */
+
+:root {
+  --ds-primary: #0058a3;
+  --ds-primary-600: #004a8a;
+  --ds-primary-50: #eef5fc;
+  --ds-ink: #111827;
+  --ds-text: #374151;
+  --ds-muted: #6b7280;
+  --ds-subtle: #9ca3af;
+  --ds-line: #e5e7eb;
+  --ds-line-strong: #d1d5db;
+  --ds-bg: #f3f5f8;
+  --ds-surface: #ffffff;
+  --ds-radius: 16px;
+  --ds-radius-sm: 12px;
+  --ds-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .04);
+  --ds-shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, .18);
+  --ds-focus: 0 0 0 3px rgba(0, 88, 163, .16);
+
+  /* 기존 테마 변수도 같은 브랜드 색으로 맞춤 (가을 주황 → 파랑) */
+  --primary-color: var(--ds-primary);
+  --primary-hover: var(--ds-primary-600);
+  --primary-light: var(--ds-primary-50);
+  --border-color: var(--ds-line);
+  --border-subtle: var(--ds-line);
+  --input-bg: #ffffff;
+  --text-main: var(--ds-ink);
+  --text-muted: var(--ds-muted);
+}
+
+/* ---------- 바탕 ---------- */
+html, body { background-color: var(--ds-bg) !important; }
+body { color: var(--ds-ink); -webkit-font-smoothing: antialiased; letter-spacing: -0.2px; }
+.autumn-leaf:not(.login-overlay .autumn-leaf) { display: none !important; }   /* 낙엽 장식은 로그인 화면에서만 보이게 */
+.login-overlay .autumn-leaf { display: block !important; }
+
+/* ---------- 상단 헤더 ---------- */
+.app-header { background: rgba(255,255,255,.96) !important; border-bottom: 1px solid var(--ds-line) !important; box-shadow: none !important; padding: 8px 14px !important; }
+.app-header .logo-icon { color: var(--ds-primary) !important; }
+.app-header .app-title { font-size: 16px !important; font-weight: 800 !important; color: var(--ds-ink) !important; letter-spacing: -0.4px; }
+.app-header .app-subtitle { color: var(--ds-subtle) !important; }
+.header-actions { gap: 6px !important; }
+#btn-global-refresh, #btn-manual-guide, #btn-notification-bell {
+  width: 36px !important; height: 36px !important; border-radius: 10px !important;
+  background: var(--ds-bg) !important; border: none !important; color: var(--ds-text) !important;
+}
+#btn-global-refresh i, #btn-manual-guide i, #btn-notification-bell i { color: var(--ds-text) !important; font-size: 14px !important; }
+#btn-global-refresh .refresh-label { display: none !important; }
+#user-profile-badge { height: 36px !important; border-radius: 10px !important; background: var(--ds-bg) !important; border: none !important; padding: 0 8px !important; gap: 5px !important; }
+#user-profile-badge #current-user-name { font-size: 12.5px !important; max-width: 64px !important; }
+#user-profile-badge .fa-circle-user { color: var(--ds-primary) !important; font-size: 14px !important; }
+
+/* ---------- 하단 메뉴 ---------- */
+.bottom-nav { background: rgba(255,255,255,.98) !important; border-top: 1px solid var(--ds-line) !important; box-shadow: 0 -6px 20px rgba(16,24,40,.05) !important; }
+.bottom-nav-5 .nav-item { color: var(--ds-subtle) !important; font-weight: 700 !important; }
+.bottom-nav-5 .nav-item.active { color: var(--ds-primary) !important; font-weight: 800 !important; }
+.bottom-nav-5 .nav-item.active::before { background: var(--ds-primary) !important; height: 3px !important; left: 28% !important; right: 28% !important; }
+
+/* ---------- 화면(탭) 공통 ---------- */
+.tab-page h2 { font-size: 18px !important; font-weight: 800 !important; color: var(--ds-ink) !important; letter-spacing: -0.5px; }
+.tab-page h2 > i, .tab-page h2 i:first-child { color: var(--ds-primary) !important; }
+
+/* 카드: 흰 바탕 · 얇은 선 · 둥근 모서리 · 위쪽 색 띠 제거 */
+.card-box, .info-card {
+  background: var(--ds-surface) !important; border: 1px solid var(--ds-line) !important;
+  border-radius: var(--ds-radius) !important; box-shadow: var(--ds-shadow) !important;
+}
+.card-box { border-top: 1px solid var(--ds-line) !important; }
+
+/* 폼 라벨 · 입력칸 */
+.form-group label { font-size: 12.5px !important; font-weight: 700 !important; color: var(--ds-text) !important; margin-bottom: 6px !important; }
+.form-group label i { color: var(--ds-muted) !important; }
+.input-control, .search-control, .tab-page select, .tab-page input[type="text"], .tab-page input[type="search"], .tab-page input[type="date"], .tab-page input[type="number"] {
+  background-color: #fff !important; border: 1px solid var(--ds-line-strong) !important; border-radius: var(--ds-radius-sm) !important;
+  color: var(--ds-ink) !important; font-weight: 600;
+}
+.input-control, .search-control { min-height: 46px; }
+.input-control:focus, .search-control:focus, .tab-page select:focus, .tab-page input:focus {
+  border-color: var(--ds-primary) !important; box-shadow: var(--ds-focus) !important; outline: none !important;
+}
+.input-control::placeholder, .tab-page input::placeholder { color: var(--ds-subtle) !important; font-weight: 500 !important; }
+
+/* 버튼 */
+.btn-submit, .btn-primary {
+  background: var(--ds-primary) !important; color: #fff !important; border: none !important;
+  border-radius: var(--ds-radius-sm) !important; font-weight: 800 !important; min-height: 46px; box-shadow: none !important;
+}
+.btn-submit:active, .btn-primary:active { background: var(--ds-primary-600) !important; }
+.btn-secondary {
+  background: #fff !important; color: var(--ds-text) !important; border: 1px solid var(--ds-line-strong) !important;
+  border-radius: var(--ds-radius-sm) !important; font-weight: 700 !important; box-shadow: none !important;
+}
+.btn-secondary:active { background: var(--ds-bg) !important; }
+.tb-btn-ghost { border-radius: 10px !important; border-color: var(--ds-line-strong) !important; color: var(--ds-text) !important; background: #fff !important; }
+
+/* 엑셀 버튼은 초록 하나로 통일 */
+[id*="excel"]:not(input):not(div), button[onclick*="Excel"] { border-radius: 10px !important; box-shadow: none !important; }
+
+/* 모달 */
+.modal-content { border-radius: 20px !important; border: none !important; box-shadow: var(--ds-shadow-lg) !important; }
+.modal-header { border-bottom: 1px solid var(--ds-line) !important; }
+.modal-header h3 { font-size: 17px !important; font-weight: 800 !important; color: var(--ds-ink) !important; }
+.modal-backdrop { background: rgba(17, 24, 39, .45) !important; }
+.tb-sheet-backdrop { background: rgba(17, 24, 39, .45) !important; }
+
+/* 칩(필터 버튼) */
+.chip-btn, .btn-date-chip { border-radius: 999px !important; }
+
+/* 빈 화면 안내 */
+.tb-empty { color: var(--ds-subtle) !important; }
+
+/* ---------- 메뉴 화면 ---------- */
+.menu-section-title { font-size: 13px !important; font-weight: 800 !important; color: var(--ds-muted) !important; letter-spacing: -0.2px; margin: 18px 2px 10px !important; }
+.menu-section-title i { color: var(--ds-subtle) !important; }
+.menu-section-sub { color: var(--ds-subtle) !important; font-weight: 600 !important; }
+.menu-task, .menu-tile { background: var(--ds-surface) !important; border: 1px solid var(--ds-line) !important; border-radius: var(--ds-radius) !important; box-shadow: var(--ds-shadow) !important; }
+.menu-task { padding: 14px !important; gap: 12px !important; }
+.menu-task:active, .menu-tile:active { transform: scale(.99); background: #fafbfc !important; }
+.menu-task-icon { width: 44px !important; height: 44px !important; border-radius: 12px !important; }
+.menu-task-title { font-size: 15.5px !important; font-weight: 800 !important; color: var(--ds-ink) !important; }
+.menu-task-sub { font-size: 12.5px !important; color: var(--ds-muted) !important; margin-top: 3px !important; }
+.menu-task-arrow { color: var(--ds-line-strong) !important; }
+.menu-tile { padding: 16px 8px !important; }
+.menu-tile-icon { width: 40px !important; height: 40px !important; border-radius: 12px !important; }
+.menu-tile-text { font-size: 13px !important; font-weight: 700 !important; color: var(--ds-text) !important; }
+.menu-alert-compact { border-radius: var(--ds-radius-sm) !important; }
+
+/* ---------- 입출고 등록 ---------- */
+.visitor-counter-bar { background: #fff !important; border: 1px solid var(--ds-line) !important; border-radius: var(--ds-radius-sm) !important; box-shadow: none !important; }
+.rc-title { font-size: 20px !important; letter-spacing: -0.5px; margin: 10px 0 16px !important; }
+.rc-btn { height: 210px !important; border-radius: 22px !important; box-shadow: 0 10px 24px -12px rgba(16,24,40,.45) !important; }
+.rc-btn.in { background: linear-gradient(160deg, #3b6fd1, #2f5fb8) !important; }
+.rc-btn.out { background: linear-gradient(160deg, #f3924f, #e5701f) !important; }
+#register-form { background: #fff !important; border: 1px solid var(--ds-line) !important; border-radius: 20px !important; padding: 16px !important; margin: 0 !important; box-shadow: var(--ds-shadow) !important; }
+#register-form.reg-mode-in { border: 2px solid #86d3b0 !important; }
+#register-form.reg-mode-out { border: 2px solid #f4a9a9 !important; }
+.reg-back-chooser { color: var(--ds-muted) !important; }
+.reg-product-card { border-color: var(--ds-line) !important; border-radius: var(--ds-radius) !important; background: #fafbfc !important; }
+.reg-qty-big { border-radius: 14px !important; }
+.reg-stock-big { border-radius: 14px !important; }
+.btn-add-cart { border-radius: 14px !important; border: 1px solid var(--ds-line-strong) !important; background: #fff !important; color: var(--ds-text) !important; font-weight: 800 !important; }
+.btn-direct-save { border-radius: 14px !important; min-height: 52px !important; }
+.rr-row { border-radius: var(--ds-radius-sm) !important; border-color: var(--ds-line) !important; }
+
+/* ---------- 재고 조회 · 창고 챙기기 카드 ---------- */
+.stock-card-item, .tb-row, .tb-hist, .rr-row { border-color: var(--ds-line) !important; box-shadow: var(--ds-shadow) !important; }
+.stock-card-item { border-radius: var(--ds-radius) !important; }
+
+/* ---------- 업무 화면(Test Buy / Cycle Counting) ---------- */
+.tb-card { border-top: 1px solid var(--ds-line) !important; }
+.tb-dash { border-color: var(--ds-line) !important; border-radius: var(--ds-radius) !important; }
+.tb-kpi { border-radius: 14px !important; }
+.tb-kpi b { letter-spacing: -0.5px; }
+.tb-start-btn { border-radius: 18px !important; }
+.tb-stat { border-radius: 14px !important; }
+
+/* 토스트 */
+#toast-container > *, .toast { border-radius: 12px !important; box-shadow: var(--ds-shadow-lg) !important; }
+
+/* =========================================================
+   2단계 — 화면별 세부 다듬기
+   ========================================================= */
+
+/* 엑셀 버튼: 꽉 찬 초록 → 테두리형(보조 버튼) — 주 버튼(파랑)보다 눈에 덜 띄게 */
+.btn-excel-export, #btn-excel-export, #btn-stock-excel-export, #btn-order-excel-export,
+.tab-page button[onclick*="Excel"], .tab-page button[onclick*="excel"] {
+  background: #fff !important; color: #107c41 !important; border: 1px solid #b7dfc8 !important;
+  box-shadow: none !important; border-radius: 10px !important; font-weight: 700 !important;
+  min-height: 36px !important; height: 36px !important; padding: 0 12px !important; font-size: 12.5px !important;
+}
+.btn-excel-export i, .tab-page button[onclick*="Excel"] i { color: #107c41 !important; }
+.btn-excel-export:active, .tab-page button[onclick*="Excel"]:active { background: #f0faf4 !important; }
+
+/* 화면 안의 "← 메뉴" 버튼: 회색 상자 → 가벼운 글자 버튼 */
+.tab-page button[onclick^="switchTab('menu'"] {
+  background: transparent !important; border: 1px solid var(--ds-line) !important; color: var(--ds-muted) !important;
+  border-radius: 10px !important; height: 36px !important; min-height: 36px !important; padding: 0 12px !important;
+  font-size: 12.5px !important; font-weight: 700 !important; box-shadow: none !important;
+}
+
+/* 입출고 등록 상단 방문자 줄: 주황 → 차분한 회색 */
+.visitor-counter-bar { background: transparent !important; border: none !important; color: var(--ds-subtle) !important; padding: 2px 4px !important; }
+.visitor-counter-bar * { color: var(--ds-muted) !important; }
+
+/* 재고 조회: 검색줄 배경을 화면 바탕과 같게, 위 여백 정리 */
+.search-sticky-bar { top: 0 !important; background-color: rgba(243,245,248,.96) !important; padding: 10px 0 8px !important; }
+.search-control { padding-left: 42px !important; font-size: 14px !important; }
+.stock-filter-toolbar select { min-height: 42px !important; font-size: 13.5px !important; }
+
+/* 재고 카드 버튼(+입고 / -출고): 같은 크기·같은 모양 */
+.btn-quick-in, .btn-quick-out {
+  min-width: 64px !important; height: 38px !important; border-radius: 10px !important;
+  font-size: 13px !important; font-weight: 800 !important; box-shadow: none !important;
+}
+.btn-quick-in { background: #ecfdf3 !important; color: #067647 !important; border: 1px solid #abefc6 !important; }
+.btn-quick-out { background: #fef3f2 !important; color: #b42318 !important; border: 1px solid #fecdca !important; }
+
+/* 카드 안 작은 표시(칩)는 회색 톤으로 통일해 숫자가 먼저 보이게 */
+.stock-card-item .badge, .stock-card-item [class*="tag"], .stock-card-item [class*="chip"] { box-shadow: none !important; }
+
+/* 입출고 기록 요약줄: 회색 띠 → 흰 카드 */
+.history-summary-bar {
+  background: #fff !important; border: 1px solid var(--ds-line) !important; border-radius: var(--ds-radius-sm) !important;
+  box-shadow: none !important; font-weight: 700 !important;
+}
+
+/* 안내 배너(노란 박스 등) 모서리·선 정리 */
+.tab-page [class*="notice"], .tab-page [class*="banner"], .tab-page [class*="alert-box"] { border-radius: var(--ds-radius-sm) !important; }
+
+/* 빈 화면 안내: 점선 박스 · 회색 글씨로 통일 */
+.dash-empty, .empty-state, .tb-empty { color: var(--ds-subtle) !important; font-weight: 600 !important; }
+.empty-state { border-radius: var(--ds-radius) !important; border-color: var(--ds-line-strong) !important; background: #fafbfc !important; }
+.empty-state i, .dash-empty i { color: var(--ds-line-strong) !important; }
+
+/* 화면 제목 옆 작은 꼬리표(관리자 전용 등) */
+.tab-page h2 + span, .tab-page h2 span[class*="badge"] { border-radius: 999px !important; }
+
+/* 상단 구역 탭(B1/B2/램프…)·필터 칩: 선택=파랑, 나머지=흰 */
+.chip-btn { background: #fff !important; border: 1px solid var(--ds-line-strong) !important; color: var(--ds-text) !important; font-weight: 700 !important; box-shadow: none !important; }
+.chip-btn.active { background: var(--ds-ink) !important; border-color: var(--ds-ink) !important; color: #fff !important; }
+
+/* 체크박스 색 */
+.tab-page input[type="checkbox"] { accent-color: var(--ds-primary); }

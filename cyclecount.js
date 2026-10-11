@@ -395,7 +395,12 @@
       try { if (typeof renderStockLookup === "function") renderStockLookup(); if (typeof renderHistoryLogs === "function") renderHistoryLogs(); } catch (e) {}
       await maybeFinish(sid);
     } catch (err) {
-      toast("저장 실패: " + (err.message || err), "danger");
+      var msg = String((err && err.message) || err);
+      if (/row-level security|JWT|401/i.test(msg)) {
+        // 로그인이 끊긴 경우가 대부분 → 다시 로그인 안내
+        try { var r = await c.auth.getSession(); if (!r || !r.data || !r.data.session) { if (window.showAuthExpired) window.showAuthExpired(); renderFooter(); return; } } catch (e) {}
+      }
+      toast("저장 실패: " + msg, "danger");
       renderFooter();
     }
   }

@@ -514,12 +514,15 @@ async function handleLoginSubmit(e) {
 
 async function handleLogout() {
   try {
-    if (supabaseClient && supabaseClient.auth) await supabaseClient.auth.signOut();
+    window.__appLoggingOut = true;
+    // 이 기기만 로그아웃 (기본값 global 은 같은 아이디로 로그인한 다른 기기·탭까지 모두 끊어 버림)
+    if (supabaseClient && supabaseClient.auth) await supabaseClient.auth.signOut({ scope: "local" });
   } catch (e) {}
   currentUser = null;
   window.currentUser = null;
   try {
     sessionStorage.removeItem("warehouse_current_user");
+    sessionStorage.removeItem("warehouse_test_sandbox_start");   // 시험 계정 5분 타이머 초기화
     localStorage.removeItem("warehouse_current_user");
   } catch(e) {}
   isAdminUser = false;
@@ -593,7 +596,8 @@ async function handleResetPasswordSubmit(e) {
   }
 
   // 비밀번호 확인 과정에서 로그인된 상태를 정리하고, 로그인 화면에 새 비밀번호를 바로 채워 줌
-  try { await supabaseClient.auth.signOut(); } catch (err) {}
+  window.__appLoggingOut = true;
+  try { await supabaseClient.auth.signOut({ scope: "local" }); } catch (err) {}
   try { sessionStorage.removeItem("warehouse_current_user"); } catch (err) {}
   ["reset-old-pw", "reset-new-pw"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   closeResetPasswordModal();

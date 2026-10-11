@@ -803,3 +803,96 @@ body.tb-sheet-open { overflow: hidden; }
 .tb-pull-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tb-fix-btn.alt:not(.done) { background: #fff; color: #475569; border-color: #cbd5e1; }
 .tb-pull-btns { grid-template-columns: 1fr; }
+.auth-exp-card { width: 100%; max-width: 380px; background: #fff; border-radius: 22px; padding: 24px 20px 18px; text-align: center; animation: rzPop .18s ease-out; }
+.auth-exp-icon { width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 16px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.auth-exp-title { font-size: 19px; font-weight: 900; color: #0f172a; }
+.auth-exp-desc { font-size: 13px; color: #475569; line-height: 1.6; margin: 8px 0 16px; word-break: keep-all; }
+.auth-exp-btn { width: 100%; height: 50px; border: none; border-radius: 999px; background: #0058a3; color: #fff; font-size: 15px; font-weight: 900; cursor: pointer; }
+.auth-exp-icon.sandbox { background: #f5f3ff; color: #7c3aed; }
+#test-sandbox-banner b { font-variant-numeric: tabular-nums; }
+#test-sandbox-banner.ending { background: #dc2626; }
+/* 입고 / 출고 선택 팝업 */
+.rt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.rt-btn { height: 120px; border-radius: 18px; border: 2px solid; background: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.rt-btn i { font-size: 22px; }
+.rt-btn b { font-size: 26px; font-weight: 900; }
+.rt-btn small { font-size: 12px; font-weight: 800; opacity: .85; }
+.rt-btn.in { border-color: #6ee7b7; color: #047857; } .rt-btn.in:active { background: #059669; color: #fff; }
+.rt-btn.out { border-color: #fca5a5; color: #b91c1c; } .rt-btn.out:active { background: #dc2626; color: #fff; }
+.rt-btn[disabled] { border-color: #e2e8f0; color: #94a3b8; background: #f8fafc; cursor: not-allowed; }
+
+/* 입출고 등록 첫 화면: 입고 / 출고 큰 버튼 */
+#reg-chooser { padding: 8px 0 4px; }
+.rc-title { font-size: 18px; font-weight: 900; color: #0f172a; text-align: center; margin: 6px 0 14px; }
+.rc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rc-btn { height: 200px; border: none; border-radius: 20px; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 8px 18px -8px rgba(15,23,42,.35); }
+.rc-btn i { font-size: 26px; opacity: .9; }
+.rc-btn b { font-size: 34px; font-weight: 900; letter-spacing: 2px; }
+.rc-btn small { font-size: 13px; font-weight: 700; opacity: .85; }
+.rc-btn.in { background: #4472c4; } .rc-btn.out { background: linear-gradient(180deg, #f28c50, #e8701a); }
+.rc-btn:active { transform: scale(.98); }
+.reg-back-chooser { border: none; background: none; color: #64748b; font-size: 13px; font-weight: 800; cursor: pointer; padding: 2px 0 8px; }
+
+/* ===== 매장 재고 체크 (청록) ===== */
+#menu-item-storecheck .menu-task-desc { background: #ccfbf1; color: #0f766e; }
+.sc-card { border-top-color: #0d9488; }
+#tab-storecheck .tb-head h2 i, #tab-storecheck .tb-dash-title i { color: #0d9488; }
+#tab-storecheck .tb-kpi.main { background: #f0fdfa; } #tab-storecheck .tb-kpi.main b { color: #0f766e; }
+#tab-storecheck .tb-sess-bar span { background: linear-gradient(90deg, #2dd4bf, #0d9488); }
+.sc-summary { grid-template-columns: repeat(2, 1fr); }
+.sc-start-btn { background: linear-gradient(135deg, #0f766e, #0d9488); box-shadow: 0 8px 18px -8px rgba(13,148,136,.6); }
+.sc-step { color: #0f766e !important; background: #f0fdfa !important; }
+.sc-count { margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.sc-q { font-size: 15px; font-weight: 800; color: #0f172a; }
+.sc-stepper button { width: 56px; height: 56px; font-size: 26px; }
+.sc-stepper input { width: 110px; height: 56px; font-size: 26px; border-color: #0d9488 !important; }
+.sc-zero { width: 100%; height: 46px; border-radius: 12px; border: 1px dashed #fca5a5; background: #fff; color: #b91c1c; font-size: 14px; font-weight: 800; }
+.sc-zero:active { background: #fef2f2; }
+.tb-sheet-done.sc-has { background: #0d9488; }
+.tb-sheet-done.sc-none { background: #dc2626; }
+.tb-sheet-done.sc-wait { background: #cbd5e1; color: #475569; }
+#tab-storecheck .tb-stat.active { border-color: #0d9488; background: #f0fdfa; }
+.sc-sess:not(.readonly) { border-color: #5eead4; background: #f0fdfa; }
+.sc-sess:not(.readonly) .tb-sess-head b { color: #115e59; }
+.sc-sess:not(.readonly) .tb-sess-head span { color: #0f766e; }
+.sc-sess .tb-sess-count { color: #0d9488; } .sc-sess:not(.readonly) .tb-sess-count b { color: #115e59; }
+.sc-sess .tb-sess-bar { background: #ccfbf1; }
+.sc-sess:not(.readonly) .tb-slot { border-color: #99f6e4; }
+.sc-sess .tb-slot-state.wait { color: #0f766e; }
+.sc-sess .tb-slot-go { color: #5eead4; }
+#sc-sheet .sc-stepper input, #sc-sheet .sc-stepper input:focus { border: 2px solid #0d9488 !important; box-shadow: 0 0 0 3px rgba(13,148,136,.15) !important; outline: none !important; }
+#tab-storecheck .sc-excel { color: #107c41 !important; border-color: #b7dfc8 !important; } #tab-storecheck .sc-excel i { color: #107c41; }
+@media (max-width: 420px) { #tab-storecheck .tb-head h2 small { display: none; } }
+/* 매장 재고 체크: 창고 재고 안내 */
+.sc-wh { margin-top: 14px; display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: 14px; font-weight: 700; }
+.sc-wh i { color: #0058a3; }
+.sc-wh span { flex: 1; }
+.sc-wh b { font-size: 18px; font-weight: 900; color: #0058a3; }
+.sc-wh em { font-style: normal; font-size: 12px; font-weight: 800; color: #0058a3; background: #fff; border: 1px solid #bfdbfe; border-radius: 999px; padding: 2px 8px; }
+.sc-wh-chip { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; font-size: 11px; font-weight: 800; color: #0058a3; background: #eff6ff; border-radius: 6px; padding: 1px 6px; }
+/* 매장 재고 체크: 5개 / 10개 선택 */
+.sc-start-box { background: linear-gradient(135deg, #0f766e, #0d9488); border-radius: 18px; padding: 16px; color: #fff; box-shadow: 0 8px 18px -8px rgba(13,148,136,.6); margin-bottom: 12px; }
+.sc-start-title { font-size: 17px; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+.sc-start-sub { font-size: 12.5px; font-weight: 600; opacity: .9; margin-top: 6px; line-height: 1.45; word-break: keep-all; }
+.sc-start-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.sc-start-box .sc-start-btn { background: #fff !important; color: #0f766e; border: none; border-radius: 14px; height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: none !important; cursor: pointer; }
+.sc-start-box .sc-start-btn b { font-size: 24px; font-weight: 900; line-height: 1; }
+.sc-start-box .sc-start-btn small { font-size: 11.5px; font-weight: 700; color: #5f8f8a; }
+.sc-start-box .sc-start-btn:active { transform: scale(.98); background: #f0fdfa !important; }
+/* 매장 재고 체크: 입력 시간 외 안내 */
+.sc-lock { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 16px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; margin-bottom: 12px; }
+.sc-lock > i { font-size: 20px; margin-top: 2px; color: #ea580c; }
+.sc-lock b { display: block; font-size: 15px; font-weight: 900; }
+.sc-lock span { display: block; font-size: 12.5px; font-weight: 600; margin-top: 3px; line-height: 1.45; word-break: keep-all; color: #b45309; }
+/* 매장 재고 체크: 권한 */
+#tab-storecheck .si-lock-bar { margin-bottom: 12px; }
+#tab-storecheck .sc-access-btn { color: #0f766e !important; border-color: #99f6e4 !important; background: #f0fdfa !important; font-weight: 800; }
+@media (max-width: 420px) { #tab-storecheck .tb-head:has(#btn-sc-access) { flex-wrap: wrap; row-gap: 8px; } #tab-storecheck .tb-head:has(#btn-sc-access) .tb-head-actions { width: 100%; justify-content: flex-end; } }
+/* Test Buy: 입고 요청 하기 */
+.tb-order-box { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #fcd34d; }
+.tb-order-text { font-size: 12.5px; font-weight: 700; color: #92400e; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.tb-order-btn { width: 100%; height: 48px; border-radius: 12px; border: none; background: #0058a3; color: #fff; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+.tb-order-btn:active { background: #004a8a; }
+.tb-order-btn.done { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.tb-order-btn:disabled:not(.done) { opacity: .7; }
+.sc-order-box { margin-top: 14px; padding: 14px; border-radius: 16px; background: #fffbeb; border: 1px solid #fde68a; }
