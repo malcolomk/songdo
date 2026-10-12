@@ -772,8 +772,8 @@ window.closeDevNotice = function () {
         dateNote("등록") +
         '<div class="rz-q">입고인가요, 출고인가요?</div>' +
         '<div class="rt-grid">' +
-          '<button type="button" class="rt-btn in" data-t="입고"><i class="fa-solid fa-arrow-down"></i><b>입고</b><small>재고 ' + cur + ' → ' + afterIn + '개</small></button>' +
-          '<button type="button" class="rt-btn out" data-t="출고"' + (canOut ? '' : ' disabled') + '><i class="fa-solid fa-arrow-up"></i><b>출고</b><small>' + (canOut ? '재고 ' + cur + ' → ' + afterOut + '개' : (cur <= 0 ? '재고가 없어요' : '재고 부족 (' + (qty - cur) + '개 모자람)')) + '</small></button>' +
+          '<button type="button" class="rt-btn in" data-t="입고"><i class="fa-solid fa-plus"></i><b>입고</b><small>재고 ' + cur + ' → ' + afterIn + '개</small></button>' +
+          '<button type="button" class="rt-btn out" data-t="출고"' + (canOut ? '' : ' disabled') + '><i class="fa-solid fa-minus"></i><b>출고</b><small>' + (canOut ? '재고 ' + cur + ' → ' + afterOut + '개' : (cur <= 0 ? '재고가 없어요' : '재고 부족 (' + (qty - cur) + '개 모자람)')) + '</small></button>' +
         '</div>' +
         (canOut || cur <= 0 ? '' : '') +
         '<button type="button" class="rz-cancel">취소</button>';
@@ -834,8 +834,8 @@ window.closeDevNotice = function () {
     var f = $("register-form"); if (!f) return null;
     c = document.createElement("div"); c.id = "reg-chooser";
     c.innerHTML = '<div class="rc-title">무엇을 등록할까요?</div><div class="rc-grid">' +
-      '<button type="button" class="rc-btn in" data-t="입고"><i class="fa-solid fa-arrow-down"></i><b>입고</b><small>창고에 넣기</small></button>' +
-      '<button type="button" class="rc-btn out" data-t="출고"><i class="fa-solid fa-arrow-up"></i><b>출고</b><small>창고에서 꺼내기</small></button></div>';
+      '<button type="button" class="rc-btn in" data-t="입고"><i class="fa-solid fa-plus"></i><b>입고</b><small>창고에 넣기</small></button>' +
+      '<button type="button" class="rc-btn out" data-t="출고"><i class="fa-solid fa-minus"></i><b>출고</b><small>창고에서 꺼내기</small></button></div>';
     f.parentNode.insertBefore(c, f);
     Array.prototype.forEach.call(c.querySelectorAll(".rc-btn"), function (b) { b.addEventListener("click", function () { choose(b.dataset.t); }); });
     // 폼 위에 '다시 고르기'
@@ -1147,4 +1147,89 @@ window.closeDevNotice = function () {
     return true;
   }
   var n = 0, t = setInterval(function () { n++; if (bind() || n > 100) clearInterval(t); }, 100);
+})();
+
+// ===== 새 버전 자동 적용: 사이트에 새 파일이 올라오면 열어둔 화면도 자동으로 새로고침 =====
+// · 2분마다(그리고 앱으로 돌아올 때) index.html 을 다시 받아 파일 버전(?v=…)이 바뀌었는지 확인
+// · 바뀌었으면 위쪽에 "새 버전" 알림 → 입력 중이 아니면 10초 뒤 자동 새로고침
+// · 입력 창/팝업이 열려 있거나, 입력칸에 쓰는 중이거나, 담아 둔 목록이 있으면 기다렸다가 적용
+(function () {
+  "use strict";
+  var CHECK_MS = 120000, WAIT_S = 10;
+  var pending = false, countdown = null, left = 0, checking = false;
+
+  function sig(list) { return list.map(function (u) { return String(u).replace(/^.*\//, ""); }).filter(function (u) { return /\?v=/.test(u); }).sort().join("|"); }
+  function currentSig() {
+    var arr = [];
+    Array.prototype.forEach.call(document.querySelectorAll('script[src*="?v="], link[rel="stylesheet"][href*="?v="]'), function (el) { arr.push(el.getAttribute("src") || el.getAttribute("href")); });
+    return sig(arr);
+  }
+  var mine = null;
+
+  function busy() {
+    try {
+      var ae = document.activeElement;
+      if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type !== "checkbox" && ae.type !== "radio") return true;
+      if (document.querySelector(".tb-sheet-backdrop.active")) return true;
+      var modals = document.querySelectorAll(".modal-backdrop, .modal");
+      for (var i = 0; i < modals.length; i++) { var m = modals[i]; if (m.offsetParent !== null && getComputedStyle(m).display !== "none" && getComputedStyle(m).visibility !== "hidden") return true; }
+      if (typeof regCartList !== "undefined" && Array.isArray(regCartList) && regCartList.length) return true;
+      if (Array.isArray(window.storeInboundCart) && window.storeInboundCart.length) return true;
+      var a = document.getElementById("reg-artno"), q = document.getElementById("reg-qty");
+      if ((a && a.value.trim()) || (q && q.value.trim())) return true;
+      if (document.body.classList.contains("tb-sheet-open")) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function bar() {
+    var b = document.getElementById("app-update-bar");
+    if (!b) {
+      b = document.createElement("div"); b.id = "app-update-bar";
+      b.innerHTML = '<i class="fa-solid fa-rotate"></i><span id="app-update-text">새 버전이 있어요</span><button type="button" id="app-update-btn">지금 새로고침</button>';
+      document.body.appendChild(b);
+      b.querySelector("#app-update-btn").onclick = reload;
+    }
+    return b;
+  }
+  function setText(t) { var el = document.getElementById("app-update-text"); if (el) el.textContent = t; }
+  function reload() { try { window.__appLoggingOut = true; } catch (e) {} location.reload(); }
+
+  function tick() {
+    if (!pending) return;
+    if (busy()) { left = WAIT_S; setText("새 버전이 있어요 · 입력이 끝나면 자동으로 새로고침돼요"); return; }
+    left--;
+    if (left <= 0) { clearInterval(countdown); reload(); return; }
+    setText("새 버전이 있어요 · " + left + "초 뒤 자동 새로고침");
+  }
+
+  async function check() {
+    if (checking || pending || document.hidden) return;
+    checking = true;
+    try {
+      var url = location.pathname.replace(/[^\/]*$/, "") + "index.html?_=" + Date.now();
+      var res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        var html = await res.text(), arr = [], re = /(?:src|href)\s*=\s*"([^"]+\?v=[^"]+)"/g, m;
+        while ((m = re.exec(html))) arr.push(m[1]);
+        var remote = sig(arr);
+        if (mine === null) mine = currentSig();
+        if (remote && mine && remote !== mine) {
+          pending = true; left = WAIT_S;
+          bar().classList.add("show");
+          tick(); countdown = setInterval(tick, 1000);
+        }
+      }
+    } catch (e) { /* 오프라인 등은 다음에 다시 */ }
+    checking = false;
+  }
+
+  function init() {
+    mine = currentSig();
+    setTimeout(check, 30000);
+    setInterval(check, CHECK_MS);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+  }
+  window.AppUpdate = { check: check };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

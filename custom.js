@@ -2370,7 +2370,8 @@ window.renderPicklistZoneTabs = function() {
   zones.forEach(zone => {
     const isActive = (window.currentPicklistZone === zone);
     const count = zoneCounts[zone] || 0;
-    const badgeHtml = count > 0 
+    // 처리 대기(담기 목록) 기능을 없애서 오더 대기 숫자 배지도 표시하지 않음
+    const badgeHtml = false && count > 0 
       ? `<span style="display:inline-flex; align-items:center; justify-content:center; background:${isActive ? '#ef4444' : '#ef4444'}; color:#ffffff; font-size:10px; font-weight:900; padding:1px 5px; border-radius:10px; margin-left:3px; min-width:16px;">${count}</span>`
       : '';
 

@@ -896,3 +896,10 @@ body.tb-sheet-open { overflow: hidden; }
 .tb-order-btn.done { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
 .tb-order-btn:disabled:not(.done) { opacity: .7; }
 .sc-order-box { margin-top: 14px; padding: 14px; border-radius: 16px; background: #fffbeb; border: 1px solid #fde68a; }
+.rc-btn i { font-size: 34px !important; opacity: 1 !important; }
+/* 새 버전 알림 */
+#app-update-bar { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 100000; display: none; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #0f172a; color: #fff; box-shadow: 0 12px 28px -10px rgba(15,23,42,.55); font-size: 13.5px; font-weight: 700; max-width: 560px; margin: 0 auto; }
+#app-update-bar.show { display: flex; }
+#app-update-bar > i { color: #38bdf8; }
+#app-update-bar span { flex: 1; word-break: keep-all; }
+#app-update-bar button { border: none; border-radius: 10px; background: #0058a3; color: #fff; font-weight: 800; font-size: 13px; padding: 8px 12px; white-space: nowrap; cursor: pointer; }
