@@ -224,7 +224,7 @@
     if (sub) {
       if (a) sub.textContent = "내 매장 재고 체크 진행 중";
       else if (othersActive().length) sub.textContent = "진행 중 " + othersActive().map(function (o) { return o.created_by; }).join(", ") + (doneToday ? " · 오늘 " + doneToday + "회 완료" : "");
-      else sub.textContent = doneToday ? "오늘 " + doneToday + "회 완료" : "오늘 진행한 매장 재고 체크 없음";
+      else sub.textContent = (doneToday ? "오늘 " + doneToday + "회 완료" : "오늘 진행한 매장 재고 체크 없음") + (pickItems().length ? " · 챙길 아티클 " + pickItems().length + "개" : "");
     }
     if (cnt) {
       if (a) { var d = sessionDoneCount(a.id), tg = a.target || PER_SESSION; cnt.textContent = d + "/" + tg; cnt.classList.toggle("done", d >= tg); cnt.style.display = ""; }
@@ -410,30 +410,87 @@
   var OPEN_ORDER_ST = ["요청됨", "요청", "보류", "대기", "출고대기", "승인", "수락"];
   function orderLogsArr() { try { return (typeof orderLogs !== "undefined" && Array.isArray(orderLogs)) ? orderLogs : null; } catch (e) { return null; } }
   function hasOpenOrder(artNo) { var l = orderLogsArr() || []; return l.some(function (o) { return pad8(o.artNo || o.artno) === pad8(artNo) && OPEN_ORDER_ST.indexOf(o.status) !== -1; }); }
-  function orderBoxHtml(s) {
-    var ord = !!s.ordered || hasOpenOrder(s.artNo);
-    return '<div class="sc-order-box"><div class="tb-order-text"><i class="fa-solid fa-truck-ramp-box"></i> 매장에 재고를 채워야 하면 입고를 요청해 주세요</div>' +
-      '<button type="button" class="tb-order-btn' + (ord ? " done" : "") + '"' + (ord || s.ordering ? " disabled" : "") + ' onclick="StoreCheck.requestStock()">' +
-      (ord ? '<i class="fa-solid fa-circle-check"></i> 입고 요청 완료' : s.ordering ? '요청 중…' : '<i class="fa-solid fa-paper-plane"></i> 입고 요청 하기') + '</button></div>';
-  }
-  function refreshOrderBox() { var s = state.sheet; if (!s) return; var box = document.querySelector("#sc-sheet .sc-order-box"); if (box) box.outerHTML = orderBoxHtml(s); }
-  async function requestStock() {
-    var s = state.sheet; if (!s || s.ordering) return;
-    if (isViewer()) { toast("Viewer(읽기 전용) 계정은 요청할 수 없습니다.", "warning"); return; }
-    if (s.ordered || hasOpenOrder(s.artNo)) { s.ordered = true; toast("[" + s.artNo + "] 이미 입고 요청이 들어가 있어요.", "info"); refreshOrderBox(); return; }
-    var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return; }
-    s.ordering = true; refreshOrderBox();
+  // 입고 요청 보내기 (성공하면 true)
+  async function sendOrder(artNo, artName, qty, msg) {
+    var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return false; }
     try {
-      var order = { date: today(), artNo: s.artNo, artName: s.artName || "기타 품목", qty: 1, user: me() || null, status: "요청됨" };
+      var order = { date: today(), artNo: artNo, artName: artName || "기타 품목", qty: Math.max(1, Number(qty) || 1), user: me() || null, status: "요청됨" };
       var r = await c.from("order_requests").insert([order]).select();
       if (r.error) throw r.error;
       if (r.data && r.data[0]) { order.id = r.data[0].id; order.created_at = r.data[0].created_at; }
       var l = orderLogsArr(); if (l) l.unshift(order);
       try { if (typeof renderOrderLogs === "function") renderOrderLogs(); if (typeof window.updateAllBadges === "function") window.updateAllBadges(); } catch (e) {}
-      s.ordered = true;
-      toast("[" + s.artNo + "] 입고 요청을 보냈어요. (오더 요청 화면에서 확인)", "success");
-    } catch (err) { toast("입고 요청 실패: " + ((err && err.message) || err), "danger"); }
-    s.ordering = false; refreshOrderBox();
+      toast(msg || ("[" + artNo + "] 입고 요청을 보냈어요. (오더 요청 화면에서 확인)"), "success");
+      return true;
+    } catch (err) { toast("입고 요청 실패: " + ((err && err.message) || err), "danger"); return false; }
+  }
+  // 매장 0개로 저장한 뒤: "입고 요청할까요?" 팝업 (이미 처리 안 된 요청이 있으면 묻지 않음)
+  function askOrder(artNo, artName) {
+    return new Promise(function (resolve) {
+      if (isViewer()) { resolve(false); return; }
+      var qty = 1, max = 99;
+      var whN = whStock(artNo);
+      if (whN > 0) {   // 창고에 있으면 안내만 → 아래 '창고에서 챙길 아티클' 목록에 자동으로 들어감
+        var loc0 = whLocation(artNo);
+        var el0 = document.createElement("div"); el0.className = "sc-ask-backdrop";
+        el0.innerHTML = '<div class="sc-ask" role="dialog" aria-modal="true"><div class="sc-ask-icon wh"><i class="fa-solid fa-warehouse"></i></div>' +
+          '<div class="sc-ask-title">창고에 재고가 있어요</div><div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(artNo) + '</span></div>' +
+          '<div class="sc-ask-whbox">' + (loc0 && loc0 !== "미지정" ? '<span class="sc-pick-loc">' + esc(loc0) + '</span>' : '<span class="sc-pick-loc gray">위치 미지정</span>') + '<b>' + whN + '개</b></div>' +
+          '<div class="sc-ask-sub"><i class="fa-solid fa-list-check"></i> 아래 <b>창고에서 챙길 아티클</b> 목록에 저장했어요</div>' +
+          '<button type="button" class="sc-ask-ok">확인</button></div>';
+        document.body.appendChild(el0);
+        requestAnimationFrame(function () { el0.classList.add("show"); });
+        var closed = false;
+        var close0 = function () { if (closed) return; closed = true; el0.remove(); resolve(false); };
+        el0.querySelector(".sc-ask-ok").onclick = close0;
+        el0.addEventListener("click", function (e) { if (e.target === el0) close0(); });
+        return;
+      }
+      if (hasOpenOrder(artNo)) { toast("[" + artNo + "] 이미 입고 요청이 들어가 있어요.", "info"); resolve(false); return; }
+      var el = document.createElement("div"); el.className = "sc-ask-backdrop";
+      el.innerHTML = '<div class="sc-ask" role="dialog" aria-modal="true"><div class="sc-ask-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>' +
+        '<div class="sc-ask-title">매장·창고 모두 재고가 없어요</div><div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(artNo) + '</span></div>' +
+        '<div class="sc-ask-q">입고 요청할까요?</div>' +
+        '<div class="sc-ask-qty"><span>요청 수량</span><button type="button" data-d="-1">−</button><b id="sc-ask-qty">1</b><button type="button" data-d="1">+</button></div>' +
+        '<div class="sc-ask-btns"><button type="button" class="sc-ask-no">아니요</button><button type="button" class="sc-ask-yes"><i class="fa-solid fa-paper-plane"></i> 입고 요청</button></div></div>';
+      document.body.appendChild(el);
+      requestAnimationFrame(function () { el.classList.add("show"); });
+      Array.prototype.forEach.call(el.querySelectorAll(".sc-ask-qty button"), function (b) {
+        b.onclick = function () { qty = Math.min(max, Math.max(1, qty + Number(b.dataset.d))); el.querySelector("#sc-ask-qty").textContent = qty; };
+      });
+      var done = false;
+      function finish(v) { if (done) return; done = true; el.remove(); resolve(v); }
+      el.querySelector(".sc-ask-no").onclick = function () { finish(false); };
+      el.addEventListener("click", function (e) { if (e.target === el) finish(false); });
+      el.querySelector(".sc-ask-yes").onclick = async function () {
+        var b = this; b.disabled = true; b.textContent = "저장 중…";
+        var ok = await sendOrder(artNo, artName, qty); finish(ok);
+        if (ok) render();
+      };
+    });
+  }
+
+  // ---------- 창고에서 챙길 아티클: 오늘 매장 '재고 없음'인데 창고에 재고가 있는 아티클 (자동 목록) ----------
+  var ZONE_ORDER = { "B1": 1, "B2": 2, "램프": 3, "B3": 4 };
+  function pickItems() {
+    var t = today(), seen = {}, out = [];
+    checks().forEach(function (r) {
+      if (r.check_date !== t || r.status !== "none") return;
+      var k = pad8(r.artno); if (seen[k]) return; seen[k] = 1;
+      var wh = whStock(k); if (!(wh > 0)) return;
+      out.push({ artno: k, artname: r.artname || catalogName(k), wh: wh, loc: whLocation(k) || "미지정" });
+    });
+    out.sort(function (a, b) { return (ZONE_ORDER[a.loc] || 9) - (ZONE_ORDER[b.loc] || 9) || a.artno.localeCompare(b.artno); });
+    return out;
+  }
+  function pickListHtml() {
+    var items = pickItems(); if (!items.length) return "";
+    return '<div class="sc-pick"><div class="sc-pick-head"><i class="fa-solid fa-dolly"></i><div><b>창고에서 챙길 아티클 ' + items.length + '개</b><span>오늘 매장에 재고가 없었고 창고에는 있는 아티클이에요</span></div></div>' +
+      items.map(function (x) {
+        return '<div class="sc-pick-row">' + thumb(x.artno, x.artname, 44) + '<div class="sc-pick-body"><div class="sc-pick-name">' + esc(x.artname || "(품명 없음)") + '</div>' +
+          '<div class="sc-pick-meta">' + esc(x.artno) + '</div></div>' +
+          '<span class="sc-pick-loc">' + esc(x.loc) + '</span><div class="sc-pick-qty">창고 ' + x.wh + '개</div></div>';
+      }).join("") + '</div>';
   }
 
   function closeSheet() {
@@ -456,7 +513,7 @@
           '<input type="number" id="sc-actual" inputmode="numeric" min="0" placeholder="0" value="' + (s.actual == null ? "" : s.actual) + '" oninput="StoreCheck.setActual(this.value)">' +
           '<button type="button" onclick="StoreCheck.step(1)" aria-label="더하기">+</button></div>' +
         '<button type="button" class="sc-zero" onclick="StoreCheck.setZero()"><i class="fa-solid fa-ban"></i> 매장에 재고 없음 (0개)</button>' +
-      '</div>' + orderBoxHtml(s);
+      '</div>';
     renderFooter();
     loadThumbs();
   }
@@ -485,6 +542,7 @@
       if (res.data && res.data[0]) state.logs.unshift(res.data[0]);
       toast(s.actual > 0 ? "✅ [" + s.artNo + "] 매장 " + s.actual + "개" : "[" + s.artNo + "] 매장 재고 없음으로 기록했습니다.", s.actual > 0 ? "success" : "info");
       var sid = s.sessionId; closeSheet(); render(); updateDashboard();
+      if (s.actual === 0) await askOrder(s.artNo, s.artName);
       await maybeFinish(sid);
     } catch (err) {
       var msg = String((err && err.message) || err);
@@ -552,6 +610,7 @@
         '<button type="button" class="sc-start-btn sc-n5" onclick="StoreCheck.startSession(5)"><b>5개</b><small>빠르게</small></button>' +
         '<button type="button" class="sc-start-btn sc-n10" onclick="StoreCheck.startSession(10)"><b>10개</b><small>넉넉하게</small></button>' +
       '</div></div>';
+    html += pickListHtml();
     if (others.length) html += '<details class="tb-others"' + (isViewer() ? " open" : "") + '><summary><i class="fa-solid fa-users"></i> 다른 사람이 진행 중인 매장 재고 체크 ' + others.length + '건 <span>(보기만 가능)</span></summary>' +
       others.map(function (o) { return sessionCardHtml(o, true); }).join("") + '</details>';
     box.innerHTML = html || '<div class="tb-empty">진행 중인 매장 재고 체크가 없습니다.</div>';
@@ -644,7 +703,7 @@
   }
 
   window.StoreCheck = { load: load, render: render, startSession: startSession, openSlot: openSlot, closeSheet: closeSheet, setActual: setActual, step: step, setZero: setZero,
-    save: save, swapSlot: swapSlot, setFilter: setFilter, toggle: toggle, updateDashboard: updateDashboard, exportExcel: exportExcel, requestStock: requestStock, openAccess: openAccess, checkAccess: checkAccess, _state: state };
+    save: save, swapSlot: swapSlot, setFilter: setFilter, toggle: toggle, updateDashboard: updateDashboard, exportExcel: exportExcel, openAccess: openAccess, checkAccess: checkAccess, _state: state };
 
   function init() {
     var tab = document.getElementById("tab-storecheck");

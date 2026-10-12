@@ -903,3 +903,57 @@ body.tb-sheet-open { overflow: hidden; }
 #app-update-bar > i { color: #38bdf8; }
 #app-update-bar span { flex: 1; word-break: keep-all; }
 #app-update-bar button { border: none; border-radius: 10px; background: #0058a3; color: #fff; font-weight: 800; font-size: 13px; padding: 8px 12px; white-space: nowrap; cursor: pointer; }
+/* 매장 재고 체크: 입고 요청은 보조 버튼 (아래 저장 버튼과 헷갈리지 않게) */
+#sc-sheet .sc-order-box { background: #fff; border: 1px dashed #cbd5e1; padding: 12px; }
+#sc-sheet .sc-order-box .tb-order-text { color: #475569; font-weight: 600; align-items: flex-start; }
+#sc-sheet .sc-order-box .tb-order-text i { color: #d97706; margin-top: 2px; }
+#sc-sheet .sc-order-box .tb-order-text b { display: inline-block; font-size: 11px; font-weight: 800; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; margin-right: 4px; }
+#sc-sheet .sc-order-box .tb-order-text small { display: block; font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+#sc-sheet .tb-order-btn { height: 42px; background: #fff; color: #b45309; border: 1.5px solid #fcd34d; font-size: 14px; }
+#sc-sheet .tb-order-btn:active { background: #fffbeb; }
+#sc-sheet .tb-order-btn.done { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+/* 매장 재고 체크: 저장 후 "입고 요청할까요?" 팝업 */
+.sc-ask-backdrop { position: fixed; inset: 0; z-index: 100001; background: rgba(15,23,42,.5); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .15s ease; }
+.sc-ask-backdrop.show { opacity: 1; }
+.sc-ask { width: 100%; max-width: 340px; background: #fff; border-radius: 22px; padding: 22px 18px 16px; text-align: center; box-shadow: 0 20px 40px -12px rgba(15,23,42,.4); }
+.sc-ask-icon { width: 52px; height: 52px; margin: 0 auto 10px; border-radius: 16px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.sc-ask-title { font-size: 17px; font-weight: 900; color: #0f172a; }
+.sc-ask-name { margin-top: 6px; font-size: 13px; font-weight: 700; color: #475569; word-break: keep-all; }
+.sc-ask-name span { font-family: ui-monospace, monospace; color: #64748b; }
+.sc-ask-q { margin-top: 12px; font-size: 15px; font-weight: 800; color: #0f172a; }
+.sc-ask-btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 16px; }
+.sc-ask-btns button { height: 50px; border-radius: 14px; font-size: 15px; font-weight: 800; cursor: pointer; }
+.sc-ask-no { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
+.sc-ask-yes { background: #d97706; border: none; color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.sc-ask-yes:disabled { opacity: .7; }
+/* 매장 재고 체크: 창고에서 챙겨오기 */
+.sc-ask-icon.wh { background: #eff6ff; color: #0058a3; }
+.sc-ask-wh { margin-top: 10px; display: inline-block; padding: 6px 12px; border-radius: 999px; background: #eff6ff; color: #1e3a8a; font-size: 13.5px; font-weight: 700; }
+.sc-ask-wh b { color: #0058a3; font-weight: 900; }
+.sc-ask-sub { margin-top: 4px; font-size: 12px; font-weight: 600; color: #94a3b8; word-break: keep-all; }
+.sc-ask-qty { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.sc-ask-qty span { font-size: 13px; font-weight: 700; color: #64748b; margin-right: 4px; }
+.sc-ask-qty button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: 20px; font-weight: 800; color: #0f172a; cursor: pointer; }
+.sc-ask-qty b { min-width: 34px; font-size: 22px; font-weight: 900; color: #0f172a; }
+.sc-ask-yes.wh { background: #0058a3; }
+.sc-pick { margin-bottom: 12px; border: 1.5px solid #bfdbfe; background: #f8fbff; border-radius: 18px; padding: 12px; }
+.sc-pick-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.sc-pick-head > i { color: #0058a3; font-size: 18px; margin-top: 2px; }
+.sc-pick-head b { display: block; font-size: 15px; font-weight: 900; color: #0f172a; }
+.sc-pick-head span { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-top: 2px; word-break: keep-all; }
+.sc-pick-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px 10px; margin-top: 8px; }
+.sc-pick-body { flex: 1; min-width: 0; }
+.sc-pick-name { font-size: 13.5px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-pick-meta { font-size: 11.5px; font-weight: 600; color: #64748b; margin-top: 2px; }
+.sc-pick-loc { display: inline-block; font-size: 11px; font-weight: 900; color: #fff; background: #0058a3; border-radius: 6px; padding: 1px 6px; margin-right: 2px; }
+.sc-pick-qty { font-size: 15px; font-weight: 900; color: #0058a3; white-space: nowrap; }
+.sc-pick-btn { border: none; border-radius: 10px; background: #0d9488; color: #fff; font-size: 12.5px; font-weight: 800; padding: 9px 10px; white-space: nowrap; cursor: pointer; }
+.sc-pick-row .sc-pick-loc { font-size: 12px; padding: 3px 8px; }
+.sc-ask-whbox { margin: 14px auto 0; display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; }
+.sc-ask-whbox .sc-pick-loc { font-size: 14px; padding: 3px 10px; }
+.sc-ask-whbox .sc-pick-loc.gray { background: #94a3b8; }
+.sc-ask-whbox b { font-size: 24px; font-weight: 900; color: #0058a3; }
+.sc-ask .sc-ask-sub { margin-top: 12px; font-size: 13px; color: #475569; }
+.sc-ask .sc-ask-sub i { color: #0058a3; margin-right: 3px; }
+.sc-ask .sc-ask-sub b { color: #0f172a; }
+.sc-ask-ok { margin-top: 16px; width: 100%; height: 50px; border: none; border-radius: 14px; background: #0058a3; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
