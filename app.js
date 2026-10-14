@@ -2,12 +2,17 @@ const supabaseUrl = "https://zblzdqwqxagqnkrojyda.supabase.co";
 
 const supabaseKey = "sb_publishable_rV-ZqhhA4pxsIN_9NhPEcg_EoiM_xo1";
 
+// 앱 버전 (YYYYMMDD). 저장 방식이 크게 바뀌어 예전 화면을 막아야 할 때 올리고, 서버 min_client_version 도 같이 올림
+const APP_VERSION = "20261014";
+
 let supabaseClient = null;
 try {
   if (typeof supabase !== "undefined" && supabase.createClient) {
     supabaseClient = supabase.createClient(
       supabaseUrl,
-      supabaseKey
+      supabaseKey,
+      // 서버가 예전 버전 화면의 저장을 막을 수 있도록 앱 버전을 함께 보냄 (DB설정/15_예전버전_저장차단.sql)
+      { global: { headers: { "x-app-version": APP_VERSION } } }
     );
   }
 } catch (err) {
@@ -18,11 +23,11 @@ try {
 
 // --- Allowed User IDs List ---
 const ALLOWED_USER_IDS = [
-  "guest1", "guest2", "amseo",
+  "amseo",
   "sulee21", "jocho16", "jipar5", "hycho30", "julee33", 
   "tabae3", "goyoo", "suahn2", "yehan1", "secho12",
   "junkoo", "minjong", "micho51", "sekim63", "szpar19", 
-  "sukim68", "yonoh", "yocho36", "Viewer",
+  "sukim68", "yonoh", "yocho36",
   "test"   // 기능 시험용 (기록은 DB설정/8_test계정_기록정리.sql 로 한 번에 지울 수 있음)
 ];
 
@@ -34,6 +39,47 @@ const ADMIN_USERS = ["jipar5", "hycho30", "junkoo", "minjong", "julee33"];
 const AUTH_EMAIL_DOMAIN = "songdo-inventory.app";
 function loginIdToEmail(id) {
   return String(id || "").trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+}
+// --- 아이디 찾기: 이름 → 아이디 (로그인 화면) ---
+const USER_ID_NAMES = {
+  amseo: "은주", sulee21: "선미", jocho16: "종선", jipar5: "지인", hycho30: "혜원",
+  julee33: "준영", tabae3: "태선", goyoo: "고운", suahn2: "성희", yehan1: "연지",
+  secho12: "석", junkoo: "준성", minjong: "민종", micho51: "민우",
+  sekim63: "서우", szpar19: "소휘", sukim68: "선희", yonoh: "영배", yocho36: "영진",
+  test: "기능 시험용"
+};
+function openFindIdModal() {
+  let m = document.getElementById("find-id-modal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "find-id-modal"; m.className = "find-id-backdrop";
+    m.innerHTML = '<div class="find-id-box" role="dialog" aria-modal="true">' +
+      '<div class="find-id-head"><b><i class="fa-solid fa-magnifying-glass"></i> 아이디 찾기</b><button type="button" class="find-id-close" aria-label="닫기"><i class="fa-solid fa-xmark"></i></button></div>' +
+      '<label class="find-id-label" for="find-id-name">이름을 입력해 주세요 <span class="find-id-note">(성은 빼고)</span></label>' +
+      '<input type="text" id="find-id-name" class="input-control" placeholder="예) 지인" autocomplete="off">' +
+      '<div id="find-id-result" class="find-id-result"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", (e) => { if (e.target === m || e.target.closest(".find-id-close")) closeFindIdModal(); });
+    m.querySelector("#find-id-name").addEventListener("input", renderFindIdResult);
+    m.querySelector("#find-id-name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); const f = m.querySelector(".find-id-item"); if (f) f.click(); } });
+  }
+  m.classList.add("show");
+  const inp = m.querySelector("#find-id-name"); inp.value = ""; renderFindIdResult();
+  setTimeout(() => inp.focus(), 50);
+}
+function closeFindIdModal() { const m = document.getElementById("find-id-modal"); if (m) m.classList.remove("show"); }
+function renderFindIdResult() {
+  const box = document.getElementById("find-id-result"); if (!box) return;
+  const q = (document.getElementById("find-id-name").value || "").replace(/\s/g, "");
+  if (!q) { box.innerHTML = '<div class="find-id-hint">이름을 입력하면 맞는 아이디가 나와요</div>'; return; }
+  const hits = Object.keys(USER_ID_NAMES).filter((id) => USER_ID_NAMES[id].replace(/\s/g, "").indexOf(q) !== -1);
+  if (!hits.length) { box.innerHTML = '<div class="find-id-hint">\'' + q.replace(/[<>&"']/g, "") + '\' 이름의 아이디가 없어요. 관리자에게 문의해 주세요.</div>'; return; }
+  box.innerHTML = hits.map((id) => '<button type="button" class="find-id-item" data-id="' + id + '"><span class="find-id-name">' + USER_ID_NAMES[id] + '</span><span class="find-id-id">' + id + '</span><span class="find-id-use">이 아이디로 로그인 <i class="fa-solid fa-arrow-right"></i></span></button>').join("");
+  box.querySelectorAll(".find-id-item").forEach((b) => b.addEventListener("click", () => {
+    const idEl = document.getElementById("login-id"); if (idEl) idEl.value = b.dataset.id;
+    closeFindIdModal();
+    const pw = document.getElementById("login-pw"); if (pw) pw.focus();
+  }));
 }
 // "아이디 기억하기" 체크 상태 (기본: 켜짐)
 function isRememberLoginIdOn() {
@@ -55,7 +101,7 @@ function fillTempLoginPw() {
   if (idEl && !idEl.value) idEl.focus(); else pw.focus();
 }
 // 비밀번호 변경이 막힌 공용 계정 (여러 명이 함께 쓰므로 한 사람이 바꾸면 다른 사람이 못 들어옴)
-const SHARED_ACCOUNT_IDS = ["guest1", "guest2", "viewer", "test"];
+const SHARED_ACCOUNT_IDS = ["test"];
 
 // --- Sample Initial Master Data ---
 const defaultMasterCatalog = [
@@ -1986,7 +2032,7 @@ async function handleAddToPickList() {
     artNo: artNo,
     artName: artName || "기타 품목",
     qty: qty,
-    user: currentUser || "guest1",
+    user: currentUser || "-",
     status: "출고대기"
   };
 
@@ -2045,7 +2091,7 @@ async function handleOrderSubmit(e) {
     artNo: artNo,
     artName: artName || "기타 품목",
     qty: qty,
-    user: currentUser || "guest1",
+    user: currentUser || "-",
     status: "요청됨"
   };
 

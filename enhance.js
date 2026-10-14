@@ -1233,3 +1233,102 @@ window.closeDevNotice = function () {
   window.AppUpdate = { check: check };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
+
+// ===== 방문자수: 들어올 때마다 1번씩 셈 (같은 사람이 여러 번 들어와도 포함) · 오늘 = 오늘 방문 횟수, 누적 = 전체 방문 횟수 =====
+// · 앱을 새로 열고 로그인할 때마다 1번 (같은 창에서 새로고침·자동 업데이트는 세지 않음)
+// 서버 함수 record_visit / visitor_stats 사용 (DB설정/13_방문자수.sql). test 계정은 세지 않음.
+(function () {
+  "use strict";
+  var KEY = "warehouse_visitor_stats_v2", recordedFor = "", subscribed = false, busy = false;
+  function me() { try { return (window.currentUser || (typeof currentUser !== "undefined" ? currentUser : "") || "").trim(); } catch (e) { return ""; } }
+  function client() { try { return typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { return null; } }
+  function kstToday() { var d = new Date(Date.now() + 9 * 3600000); return d.toISOString().slice(0, 10); }
+  function show(today, total) {
+    var t = today == null ? "-" : Number(today).toLocaleString(), a = total == null ? "-" : Number(total).toLocaleString();
+    document.querySelectorAll(".val-visitor-today").forEach(function (el) { el.textContent = t; });
+    document.querySelectorAll(".val-visitor-total").forEach(function (el) { el.textContent = a; });
+  }
+  function cached() {
+    try { var c = JSON.parse(localStorage.getItem(KEY) || "null"); if (c && c.date === kstToday()) return c; } catch (e) {}
+    return null;
+  }
+  function apply(d) {
+    if (!d || typeof d.today !== "number") return;
+    show(d.today, d.total);
+    try { localStorage.setItem(KEY, JSON.stringify({ today: d.today, total: d.total, date: kstToday() })); } catch (e) {}
+  }
+  async function refresh() {
+    var c = client(); if (!c) return;
+    try { var r = await c.rpc("visitor_stats"); if (!r.error) apply(r.data); } catch (e) {}
+  }
+  async function run() {
+    var c0 = cached(); if (c0) show(c0.today, c0.total); else show(null, null);
+    var c = client(), id = me().toLowerCase();
+    if (!c || !id || busy) return;
+    busy = true;
+    try {
+      var key = id + "|" + kstToday(), sKey = "visit_counted_" + key, counted = false;
+      try { counted = sessionStorage.getItem(sKey) === "1"; } catch (e) {}
+      var r = (recordedFor === key || counted) ? await c.rpc("visitor_stats") : await c.rpc("record_visit");
+      if (!r.error) { recordedFor = key; try { sessionStorage.setItem(sKey, "1"); } catch (e) {} apply(r.data); }
+    } catch (e) { /* 다음에 다시 */ }
+    busy = false;
+    if (!subscribed) {
+      subscribed = true;
+      try { c.channel("public:visit_events").on("postgres_changes", { event: "INSERT", schema: "public", table: "visit_events" }, function () { refresh(); }).subscribe(); } catch (e) {}
+    }
+  }
+  window.initVisitorCounter = run;          // 예전 방식(세션마다 +1, 시작값 1425)을 대체
+  // 로그인되면 한 번 기록 · 아이디가 바뀌거나 날짜가 바뀌면 다시 기록
+  setInterval(function () { var id = me().toLowerCase(); if (id && client() && recordedFor !== id + "|" + kstToday()) run(); }, 3000);
+  setInterval(function () { if (!document.hidden && me()) refresh(); }, 300000);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run); else run();
+})();
+
+// ===== 입출고 저장이 서버에서 거절되면(예: 재고 부족) 화면을 서버 기준으로 바로 되돌림 =====
+// · 서버(DB설정/14_마이너스재고_방지.sql)가 재고보다 많은 출고를 거절함
+// · 일부 화면은 화면에 먼저 반영하고 서버에 저장하므로, 거절되면 화면에만 '유령 기록'이 남을 수 있음 → 최신 데이터로 다시 불러와 정리
+(function () {
+  "use strict";
+  var lastToast = 0, reloading = false;
+  function onFail(err) {
+    var msg = String((err && (err.message || err.details)) || err || "");
+    if (Date.now() - lastToast > 1500) {
+      lastToast = Date.now();
+      if (typeof showToast === "function") showToast((/재고 부족|마이너스/.test(msg) ? "⛔ " + msg : "저장이 거절됐어요: " + msg) + " · 최신 데이터로 다시 불러올게요.", "danger");
+    }
+    if (reloading) return; reloading = true;
+    setTimeout(async function () {
+      try { if (typeof window.refreshAppRealtime === "function") await window.refreshAppRealtime(); } catch (e) {}
+      reloading = false;
+    }, 600);
+  }
+  function hook(builder) {
+    if (!builder || typeof builder.then !== "function" || builder.__invHooked) return builder;
+    builder.__invHooked = true;
+    var t = builder.then.bind(builder);
+    builder.then = function (res, rej) {
+      return t(function (r) { if (r && r.error) onFail(r.error); return r; }).then(res, rej);
+    };
+    return builder;
+  }
+  function wrap() {
+    var c; try { c = typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { c = null; }
+    if (!c || !c.from || c.from.__invGuard) return;
+    var orig = c.from.bind(c);
+    var f = function (table) {
+      var qb = orig(table);
+      if (table !== "inventory_logs" || !qb) return qb;
+      ["insert", "update", "delete", "upsert"].forEach(function (m) {
+        if (typeof qb[m] !== "function") return;
+        var fn = qb[m];
+        qb[m] = function () { return hook(fn.apply(qb, arguments)); };
+      });
+      return qb;
+    };
+    f.__invGuard = true;
+    c.from = f;
+  }
+  wrap();
+  setInterval(wrap, 2000);
+})();

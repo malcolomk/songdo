@@ -957,3 +957,22 @@ body.tb-sheet-open { overflow: hidden; }
 .sc-ask .sc-ask-sub i { color: #0058a3; margin-right: 3px; }
 .sc-ask .sc-ask-sub b { color: #0f172a; }
 .sc-ask-ok { margin-top: 16px; width: 100%; height: 50px; border: none; border-radius: 14px; background: #0058a3; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+/* 로그인: 아이디 찾기 */
+.login-links { display: inline-flex; align-items: center; gap: 6px; }
+.login-links-sep { color: #d6d3d1; font-weight: 700; }
+.find-id-backdrop { position: fixed; inset: 0; z-index: 100002; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; padding: 20px; }
+.find-id-backdrop.show { display: flex; }
+.find-id-box { width: 100%; max-width: 360px; background: #fff; border-radius: 20px; padding: 18px; box-shadow: 0 20px 40px -12px rgba(15,23,42,.4); }
+.find-id-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.find-id-head b { font-size: 17px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+.find-id-head b i { color: #0058a3; }
+.find-id-close { width: 36px; height: 36px; border: none; background: #f1f5f9; border-radius: 10px; font-size: 16px; color: #334155; cursor: pointer; }
+.find-id-label { display: block; font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 6px; }
+#find-id-name { width: 100%; height: 50px; font-size: 17px !important; padding: 0 14px; box-sizing: border-box; }
+.find-id-result { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 44px; }
+.find-id-hint { font-size: 13px; font-weight: 600; color: #94a3b8; text-align: center; padding: 12px 4px; word-break: keep-all; }
+.find-id-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #bfdbfe; background: #eff6ff; cursor: pointer; text-align: left; }
+.find-id-name { font-size: 15px; font-weight: 800; color: #0f172a; }
+.find-id-id { font-size: 18px; font-weight: 900; color: #0058a3; font-family: ui-monospace, monospace; }
+.find-id-use { margin-left: auto; font-size: 11.5px; font-weight: 800; color: #0058a3; white-space: nowrap; }
+.find-id-note { color: #ea580c; font-weight: 800; }

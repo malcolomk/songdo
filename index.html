@@ -16,7 +16,7 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=2.5.0">
-  <link rel="stylesheet" href="mobile.css?v=2.9.23">
+  <link rel="stylesheet" href="mobile.css?v=2.9.25">
   <link rel="stylesheet" href="design.css?v=1.1.1">
   <style>
   .selected-card {
@@ -202,7 +202,7 @@
 
         <div class="login-options">
           <label class="login-remember"><input type="checkbox" id="login-remember" checked> 아이디 기억하기</label>
-          <button type="button" class="btn-link" onclick="openResetPasswordModal()">비밀번호 재설정</button>
+          <span class="login-links"><button type="button" class="btn-link" onclick="openFindIdModal()">아이디 찾기</button><span class="login-links-sep">·</span><button type="button" class="btn-link" onclick="openResetPasswordModal()">비밀번호 재설정</button></span>
         </div>
 
         <button type="submit" class="btn-submit btn-login">
@@ -278,12 +278,12 @@
           <div style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700;">
             <span style="color:#78350f; display:inline-flex; align-items:center; gap:3px;">
               <i class="fa-regular fa-calendar-check" style="color:#c2410c; font-size:10px;"></i>
-              오늘 <strong class="val-visitor-today" style="color:#c2410c; font-weight:900; font-size:12px;">18</strong>명
+              오늘 <strong class="val-visitor-today" style="color:#c2410c; font-weight:900; font-size:12px;">-</strong>명
             </span>
             <span style="color:#fed7aa;">|</span>
             <span style="color:#78350f; display:inline-flex; align-items:center; gap:3px;">
               <i class="fa-solid fa-chart-line" style="color:#ea580c; font-size:10px;"></i>
-              누적 <strong class="val-visitor-total" style="color:#9a3412; font-weight:900; font-size:12px;">1,425</strong>명
+              누적 <strong class="val-visitor-total" style="color:#9a3412; font-weight:900; font-size:12px;">-</strong>명
             </span>
           </div>
         </div>
@@ -2696,7 +2696,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
-  <script src="app.js?v=2.6.4"></script>
+  <script src="app.js?v=2.8.0"></script>
   <script src="custom.js?v=2.6.1"></script>
   
   <script>
@@ -3709,6 +3709,6 @@
   <script src="testbuy.js?v=4.7.0"></script>
   <script src="cyclecount.js?v=1.1.2"></script>
   <script src="storecheck.js?v=1.10.1"></script>
-  <script src="enhance.js?v=2.10.0"></script>
+  <script src="enhance.js?v=2.12.0"></script>
 </body>
 </html>
