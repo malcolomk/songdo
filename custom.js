@@ -4932,6 +4932,7 @@ function renderStoreInboundCart() {
           </div>
           <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
         </div>
+        <button type="button" class="mpq-btn" onclick="if(window.showBoxQty) window.showBoxQty('${item.artNo}', ${JSON.stringify(String(item.artName||'')).replace(/"/g,'&quot;')})" title="박스 수량 보기" aria-label="박스 수량 보기">?</button>
         <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
           <button type="button" onclick="adjustStoreCartItemQty(${idx}, -1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
           <input type="number" min="1" value="${item.qty}" onchange="setStoreCartItemQty(${idx}, this.value)" onfocus="this.select()" style="width:48px; height:28px; text-align:center; font-size:14px; font-weight:900; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:0 2px; -moz-appearance:textfield;" title="수량 직접 입력">

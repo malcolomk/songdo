@@ -976,3 +976,9 @@ body.tb-sheet-open { overflow: hidden; }
 .find-id-id { font-size: 18px; font-weight: 900; color: #0058a3; font-family: ui-monospace, monospace; }
 .find-id-use { margin-left: auto; font-size: 11.5px; font-weight: 800; color: #0058a3; white-space: nowrap; }
 .find-id-note { color: #ea580c; font-weight: 800; }
+/* 매장 입고 대기 목록: 박스 수량 "?" 버튼 */
+.mpq-btn { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #93c5fd; background: #eff6ff; color: #0058a3; font-size: 15px; font-weight: 900; line-height: 1; cursor: pointer; margin-right: 4px; display: inline-flex; align-items: center; justify-content: center; }
+.mpq-btn:active { background: #dbeafe; }
+.mpq-big { margin-top: 12px; font-size: 18px; font-weight: 800; color: #0f172a; }
+.mpq-big b { font-size: 44px; font-weight: 900; color: #0058a3; margin-right: 2px; }
+.mpq-none { margin-top: 14px; font-size: 14px; font-weight: 700; color: #94a3b8; }

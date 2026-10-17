@@ -1336,47 +1336,106 @@ window.closeDevNotice = function () {
 // ===== 새 스캐너(QR/디지털 링크) 지원: 스캔 결과가 주소로 들어와도 아티클 번호 8자리만 남김 =====
 // 예) https://www.ikea.com/kr/240/00455081197209?13=250713  → 00455081
 //     한글 자판 상태에서 찍히면 "ㅗㅅ센://ㅈㅈㅈ.해새.ㅑㅏㄷㅁ.채ㅡ/240/00455081197209?13=250713" 처럼 들어와도 같은 결과
-// · 주소가 들어오는 동안(중간 글자)에는 다른 기능이 반응하지 않게 잠시 막고, 다 들어오면(엔터 또는 잠깐 멈춤) 번호로 바꿔서 넘겨줌
+// · "/240/" 뒤 8자리가 들어오는 순간 바로 번호로 바꿔서 조회 (나머지 글자를 기다리지 않음)
+// · 그 뒤에 이어서 들어오는 나머지 글자는 버리고, 스캐너의 엔터는 그대로 진행
+// · 주소가 들어오는 중간 글자로는 다른 기능이 반응하지 않게 막음 (엉뚱한 번호로 조회·담기 방지)
 (function () {
   "use strict";
-  var pending = new WeakMap(), PASS = false;
-  function isTextInput(el) {
-    return el && el.tagName === "INPUT" && /^(text|search|tel|)$/i.test(el.type || "text");
-  }
-  function looksLikeLink(v) { return /:\/\/|\/240\/|\/01\/\d/.test(v); }
+  var pending = new WeakMap(), swallow = new WeakMap(), PASS = false;
+  function isTextInput(el) { return el && el.tagName === "INPUT" && /^(text|search|tel|)$/i.test(el.type || "text"); }
+  function looksLikeLink(v) { return /:\/\/|\/240\//.test(v); }
   function extract(v) {
     var m = v.match(/\/240\/(\d{8})/);            // IKEA 디지털 링크: /240/ 뒤 앞 8자리 = 아티클 번호
     if (m) return m[1];
     var d = v.replace(/\D/g, "");
-    if (d.length >= 14) return d.slice(0, 8);
+    if (looksLikeLink(v) && d.length >= 14) return d.slice(0, 8);
     return null;
   }
-  function finalize(el) {
-    var st = pending.get(el); if (!st) return;
-    clearTimeout(st.t); pending.delete(el);
-    var art = extract(el.value);
-    if (!art) return;
+  function apply(el, art) {
     el.value = art;
     PASS = true;
     try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } finally { PASS = false; }
-    if (typeof showToast === "function") showToast("스캔한 주소에서 아티클 번호 " + art + " 를 찾았어요", "info");
   }
+  function startSwallow(el, art) {
+    var st = swallow.get(el); if (st) clearTimeout(st.t);
+    st = { art: art, t: setTimeout(function () { swallow.delete(el); }, 400) };
+    swallow.set(el, st);
+  }
+  function finalize(el) {
+    var st = pending.get(el); if (!st) return null;
+    clearTimeout(st.t); pending.delete(el);
+    var art = extract(el.value || "");
+    if (art) { apply(el, art); startSwallow(el, art); }
+    return art;
+  }
+  // 나머지 글자 입력 자체를 막음 (스캐너가 보내는 키 입력)
+  document.addEventListener("keydown", function (e) {
+    var el = e.target; if (!isTextInput(el)) return;
+    var sw = swallow.get(el);
+    if (e.key === "Enter") {
+      if (pending.has(el)) finalize(el);      // 아직 번호로 안 바뀌었으면 먼저 바꿈
+      swallow.delete(el);                     // 엔터는 그대로 진행 (기존 조회/담기 동작)
+      return;
+    }
+    if (sw && e.key && e.key.length === 1) {   // 번호를 찾은 뒤 이어지는 글자는 버림
+      e.preventDefault(); e.stopImmediatePropagation();
+      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 400);
+    }
+  }, true);
   document.addEventListener("input", function (e) {
     if (PASS) return;
     var el = e.target; if (!isTextInput(el)) return;
+    var sw = swallow.get(el);
+    if (sw) {                                  // 혹시 키 입력으로 못 막은 글자가 들어오면 번호만 남김
+      e.stopImmediatePropagation();
+      if (el.value !== sw.art) el.value = sw.art;
+      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 400);
+      return;
+    }
     var v = el.value || "";
     if (!looksLikeLink(v)) { if (pending.has(el)) { clearTimeout(pending.get(el).t); pending.delete(el); } return; }
-    // 주소가 들어오는 중: 다른 기능에 전달하지 않음 (중간 숫자로 잘못 조회·담기 방지)
-    e.stopImmediatePropagation();
+    e.stopImmediatePropagation();              // 주소가 들어오는 중: 다른 기능에 전달하지 않음
+    var m = v.match(/\/240\/(\d{8})/);
+    if (m) { pending.set(el, pending.get(el) || {}); finalize(el); return; }   // 8자리 다 들어온 순간 바로 처리
     var st = pending.get(el) || {}; clearTimeout(st.t);
     st.t = setTimeout(function () { finalize(el); }, 150);
     pending.set(el, st);
   }, true);
-  // 엔터가 오면 다른 기능보다 먼저 번호로 바꿔 놓고, 엔터는 그대로 진행
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter") return;
-    var el = e.target; if (!isTextInput(el)) return;
-    if (pending.has(el) || looksLikeLink(el.value || "")) { if (!pending.has(el)) pending.set(el, {}); finalize(el); }
-  }, true);
   window.extractArtFromScan = extract;
+})();
+
+// ===== 아티클 박스 수량(MPQ) 보기: 매장 입고 대기 목록의 "?" 버튼 =====
+// 데이터: mpq.json (al010_export 의 Z열 MPQ = 박스당 수량). 새 엑셀이 나오면 mpq.json 만 바꾸면 됨
+(function () {
+  "use strict";
+  var data = null, loading = null;
+  function pad8(v) { var d = String(v || "").replace(/\D/g, ""); return d && d.length <= 8 ? d.padStart(8, "0") : d; }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function load() {
+    if (data) return Promise.resolve(data);
+    if (!loading) loading = fetch("mpq.json?v=20261017", { cache: "force-cache" }).then(function (r) { return r.json(); }).then(function (j) { data = j || {}; return data; }).catch(function () { loading = null; return null; });
+    return loading;
+  }
+  function popup(html) {
+    var el = document.createElement("div"); el.className = "sc-ask-backdrop";
+    el.innerHTML = '<div class="sc-ask mpq-pop" role="dialog" aria-modal="true">' + html + '<button type="button" class="sc-ask-ok">확인</button></div>';
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add("show"); });
+    function close() { el.remove(); }
+    el.querySelector(".sc-ask-ok").onclick = close;
+    el.addEventListener("click", function (e) { if (e.target === el) close(); });
+  }
+  window.showBoxQty = async function (artNo, artName) {
+    var k = pad8(artNo), d = await load();
+    if (!d) { if (typeof showToast === "function") showToast("박스 수량 정보를 불러오지 못했어요. 잠시 후 다시 눌러 주세요.", "warning"); return; }
+    var n = d[k];
+    popup('<div class="sc-ask-icon wh"><i class="fa-solid fa-box"></i></div>' +
+      '<div class="sc-ask-title">박스 수량</div>' +
+      '<div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(k) + '</span></div>' +
+      (n ? '<div class="mpq-big"><b>' + n + '</b>개</div><div class="sc-ask-sub">1박스에 ' + n + '개가 들어 있어요</div>'
+         : '<div class="mpq-none">박스 수량 정보가 없어요</div>'));
+  };
+  // 매장 입고 화면을 열면 미리 불러 둠 (누를 때 기다리지 않게)
+  var tab = document.getElementById("tab-store-inbound");
+  if (tab) new MutationObserver(function () { if (tab.classList.contains("active")) load(); }).observe(tab, { attributes: true, attributeFilter: ["class"] });
 })();
