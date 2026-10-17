@@ -1351,21 +1351,25 @@ window.closeDevNotice = function () {
     if (looksLikeLink(v) && d.length >= 14) return d.slice(0, 8);
     return null;
   }
-  function apply(el, art) {
-    el.value = art;
+  function fire(el) {
     PASS = true;
     try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } finally { PASS = false; }
   }
-  function startSwallow(el, art) {
-    var st = swallow.get(el); if (st) clearTimeout(st.t);
-    st = { art: art, t: setTimeout(function () { swallow.delete(el); }, 400) };
+  // 번호로 바꾼 뒤: 스캐너의 엔터가 오면 그때 한 번만 넘겨줌 (엔터와 자동 담기가 겹쳐 2번 담기는 것 방지)
+  // 엔터가 안 오는 스캐너면 0.3초 뒤 넘겨줌
+  function apply(el, art) {
+    el.value = art;
+    var st = swallow.get(el); if (st) { clearTimeout(st.t); clearTimeout(st.c); }
+    st = { art: art, fired: false };
+    st.c = setTimeout(function () { if (!st.fired) { st.fired = true; fire(el); } }, 300);
+    st.t = setTimeout(function () { swallow.delete(el); }, 700);
     swallow.set(el, st);
   }
   function finalize(el) {
     var st = pending.get(el); if (!st) return null;
     clearTimeout(st.t); pending.delete(el);
     var art = extract(el.value || "");
-    if (art) { apply(el, art); startSwallow(el, art); }
+    if (art) apply(el, art);
     return art;
   }
   // 나머지 글자 입력 자체를 막음 (스캐너가 보내는 키 입력)
@@ -1374,12 +1378,13 @@ window.closeDevNotice = function () {
     var sw = swallow.get(el);
     if (e.key === "Enter") {
       if (pending.has(el)) finalize(el);      // 아직 번호로 안 바뀌었으면 먼저 바꿈
-      swallow.delete(el);                     // 엔터는 그대로 진행 (기존 조회/담기 동작)
-      return;
+      var s2 = swallow.get(el);
+      if (s2) { clearTimeout(s2.c); clearTimeout(s2.t); if (!s2.fired) { s2.fired = true; el.value = s2.art; fire(el); } swallow.delete(el); }
+      return;                                 // 엔터는 그대로 진행 (기존 조회/담기 동작)
     }
-    if (sw && e.key && e.key.length === 1) {   // 번호를 찾은 뒤 이어지는 글자는 버림
+    if (sw && e.key && (e.key.length === 1 || e.key === "Process")) {   // 번호를 찾은 뒤 이어지는 글자는 버림
       e.preventDefault(); e.stopImmediatePropagation();
-      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 400);
+      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 700);
     }
   }, true);
   document.addEventListener("input", function (e) {
@@ -1389,7 +1394,7 @@ window.closeDevNotice = function () {
     if (sw) {                                  // 혹시 키 입력으로 못 막은 글자가 들어오면 번호만 남김
       e.stopImmediatePropagation();
       if (el.value !== sw.art) el.value = sw.art;
-      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 400);
+      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 700);
       return;
     }
     var v = el.value || "";
@@ -1413,7 +1418,7 @@ window.closeDevNotice = function () {
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function load() {
     if (data) return Promise.resolve(data);
-    if (!loading) loading = fetch("mpq.json?v=20261017", { cache: "force-cache" }).then(function (r) { return r.json(); }).then(function (j) { data = j || {}; return data; }).catch(function () { loading = null; return null; });
+    if (!loading) loading = fetch("mpq.json?v=20261017b", { cache: "force-cache" }).then(function (r) { return r.json(); }).then(function (j) { data = j || {}; return data; }).catch(function () { loading = null; return null; });
     return loading;
   }
   function popup(html) {
@@ -1428,12 +1433,22 @@ window.closeDevNotice = function () {
   window.showBoxQty = async function (artNo, artName) {
     var k = pad8(artNo), d = await load();
     if (!d) { if (typeof showToast === "function") showToast("박스 수량 정보를 불러오지 못했어요. 잠시 후 다시 눌러 주세요.", "warning"); return; }
-    var n = d[k];
-    popup('<div class="sc-ask-icon wh"><i class="fa-solid fa-box"></i></div>' +
-      '<div class="sc-ask-title">박스 수량</div>' +
-      '<div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(k) + '</span></div>' +
-      (n ? '<div class="mpq-big"><b>' + n + '</b>개</div><div class="sc-ask-sub">1박스에 ' + n + '개가 들어 있어요</div>'
-         : '<div class="mpq-none">박스 수량 정보가 없어요</div>'));
+    // [Z열 MPQ(멀티박스), AA열 Palq(팔렛)] — Z < AA 면 멀티박스로 들어옴 / Z = AA 면 팔렛으로 들어옴
+    var v = d[k], z = 0, aa = 0;
+    if (Array.isArray(v)) { z = Number(v[0]) || 0; aa = Number(v[1]) || 0; } else if (v) { z = Number(v) || 0; }
+    var head = '<div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(k) + '</span></div>', body;
+    if (z > 0 && aa > 0 && z < aa) {
+      body = '<div class="sc-ask-icon wh"><i class="fa-solid fa-box"></i></div><div class="sc-ask-title">멀티박스 수량</div>' + head +
+        '<div class="mpq-big"><b>' + z + '</b>개</div><div class="sc-ask-sub">멀티박스로 들어와요 · 1박스에 ' + z + '개</div>' +
+        '<div class="mpq-pal">참고: 1팔렛 ' + aa + '개</div>';
+    } else if (z > 0 && aa > 0 && z === aa) {
+      body = '<div class="sc-ask-icon pal"><i class="fa-solid fa-pallet"></i></div><div class="sc-ask-title">팔렛 수량</div>' + head +
+        '<div class="mpq-big pal"><b>' + aa + '</b>개</div><div class="sc-ask-sub">멀티박스가 아니라 팔렛으로 들어와요 · 1팔렛 ' + aa + '개</div>';
+    } else {
+      body = '<div class="sc-ask-icon"><i class="fa-solid fa-circle-question"></i></div><div class="sc-ask-title">박스 수량</div>' + head +
+        '<div class="mpq-none">박스·팔렛 수량 정보가 없어요</div>';
+    }
+    popup(body);
   };
   // 매장 입고 화면을 열면 미리 불러 둠 (누를 때 기다리지 않게)
   var tab = document.getElementById("tab-store-inbound");

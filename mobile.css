@@ -982,3 +982,6 @@ body.tb-sheet-open { overflow: hidden; }
 .mpq-big { margin-top: 12px; font-size: 18px; font-weight: 800; color: #0f172a; }
 .mpq-big b { font-size: 44px; font-weight: 900; color: #0058a3; margin-right: 2px; }
 .mpq-none { margin-top: 14px; font-size: 14px; font-weight: 700; color: #94a3b8; }
+.sc-ask-icon.pal { background: #fef3c7; color: #b45309; }
+.mpq-big.pal b { color: #b45309; }
+.mpq-pal { margin-top: 10px; display: inline-block; font-size: 12.5px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 4px 10px; }

@@ -4566,7 +4566,13 @@ window.confirmAddUnregisteredProduct = function() {
 // Barcode Scanner Input Handler
 window.handleStoreBarcodeInput = function(inputValue) {
   const inputEl = document.getElementById("store-barcode-input");
-  const rawQuery = String(inputValue || (inputEl ? inputEl.value : "")).trim();
+  let rawQuery = String(inputValue || (inputEl ? inputEl.value : "")).trim();
+  // 새 스캐너(주소 형태)로 찍힌 값이면 아티클 번호 8자리만 사용
+  if (typeof window.extractArtFromScan === "function") { const ex = window.extractArtFromScan(rawQuery); if (ex) { rawQuery = ex; if (inputEl) inputEl.value = ex; } }
+  // 같은 스캔이 두 번 처리되는 것 방지 (0.6초 안에 같은 번호가 또 오면 무시)
+  { const now = Date.now(), key = rawQuery.replace(/\D/g, "").slice(0, 8) || rawQuery;
+    if (window.__lastStoreScan && window.__lastStoreScan.key === key && now - window.__lastStoreScan.t < 600) return;
+    window.__lastStoreScan = { key: key, t: now }; }
   
   const dropdown = document.getElementById("store-barcode-dropdown");
   if (dropdown) {
