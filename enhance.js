@@ -1349,6 +1349,8 @@ window.closeDevNotice = function () {
     if (m) return m[1];
     var d = v.replace(/\D/g, "");
     if (looksLikeLink(v) && d.length >= 14) return d.slice(0, 8);
+    var m2 = v.match(/^\s*(\d{14})(?:\D.*)?$/);
+    if (m2) return m2[1].slice(0, 8);
     return null;
   }
   function fire(el) {
@@ -1398,6 +1400,13 @@ window.closeDevNotice = function () {
       return;
     }
     var v = el.value || "";
+    // 숫자만 14자리로 들어온 경우(예: 00455081197209, 뒤에 ?13=… 가 붙어도) → 앞 8자리 아티클 번호
+    var m14 = v.match(/^\s*(\d{14})(?:\D.*)?$/);
+    if (m14 && !pending.has(el)) {
+      e.stopImmediatePropagation();
+      apply(el, m14[1].slice(0, 8));
+      return;
+    }
     if (!looksLikeLink(v)) { if (pending.has(el)) { clearTimeout(pending.get(el).t); pending.delete(el); } return; }
     e.stopImmediatePropagation();              // 주소가 들어오는 중: 다른 기능에 전달하지 않음
     var m = v.match(/\/240\/(\d{8})/);
@@ -1443,7 +1452,8 @@ window.closeDevNotice = function () {
         '<div class="mpq-pal">참고: 1팔렛 ' + aa + '개</div>';
     } else if (z > 0 && aa > 0 && z === aa) {
       body = '<div class="sc-ask-icon pal"><i class="fa-solid fa-pallet"></i></div><div class="sc-ask-title">팔렛 수량</div>' + head +
-        '<div class="mpq-big pal"><b>' + aa + '</b>개</div><div class="sc-ask-sub">멀티박스가 아니라 팔렛으로 들어와요 · 1팔렛 ' + aa + '개</div>';
+        '<div class="mpq-big pal"><b>' + aa + '</b>개</div><div class="sc-ask-sub">멀티박스가 아니라 팔렛으로 들어와요 · 1팔렛 ' + aa + '개</div>' +
+        '<div class="mpq-input-note"><i class="fa-solid fa-pen"></i> 수량을 입력해주세요.</div>';
     } else {
       body = '<div class="sc-ask-icon"><i class="fa-solid fa-circle-question"></i></div><div class="sc-ask-title">박스 수량</div>' + head +
         '<div class="mpq-none">박스·팔렛 수량 정보가 없어요</div>';
