@@ -4937,10 +4937,10 @@ function renderStoreInboundCart() {
             <span style="font-size:9.5px; background:#f1f5f9; color:#475569; padding:1px 5px; border-radius:4px; font-weight:700;">${item.date || selectedDate}</span>
             <span style="font-size:9.5px; color:#64748b;">${item.time || ''}</span>
           </div>
-          <div style="font-size:11.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.artName}</div>
+          <div class="sc-cart-name" style="font-size:12.5px; font-weight:800; color:#0f172a; line-height:1.35; word-break:keep-all;">${item.artName}</div>
         </div>
-        <button type="button" class="mpq-btn" onclick="if(window.showBoxQty) window.showBoxQty('${item.artNo}', ${JSON.stringify(String(item.artName||'')).replace(/"/g,'&quot;')})" title="박스 수량 보기" aria-label="박스 수량 보기">?</button>
-        <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
+        <div class="sc-cart-ctrls" style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
+          <button type="button" class="mpq-btn" onclick="if(window.showBoxQty) window.showBoxQty('${item.artNo}', ${JSON.stringify(String(item.artName||'')).replace(/"/g,'&quot;')})" title="박스 수량 보기" aria-label="박스 수량 보기"><span class="mpq-q">?</span><span class="mpq-t">박스 수량</span></button>
           <button type="button" onclick="adjustStoreCartItemQty(${idx}, -1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
           <input type="number" min="1" value="${item.qty}" onchange="setStoreCartItemQty(${idx}, this.value)" onfocus="this.select()" style="width:48px; height:28px; text-align:center; font-size:14px; font-weight:900; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:0 2px; -moz-appearance:textfield;" title="수량 직접 입력">
           <button type="button" onclick="adjustStoreCartItemQty(${idx}, 1)" style="width:26px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>

@@ -986,3 +986,15 @@ body.tb-sheet-open { overflow: hidden; }
 .mpq-big.pal b { color: #b45309; }
 .mpq-pal { margin-top: 10px; display: inline-block; font-size: 12.5px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 4px 10px; }
 .mpq-input-note { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 14px; font-weight: 800; }
+/* 매장 입고 대기 목록: 한 줄에 다 넣지 않고 2단으로 (위: 상품 정보 / 아래: 박스 수량 · 수량 조절) */
+#store-inbound-cart-items .store-cart-item { flex-wrap: wrap; align-items: flex-start; row-gap: 8px; }
+#store-inbound-cart-items .store-cart-item > div:nth-child(2) { flex: 1 1 0; min-width: 0; }
+#store-inbound-cart-items .store-cart-item .sc-cart-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; }
+#store-inbound-cart-items .sc-cart-ctrls { width: 100%; justify-content: flex-end; gap: 6px !important; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+#store-inbound-cart-items .sc-cart-ctrls .mpq-btn { width: auto; height: 34px; border-radius: 999px; padding: 0 12px 0 4px; gap: 6px; margin-right: auto; font-size: 13px; }
+#store-inbound-cart-items .sc-cart-ctrls .mpq-btn .mpq-q { width: 26px; height: 26px; border-radius: 50%; background: #0058a3; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; }
+#store-inbound-cart-items .sc-cart-ctrls .mpq-btn .mpq-t { font-weight: 800; color: #0058a3; }
+#store-inbound-cart-items .sc-cart-ctrls button[onclick^="adjustStoreCartItemQty"] { width: 36px !important; height: 34px !important; font-size: 16px !important; }
+#store-inbound-cart-items .sc-cart-ctrls input[type="number"] { width: 60px !important; height: 34px !important; font-size: 16px !important; }
+.mpq-btn .mpq-t { display: none; }
+#store-inbound-cart-items .sc-cart-ctrls .mpq-btn .mpq-t { display: inline; }
