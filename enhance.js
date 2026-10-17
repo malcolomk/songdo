@@ -1333,87 +1333,73 @@ window.closeDevNotice = function () {
   setInterval(wrap, 2000);
 })();
 
-// ===== 새 스캐너(QR/디지털 링크) 지원: 스캔 결과가 주소로 들어와도 아티클 번호 8자리만 남김 =====
-// 예) https://www.ikea.com/kr/240/00455081197209?13=250713  → 00455081
-//     한글 자판 상태에서 찍히면 "ㅗㅅ센://ㅈㅈㅈ.해새.ㅑㅏㄷㅁ.채ㅡ/240/00455081197209?13=250713" 처럼 들어와도 같은 결과
-// · "/240/" 뒤 8자리가 들어오는 순간 바로 번호로 바꿔서 조회 (나머지 글자를 기다리지 않음)
-// · 그 뒤에 이어서 들어오는 나머지 글자는 버리고, 스캐너의 엔터는 그대로 진행
-// · 주소가 들어오는 중간 글자로는 다른 기능이 반응하지 않게 막음 (엉뚱한 번호로 조회·담기 방지)
+// ===== 스캐너 입력 정리: 주소/14자리로 찍혀도 아티클 번호 8자리만, 한 번만 처리 =====
+// 예) https://www.ikea.com/kr/240/00455081197209?13=250713 · "ㅗㅅ센://…/240/00455081197209?13=250713" · 00455081197209  → 00455081
+// 동작
+// · 스캔이 들어오는 동안에는 다른 기능에 넘기지 않음 (중간 숫자로 조회·자동 담기 방지)
+// · 번호 8자리를 찾으면 입력칸에는 바로 00455081 만 보여 주고, 뒤에 이어지는 글자(197209?13=…)는 버림
+// · 스캐너의 엔터가 오면(또는 글자가 0.6초 동안 더 안 오면) 그때 딱 한 번 넘겨줌 → 모바일(블루투스 스캐너)처럼 천천히 들어와도 안전
 (function () {
   "use strict";
-  var pending = new WeakMap(), swallow = new WeakMap(), PASS = false;
+  var sessions = new WeakMap(), PASS = false, IDLE = 600;
   function isTextInput(el) { return el && el.tagName === "INPUT" && /^(text|search|tel|)$/i.test(el.type || "text"); }
   function looksLikeLink(v) { return /:\/\/|\/240\//.test(v); }
   function extract(v) {
-    var m = v.match(/\/240\/(\d{8})/);            // IKEA 디지털 링크: /240/ 뒤 앞 8자리 = 아티클 번호
+    v = String(v || "");
+    var m = v.match(/\/240\/(\d{8})/);                 // 디지털 링크: /240/ 뒤 8자리
     if (m) return m[1];
+    m = v.match(/^\s*(\d{14})(?:\D.*)?$/);            // 숫자 14자리(+뒤에 글자) → 앞 8자리
+    if (m) return m[1].slice(0, 8);
     var d = v.replace(/\D/g, "");
     if (looksLikeLink(v) && d.length >= 14) return d.slice(0, 8);
-    var m2 = v.match(/^\s*(\d{14})(?:\D.*)?$/);
-    if (m2) return m2[1].slice(0, 8);
     return null;
   }
   function fire(el) {
     PASS = true;
     try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } finally { PASS = false; }
   }
-  // 번호로 바꾼 뒤: 스캐너의 엔터가 오면 그때 한 번만 넘겨줌 (엔터와 자동 담기가 겹쳐 2번 담기는 것 방지)
-  // 엔터가 안 오는 스캐너면 0.3초 뒤 넘겨줌
-  function apply(el, art) {
-    el.value = art;
-    var st = swallow.get(el); if (st) { clearTimeout(st.t); clearTimeout(st.c); }
-    st = { art: art, fired: false };
-    st.c = setTimeout(function () { if (!st.fired) { st.fired = true; fire(el); } }, 300);
-    st.t = setTimeout(function () { swallow.delete(el); }, 700);
-    swallow.set(el, st);
+  function endSession(el, viaEnter) {
+    var st = sessions.get(el); if (!st) return;
+    clearTimeout(st.t); sessions.delete(el);
+    var art = st.art || extract(el.value);
+    if (art) { el.value = art; fire(el); }
+    else if (!viaEnter) { fire(el); }                 // 번호를 못 찾았으면 원래 값 그대로 넘김
   }
-  function finalize(el) {
-    var st = pending.get(el); if (!st) return null;
-    clearTimeout(st.t); pending.delete(el);
-    var art = extract(el.value || "");
-    if (art) apply(el, art);
-    return art;
+  function touch(el, st) {
+    clearTimeout(st.t);
+    try { clearTimeout(window._storeBarcodeAutoTimer); } catch (e) {}   // 매장 입고 자동 담기 대기 취소 (스캔 끝나고 한 번만)
+    st.t = setTimeout(function () { endSession(el, false); }, IDLE);
   }
-  // 나머지 글자 입력 자체를 막음 (스캐너가 보내는 키 입력)
-  document.addEventListener("keydown", function (e) {
-    var el = e.target; if (!isTextInput(el)) return;
-    var sw = swallow.get(el);
-    if (e.key === "Enter") {
-      if (pending.has(el)) finalize(el);      // 아직 번호로 안 바뀌었으면 먼저 바꿈
-      var s2 = swallow.get(el);
-      if (s2) { clearTimeout(s2.c); clearTimeout(s2.t); if (!s2.fired) { s2.fired = true; el.value = s2.art; fire(el); } swallow.delete(el); }
-      return;                                 // 엔터는 그대로 진행 (기존 조회/담기 동작)
-    }
-    if (sw && e.key && (e.key.length === 1 || e.key === "Process")) {   // 번호를 찾은 뒤 이어지는 글자는 버림
-      e.preventDefault(); e.stopImmediatePropagation();
-      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 700);
-    }
-  }, true);
   document.addEventListener("input", function (e) {
     if (PASS) return;
     var el = e.target; if (!isTextInput(el)) return;
-    var sw = swallow.get(el);
-    if (sw) {                                  // 혹시 키 입력으로 못 막은 글자가 들어오면 번호만 남김
+    var v = el.value || "", st = sessions.get(el);
+    if (st) {                                          // 스캔 진행 중
       e.stopImmediatePropagation();
-      if (el.value !== sw.art) el.value = sw.art;
-      clearTimeout(sw.t); sw.t = setTimeout(function () { swallow.delete(el); }, 700);
+      if (!st.art) { var a = extract(v); if (/\/240\/\d{8}/.test(v) || /^\s*\d{14}/.test(v)) st.art = a; }
+      if (st.art && el.value !== st.art) el.value = st.art;   // 번호만 보이게, 뒤 글자는 버림
+      touch(el, st);
       return;
     }
-    var v = el.value || "";
-    // 숫자만 14자리로 들어온 경우(예: 00455081197209, 뒤에 ?13=… 가 붙어도) → 앞 8자리 아티클 번호
-    var m14 = v.match(/^\s*(\d{14})(?:\D.*)?$/);
-    if (m14 && !pending.has(el)) {
-      e.stopImmediatePropagation();
-      apply(el, m14[1].slice(0, 8));
+    // 스캔 시작 판단: 주소 형태 · 숫자 14자리
+    var isLink = looksLikeLink(v), m14 = /^\s*\d{14}(?:\D.*)?$/.test(v);
+    if (!isLink && !m14) return;
+    e.stopImmediatePropagation();
+    st = { art: null, t: 0 };
+    if (/\/240\/\d{8}/.test(v) || m14) { st.art = extract(v); el.value = st.art; }
+    sessions.set(el, st);
+    touch(el, st);
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    var el = e.target; if (!isTextInput(el)) return;
+    var st = sessions.get(el); if (!st) return;
+    if (e.key === "Enter" || e.keyCode === 13) {       // 엔터: 번호로 한 번 넘겨주고 엔터는 그대로 진행
+      endSession(el, true);
       return;
     }
-    if (!looksLikeLink(v)) { if (pending.has(el)) { clearTimeout(pending.get(el).t); pending.delete(el); } return; }
-    e.stopImmediatePropagation();              // 주소가 들어오는 중: 다른 기능에 전달하지 않음
-    var m = v.match(/\/240\/(\d{8})/);
-    if (m) { pending.set(el, pending.get(el) || {}); finalize(el); return; }   // 8자리 다 들어온 순간 바로 처리
-    var st = pending.get(el) || {}; clearTimeout(st.t);
-    st.t = setTimeout(function () { finalize(el); }, 150);
-    pending.set(el, st);
+    if (st.art && e.key && e.key.length === 1) {       // 번호를 찾은 뒤 이어지는 글자는 입력 자체를 막음
+      e.preventDefault(); e.stopImmediatePropagation(); touch(el, st);
+    }
   }, true);
   window.extractArtFromScan = extract;
 })();
@@ -1448,8 +1434,7 @@ window.closeDevNotice = function () {
     var head = '<div class="sc-ask-name">' + esc(artName || "") + ' <span>' + esc(k) + '</span></div>', body;
     if (z > 0 && aa > 0 && z < aa) {
       body = '<div class="sc-ask-icon wh"><i class="fa-solid fa-box"></i></div><div class="sc-ask-title">멀티박스 수량</div>' + head +
-        '<div class="mpq-big"><b>' + z + '</b>개</div><div class="sc-ask-sub">멀티박스로 들어와요 · 1박스에 ' + z + '개</div>' +
-        '<div class="mpq-pal">참고: 1팔렛 ' + aa + '개</div>';
+        '<div class="mpq-big"><b>' + z + '</b>개</div><div class="sc-ask-sub">멀티박스로 들어와요 · 1박스에 ' + z + '개</div>';
     } else if (z > 0 && aa > 0 && z === aa) {
       body = '<div class="sc-ask-icon pal"><i class="fa-solid fa-pallet"></i></div><div class="sc-ask-title">팔렛 수량</div>' + head +
         '<div class="mpq-big pal"><b>' + aa + '</b>개</div><div class="sc-ask-sub">멀티박스가 아니라 팔렛으로 들어와요 · 1팔렛 ' + aa + '개</div>' +

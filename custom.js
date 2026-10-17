@@ -4294,7 +4294,7 @@ document.addEventListener("keydown", function(e) {
       if (code.replace(/\D/g, '').length >= 8) {
         handleStoreBarcodeInput(code);
       }
-    }, 80);
+    }, 450);
   }
 });
 
@@ -4343,13 +4343,14 @@ window.handleStoreAutocompleteInput = function(query) {
       dropdown.classList.remove("active");
       dropdown.innerHTML = "";
     }
+    // 스캐너 글자가 다 들어올 때까지 잠깐 기다림 (모바일 블루투스 스캐너는 천천히 들어와서 70ms 면 중간에 잘려 두 번 담김)
     window._storeBarcodeAutoTimer = setTimeout(() => {
       const inputEl = document.getElementById("store-barcode-input");
       const currentVal = inputEl ? inputEl.value.trim() : "";
       if (currentVal && currentVal.replace(/\D/g, '').length >= 8) {
         handleStoreBarcodeInput(currentVal);
       }
-    }, 70);
+    }, 450);
     return;
   }
 
@@ -4571,7 +4572,7 @@ window.handleStoreBarcodeInput = function(inputValue) {
   if (typeof window.extractArtFromScan === "function") { const ex = window.extractArtFromScan(rawQuery); if (ex) { rawQuery = ex; if (inputEl) inputEl.value = ex; } }
   // 같은 스캔이 두 번 처리되는 것 방지 (0.6초 안에 같은 번호가 또 오면 무시)
   { const now = Date.now(), key = rawQuery.replace(/\D/g, "").slice(0, 8) || rawQuery;
-    if (window.__lastStoreScan && window.__lastStoreScan.key === key && now - window.__lastStoreScan.t < 600) return;
+    if (window.__lastStoreScan && window.__lastStoreScan.key === key && now - window.__lastStoreScan.t < 1200) return;
     window.__lastStoreScan = { key: key, t: now }; }
   
   const dropdown = document.getElementById("store-barcode-dropdown");
