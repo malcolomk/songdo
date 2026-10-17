@@ -131,7 +131,7 @@ body { color: var(--ds-ink); -webkit-font-smoothing: antialiased; letter-spacing
 /* ---------- 입출고 등록 ---------- */
 .visitor-counter-bar { background: #fff !important; border: 1px solid var(--ds-line) !important; border-radius: var(--ds-radius-sm) !important; box-shadow: none !important; }
 .rc-title { font-size: 20px !important; letter-spacing: -0.5px; margin: 10px 0 16px !important; }
-.rc-btn { height: 210px !important; border-radius: 22px !important; box-shadow: 0 10px 24px -12px rgba(16,24,40,.45) !important; }
+.rc-btn { height: clamp(300px, 50vh, 460px) !important; border-radius: 22px !important; box-shadow: 0 10px 24px -12px rgba(16,24,40,.45) !important; }
 .rc-btn.in { background: linear-gradient(160deg, #3b6fd1, #2f5fb8) !important; }
 .rc-btn.out { background: linear-gradient(160deg, #f3924f, #e5701f) !important; }
 #register-form { background: #fff !important; border: 1px solid var(--ds-line) !important; border-radius: 20px !important; padding: 16px !important; margin: 0 !important; box-shadow: var(--ds-shadow) !important; }
@@ -224,3 +224,9 @@ body { color: var(--ds-ink); -webkit-font-smoothing: antialiased; letter-spacing
 
 /* 체크박스 색 */
 .tab-page input[type="checkbox"] { accent-color: var(--ds-primary); }
+
+/* 입출고 첫 화면: 큰 버튼 · "창고 입고 / 창고 출고" */
+.rc-btn b { display: flex; flex-direction: column; align-items: center; line-height: 1.05; font-size: 46px !important; letter-spacing: 2px; }
+.rc-btn b .rc-pre { font-size: 24px; font-weight: 800; letter-spacing: 1px; opacity: .95; margin-bottom: 4px; }
+.rc-btn i { font-size: 44px !important; margin-bottom: 6px; }
+.rc-btn small { font-size: 15px !important; margin-top: 4px; }

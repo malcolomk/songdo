@@ -834,8 +834,8 @@ window.closeDevNotice = function () {
     var f = $("register-form"); if (!f) return null;
     c = document.createElement("div"); c.id = "reg-chooser";
     c.innerHTML = '<div class="rc-title">무엇을 등록할까요?</div><div class="rc-grid">' +
-      '<button type="button" class="rc-btn in" data-t="입고"><i class="fa-solid fa-plus"></i><b>입고</b><small>창고에 넣기</small></button>' +
-      '<button type="button" class="rc-btn out" data-t="출고"><i class="fa-solid fa-minus"></i><b>출고</b><small>창고에서 꺼내기</small></button></div>';
+      '<button type="button" class="rc-btn in" data-t="입고"><i class="fa-solid fa-plus"></i><b><span class="rc-pre">창고</span>입고</b><small>창고에 넣기</small></button>' +
+      '<button type="button" class="rc-btn out" data-t="출고"><i class="fa-solid fa-minus"></i><b><span class="rc-pre">창고</span>출고</b><small>창고에서 꺼내기</small></button></div>';
     f.parentNode.insertBefore(c, f);
     Array.prototype.forEach.call(c.querySelectorAll(".rc-btn"), function (b) { b.addEventListener("click", function () { choose(b.dataset.t); }); });
     // 폼 위에 '다시 고르기'
@@ -1331,4 +1331,52 @@ window.closeDevNotice = function () {
   }
   wrap();
   setInterval(wrap, 2000);
+})();
+
+// ===== 새 스캐너(QR/디지털 링크) 지원: 스캔 결과가 주소로 들어와도 아티클 번호 8자리만 남김 =====
+// 예) https://www.ikea.com/kr/240/00455081197209?13=250713  → 00455081
+//     한글 자판 상태에서 찍히면 "ㅗㅅ센://ㅈㅈㅈ.해새.ㅑㅏㄷㅁ.채ㅡ/240/00455081197209?13=250713" 처럼 들어와도 같은 결과
+// · 주소가 들어오는 동안(중간 글자)에는 다른 기능이 반응하지 않게 잠시 막고, 다 들어오면(엔터 또는 잠깐 멈춤) 번호로 바꿔서 넘겨줌
+(function () {
+  "use strict";
+  var pending = new WeakMap(), PASS = false;
+  function isTextInput(el) {
+    return el && el.tagName === "INPUT" && /^(text|search|tel|)$/i.test(el.type || "text");
+  }
+  function looksLikeLink(v) { return /:\/\/|\/240\/|\/01\/\d/.test(v); }
+  function extract(v) {
+    var m = v.match(/\/240\/(\d{8})/);            // IKEA 디지털 링크: /240/ 뒤 앞 8자리 = 아티클 번호
+    if (m) return m[1];
+    var d = v.replace(/\D/g, "");
+    if (d.length >= 14) return d.slice(0, 8);
+    return null;
+  }
+  function finalize(el) {
+    var st = pending.get(el); if (!st) return;
+    clearTimeout(st.t); pending.delete(el);
+    var art = extract(el.value);
+    if (!art) return;
+    el.value = art;
+    PASS = true;
+    try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } finally { PASS = false; }
+    if (typeof showToast === "function") showToast("스캔한 주소에서 아티클 번호 " + art + " 를 찾았어요", "info");
+  }
+  document.addEventListener("input", function (e) {
+    if (PASS) return;
+    var el = e.target; if (!isTextInput(el)) return;
+    var v = el.value || "";
+    if (!looksLikeLink(v)) { if (pending.has(el)) { clearTimeout(pending.get(el).t); pending.delete(el); } return; }
+    // 주소가 들어오는 중: 다른 기능에 전달하지 않음 (중간 숫자로 잘못 조회·담기 방지)
+    e.stopImmediatePropagation();
+    var st = pending.get(el) || {}; clearTimeout(st.t);
+    st.t = setTimeout(function () { finalize(el); }, 150);
+    pending.set(el, st);
+  }, true);
+  // 엔터가 오면 다른 기능보다 먼저 번호로 바꿔 놓고, 엔터는 그대로 진행
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    var el = e.target; if (!isTextInput(el)) return;
+    if (pending.has(el) || looksLikeLink(el.value || "")) { if (!pending.has(el)) pending.set(el, {}); finalize(el); }
+  }, true);
+  window.extractArtFromScan = extract;
 })();

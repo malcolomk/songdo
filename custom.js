@@ -2400,29 +2400,38 @@ window.renderPicklistZoneTabs = function() {
   }
 };
 
-window.updateResetButtonPermission = function() {
-  const resetBtn = document.getElementById("btn-picklist-zone-reset");
-  if (!resetBtn) return;
-  const curUser = String((typeof currentUser !== 'undefined' && currentUser) 
+// 구역 리셋 권한: jipar5·junkoo 만 (모든 구역)
+window.ZONE_RESET_MANAGERS = ["junkoo", "jipar5"];
+window.ZONE_RESET_LIMITED = {};   // 구역별로 따로 권한을 줄 아이디 (현재 없음)
+window.getZoneResetUser = function() {
+  return String((typeof currentUser !== 'undefined' && currentUser) 
     || (typeof window.currentUser !== 'undefined' && window.currentUser) 
     || sessionStorage.getItem("warehouse_current_user") 
     || "").toLowerCase().trim();
-  const isAllowed = ["junkoo", "jipar5"].includes(curUser);
+};
+window.canResetZone = function(zone) {
+  const u = window.getZoneResetUser();
+  if (window.ZONE_RESET_MANAGERS.includes(u)) return true;
+  const z = window.ZONE_RESET_LIMITED[u];
+  return !!(z && z.includes(zone));
+};
+window.updateResetButtonPermission = function() {
+  const resetBtn = document.getElementById("btn-picklist-zone-reset");
+  if (!resetBtn) return;
+  const isAllowed = window.canResetZone(window.currentPicklistZone || "B1");
   resetBtn.style.display = isAllowed ? "inline-flex" : "none";
 };
 
 window.handleZoneStockReset = async function() {
-  const curUser = String((typeof currentUser !== 'undefined' && currentUser) 
-    || (typeof window.currentUser !== 'undefined' && window.currentUser) 
-    || sessionStorage.getItem("warehouse_current_user") 
-    || "").toLowerCase().trim();
-
-  if (!["junkoo", "jipar5"].includes(curUser)) {
+  const curUser = window.getZoneResetUser();
+  const zoneForCheck = window.currentPicklistZone || "B1";
+  if (!window.canResetZone(zoneForCheck)) {
     if (typeof showToast === 'function') {
-      showToast("구역 리셋 권한이 없습니다. (junkoo, jipar5 전용)", "warning");
+      showToast(`[${zoneForCheck}] 구역 리셋 권한이 없습니다.`, "warning");
     }
     return;
   }
+  const isZoneMgr = window.ZONE_RESET_MANAGERS.includes(curUser);
 
   if (typeof isViewerUser !== 'undefined' && isViewerUser) {
     if (typeof showToast === 'function') showToast("Viewer(읽기 전용) 계정은 리셋할 수 없습니다.", "warning");
@@ -2488,6 +2497,11 @@ window.handleZoneStockReset = async function() {
     `※ 이 작업은 즉시 Supabase 클라우드 DB와 모든 기기에 동기화되며 취소할 수 없습니다.`;
 
   if (!confirm(confirmMsg)) return;
+  // 2차 확인: 실수로 누르는 것을 막기 위해 한 번 더 물어봄
+  if (!confirm(`🚨 마지막 확인\n\n정말 [${selectedZone}] 구역 ${targetArtNos.size}종의 재고 기록을 모두 지우고 위치를 '미지정'으로 바꿀까요?\n\n되돌릴 수 없습니다. 계속하려면 [확인]을 눌러 주세요.`)) {
+    if (typeof showToast === "function") showToast(`[${selectedZone}] 구역 리셋을 취소했습니다.`, "info");
+    return;
+  }
 
   const tempToast = document.createElement("div");
   tempToast.className = "toast toast-info show";
@@ -2514,7 +2528,23 @@ window.handleZoneStockReset = async function() {
       ...Array.from(targetDigitsSet).map(d => d.padStart(8, '0'))
     ]));
 
+    // 서버에서 한 번에 처리 (권한 확인 포함) — 서버 함수가 아직 없을 때만 관리자는 예전 방식으로 처리
+    let doneByServer = false;
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+      const rr = await supabaseClient.rpc("reset_zone_stock", { p_zone: selectedZone, p_artnos: Array.from(targetArtNos), p_order_ids: matchingOrderIds.filter(id => !isNaN(Number(id))).map(Number) });
+      if (!rr.error) {
+        doneByServer = true;
+      } else {
+        const notFound = /Could not find the function|PGRST202|does not exist/i.test(String(rr.error.message || "") + String(rr.error.code || ""));
+        if (!(notFound && isZoneMgr)) {
+          if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
+          if (typeof showToast === 'function') showToast("구역 리셋 실패: " + (rr.error.message || rr.error), "danger");
+          return;
+        }
+      }
+    }
+
+    if (!doneByServer && typeof supabaseClient !== 'undefined' && supabaseClient) {
       const CHUNK = 50;
 
       // 1) Delete from inventory_logs by ID
