@@ -423,6 +423,7 @@ window.closeDevNotice = function () {
 (function () {
   "use strict";
   var MANAGERS = ["jipar5", "junkoo"];
+  var DEFAULTS = ["julee33", "hycho30", "yonoh", "jocho16"];   // 기본 권한(항상 가능): 준영·혜원·영배·종선 (서버 is_store_inbound_default 와 같게)
   var state = { allowed: null, list: [], checking: false, expires: null, timer: null };
   function leftText(iso) {
     var ms = new Date(iso).getTime() - Date.now(); if (!(ms > 0)) return "만료";
@@ -436,7 +437,7 @@ window.closeDevNotice = function () {
   function isManager() { return MANAGERS.indexOf(me().toLowerCase()) !== -1; }
 
   async function check() {
-    if (isManager() || (window.isTestSandbox && window.isTestSandbox())) { state.allowed = true; state.expires = null; applyUi(); return true; }   // 시험 계정은 저장이 안 되므로 열어 둠
+    if (isManager() || DEFAULTS.indexOf(me().toLowerCase()) !== -1 || (window.isTestSandbox && window.isTestSandbox())) { state.allowed = true; state.expires = null; applyUi(); return true; }   // 관리자·기본 권한 아이디는 항상 / 시험 계정은 저장이 안 되므로 열어 둠
     var c = client(), id = me();
     if (!c || !id) { state.allowed = false; applyUi(); return false; }
     try {
@@ -506,7 +507,7 @@ window.closeDevNotice = function () {
     m = document.createElement("div"); m.id = "si-access-modal"; m.className = "tb-sheet-backdrop";
     m.innerHTML = '<div class="tb-sheet si-access-sheet" role="dialog" aria-modal="true">' +
       '<div class="tb-sheet-top"><span class="tb-sheet-step si-step"><i class="fa-solid fa-user-shield"></i> 매장 입고 권한</span><button type="button" class="tb-sheet-close" aria-label="닫기"><i class="fa-solid fa-xmark"></i></button></div>' +
-      '<div class="tb-sheet-scroll"><div class="si-access-help">켜진 아이디만 매장 입고를 등록·삭제할 수 있어요. <b>켜면 3시간 동안만 가능</b>하고 시간이 지나면 자동으로 꺼져요. jipar5, junkoo는 항상 가능해요.</div><div id="si-access-list"></div></div></div>';
+      '<div class="tb-sheet-scroll"><div class="si-access-help">켜진 아이디만 매장 입고를 등록·삭제할 수 있어요. <b>켜면 3시간 동안만 가능</b>하고 시간이 지나면 자동으로 꺼져요. jipar5, junkoo와 기본 권한(준영·혜원·영배·종선)은 항상 가능해요.</div><div id="si-access-list"></div></div></div>';
     m.addEventListener("click", function (e) { if (e.target === m || e.target.closest(".tb-sheet-close")) closeModal(); });
     document.body.appendChild(m); return m;
   }
@@ -527,10 +528,10 @@ window.closeDevNotice = function () {
   function fmt(iso) { if (!iso) return ""; var d = new Date(iso); return (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   function renderList() {
     var box = document.getElementById("si-access-list"); if (!box) return;
-    var on = state.list.filter(function (u) { return u.enabled || MANAGERS.indexOf(String(u.login_id).toLowerCase()) !== -1; }).length;
+    var on = state.list.filter(function (u) { var l = String(u.login_id).toLowerCase(); return u.enabled || MANAGERS.indexOf(l) !== -1 || DEFAULTS.indexOf(l) !== -1; }).length;
     box.innerHTML = '<div class="si-access-count">권한 있는 아이디 <b>' + on + '</b> / ' + state.list.length + '</div>' + state.list.map(function (u) {
-      var id = String(u.login_id), mgr = MANAGERS.indexOf(id.toLowerCase()) !== -1, en = mgr || u.enabled;
-      return '<div class="si-access-row' + (en ? " on" : "") + '"><div class="si-access-id"><b>' + esc(id) + '</b>' + (mgr ? '<span class="si-tag">관리자</span>' : u.app_role === "admin" ? '<span class="si-tag gray">admin</span>' : '') +
+      var id = String(u.login_id), isMgr = MANAGERS.indexOf(id.toLowerCase()) !== -1, isDef = DEFAULTS.indexOf(id.toLowerCase()) !== -1, mgr = isMgr || isDef, en = mgr || u.enabled;
+      return '<div class="si-access-row' + (en ? " on" : "") + '"><div class="si-access-id"><b>' + esc(id) + '</b>' + (isMgr ? '<span class="si-tag">관리자</span>' : isDef ? '<span class="si-tag">기본 권한</span>' : u.app_role === "admin" ? '<span class="si-tag gray">admin</span>' : '') +
         '<small>' + (mgr ? "항상 가능" : en ? '<span class="si-left">' + esc(leftText(u.expires_at)) + '</span> · ' + esc(u.updated_by || "") + " " + esc(fmt(u.updated_at)) + ' 켬'
           : u.updated_by ? "꺼짐 · 마지막 변경 " + esc(u.updated_by) + " " + esc(fmt(u.updated_at)) : "꺼짐") + '</small></div>' +
         (!mgr && en ? '<button type="button" class="si-extend" data-ext="' + esc(id) + '">3시간 다시</button>' : '') +
@@ -1448,4 +1449,71 @@ window.closeDevNotice = function () {
   // 매장 입고 화면을 열면 미리 불러 둠 (누를 때 기다리지 않게)
   var tab = document.getElementById("tab-store-inbound");
   if (tab) new MutationObserver(function () { if (tab.classList.contains("active")) load(); }).observe(tab, { attributes: true, attributeFilter: ["class"] });
+})();
+
+// ===== 상단 판매 TOP 배너: 지금 창고에 재고가 있는 아티클 중 판매 순위가 높은 순으로 흘러가며 표시 =====
+// · 판매 순위: 판매 TOP 150 목록 → sales_rank.json ({아티클번호: 순위}, 1위가 가장 많이 팔림). 새 목록이 나오면 이 파일만 바꾸면 됨
+// · 창고 재고·위치는 앱의 실시간 재고로 계산 (입출고가 생기면 자동 반영)
+// · 누르면 재고 조회에서 그 아티클을 바로 검색
+(function () {
+  "use strict";
+  var TOP = 30, rank = null, lastSig = "";
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function pad8(v) { var d = String(v || "").replace(/\D/g, ""); return d && d.length <= 8 ? d.padStart(8, "0") : d; }
+  function me() { try { return (window.currentUser || (typeof currentUser !== "undefined" ? currentUser : "") || "").trim(); } catch (e) { return ""; } }
+  function shortName(n) {
+    n = String(n || "").replace(/\s+(AP|CN|JP|KR|JPKR)(\s|$).*/, "").trim();
+    return n.length > 22 ? n.slice(0, 21) + "…" : n;
+  }
+  function loc(k) {
+    try { var m = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog) ? masterCatalog : []).find(function (x) { return pad8(x.artNo || x.artno) === k; }); return (m && m.location) || ""; } catch (e) { return ""; }
+  }
+  function loadRank() {
+    if (rank) return Promise.resolve(rank);
+    return fetch("sales_rank.json?v=20261024b", { cache: "force-cache" }).then(function (r) { return r.json(); }).then(function (j) { rank = j || {}; return rank; }).catch(function () { return null; });
+  }
+  function ensureBar() {
+    var bar = document.getElementById("sales-ticker"); if (bar) return bar;
+    var header = document.querySelector(".app-header"); if (!header) return null;
+    bar = document.createElement("div"); bar.id = "sales-ticker"; bar.setAttribute("aria-label", "판매 TOP 아티클");
+    bar.innerHTML = '<span class="st-label"><i class="fa-solid fa-fire"></i> 판매 TOP</span><div class="st-viewport"><div class="st-track" id="st-track"></div></div>';
+    header.appendChild(bar);
+    bar.addEventListener("click", function (e) {
+      var b = e.target.closest(".st-item"); if (!b) return;
+      try {
+        if (typeof switchTab === "function") switchTab("stock", document.getElementById("nav-stock-btn"));
+        setTimeout(function () { var s = document.getElementById("stock-search"); if (s) { s.value = b.dataset.art; s.dispatchEvent(new Event("input", { bubbles: true })); } }, 150);
+      } catch (err) {}
+    });
+    return bar;
+  }
+  async function refresh() {
+    if (!me()) return;
+    var r = await loadRank(); if (!r) return;
+    var map; try { map = typeof buildStockMap === "function" ? buildStockMap() : null; } catch (e) { map = null; }
+    if (!map) return;
+    var list = [];
+    map.forEach(function (e, key) {
+      var k = pad8(e.artNo || key), st = Number(e.currentStock) || 0;
+      if (st > 0 && r[k]) list.push({ k: k, name: e.artName || "", st: st, rank: Number(r[k]) });
+    });
+    list.sort(function (a, b) { return a.rank - b.rank; });   // 판매 순위 순 (재고 없는 아티클은 빠짐)
+    list = list.slice(0, TOP);
+    var sig = list.map(function (x) { return x.k + ":" + x.st; }).join("|");
+    var bar = ensureBar(); if (!bar) return;
+    bar.style.display = list.length ? "" : "none";
+    if (sig === lastSig) return; lastSig = sig;
+    var items = list.map(function (x, i) {
+      var l = loc(x.k);
+      return '<button type="button" class="st-item" data-art="' + x.k + '"><b class="st-rank">' + x.rank + '위</b><span class="st-name">' + esc(shortName(x.name)) + '</span>' +
+        (l && l !== "미지정" ? '<span class="st-loc">' + esc(l) + '</span>' : '') + '<span class="st-qty">재고 ' + x.st + '개</span></button>';
+    }).join('<span class="st-sep">·</span>');
+    var track = document.getElementById("st-track");
+    track.innerHTML = '<div class="st-run">' + items + '</div><div class="st-run" aria-hidden="true">' + items + '</div>';
+    // 글자 길이에 맞춰 속도 일정하게 (초당 약 45px)
+    requestAnimationFrame(function () { var w = track.firstChild.scrollWidth || 1000; track.style.animationDuration = Math.max(20, Math.round(w / 45)) + "s"; });
+  }
+  setInterval(function () { if (!document.hidden) refresh(); }, 15000);
+  var tries = 0, boot = setInterval(function () { tries++; if (me() && typeof historyLogs !== "undefined" && historyLogs.length) { clearInterval(boot); refresh(); } else if (tries > 120) clearInterval(boot); }, 1000);
+  window.SalesTicker = { refresh: refresh };
 })();
