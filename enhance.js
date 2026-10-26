@@ -437,17 +437,18 @@ window.closeDevNotice = function () {
   function isManager() { return MANAGERS.indexOf(me().toLowerCase()) !== -1; }
 
   async function check() {
-    if (isManager() || DEFAULTS.indexOf(me().toLowerCase()) !== -1 || (window.isTestSandbox && window.isTestSandbox())) { state.allowed = true; state.expires = null; applyUi(); return true; }   // 관리자·기본 권한 아이디는 항상 / 시험 계정은 저장이 안 되므로 열어 둠
+    if (isManager() || (window.isTestSandbox && window.isTestSandbox())) { state.allowed = true; state.expires = null; applyUi(); return true; }   // 관리자·기본 권한 아이디는 항상 / 시험 계정은 저장이 안 되므로 열어 둠
     var c = client(), id = me();
     if (!c || !id) { state.allowed = false; applyUi(); return false; }
     try {
       var r = await c.rpc("my_store_inbound_expiry");
       state.expires = !r.error && r.data ? r.data : null;
       state.allowed = !!state.expires && new Date(state.expires).getTime() > Date.now();
+      if (state.allowed && new Date(state.expires).getFullYear() >= 2900) state.expires = null;   // "항상" 권한
     } catch (e) { state.allowed = false; state.expires = null; }
     // 만료 시각이 되면 다시 확인해서 자동으로 잠금
     if (state.timer) clearTimeout(state.timer);
-    if (state.allowed) state.timer = setTimeout(check, Math.min(new Date(state.expires).getTime() - Date.now() + 1500, 2147483000));
+    if (state.allowed && state.expires) state.timer = setTimeout(check, Math.min(new Date(state.expires).getTime() - Date.now() + 1500, 2147483000));
     applyUi();
     return state.allowed;
   }
@@ -474,8 +475,8 @@ window.closeDevNotice = function () {
     var mb = document.getElementById("btn-si-access");
     if (isManager() && head && !mb) {
       mb = document.createElement("button"); mb.type = "button"; mb.id = "btn-si-access"; mb.className = "si-access-btn";
-      mb.innerHTML = '<i class="fa-solid fa-user-shield"></i> 입고 권한';
-      mb.onclick = function () { openModal(); };
+      mb.innerHTML = '<i class="fa-solid fa-user-shield"></i> 권한 관리';
+      mb.onclick = function () { if (window.PermAdmin) window.PermAdmin.open(); else openModal(); };
       head.parentNode.insertBefore(mb, head);
     }
     if (mb) mb.style.display = isManager() ? "" : "none";
@@ -1472,20 +1473,65 @@ window.closeDevNotice = function () {
     if (rank) return Promise.resolve(rank);
     return fetch("sales_rank.json?v=20261024b", { cache: "force-cache" }).then(function (r) { return r.json(); }).then(function (j) { rank = j || {}; return rank; }).catch(function () { return null; });
   }
+  var items = [], idx = 0, timer = null, paused = false, INTERVAL = 3200;
   function ensureBar() {
     var bar = document.getElementById("sales-ticker"); if (bar) return bar;
     var header = document.querySelector(".app-header"); if (!header) return null;
-    bar = document.createElement("div"); bar.id = "sales-ticker"; bar.setAttribute("aria-label", "판매 TOP 아티클");
-    bar.innerHTML = '<span class="st-label"><i class="fa-solid fa-fire"></i> 판매 TOP</span><div class="st-viewport"><div class="st-track" id="st-track"></div></div>';
+    bar = document.createElement("div"); bar.id = "sales-ticker"; bar.className = "st-vertical"; bar.setAttribute("aria-label", "판매 TOP 아티클");
+    bar.innerHTML = '<span class="st-label"><i class="fa-solid fa-fire"></i> 판매 TOP</span><div class="st-viewport" id="st-viewport"></div><span class="st-count" id="st-count"></span>';
     header.appendChild(bar);
     bar.addEventListener("click", function (e) {
-      var b = e.target.closest(".st-item"); if (!b) return;
+      var b = e.target.closest(".st-slide"); if (!b) return;
       try {
         if (typeof switchTab === "function") switchTab("stock", document.getElementById("nav-stock-btn"));
         setTimeout(function () { var s = document.getElementById("stock-search"); if (s) { s.value = b.dataset.art; s.dispatchEvent(new Event("input", { bubbles: true })); } }, 150);
       } catch (err) {}
     });
+    // 누르고 있거나 마우스를 올리면 잠깐 멈춤
+    bar.addEventListener("mouseenter", function () { paused = true; });
+    bar.addEventListener("mouseleave", function () { paused = false; });
+    bar.addEventListener("touchstart", function () { paused = true; }, { passive: true });
+    bar.addEventListener("touchend", function () { setTimeout(function () { paused = false; }, 1500); }, { passive: true });
     return bar;
+  }
+  function imgUrl(k) { var c = window.productImageCache || {}, u = c[k] || c[k.replace(/^0+/, "")]; return u ? (u.indexOf("?") !== -1 ? u : u + "?f=xs") : ""; }
+  function slideHtml(x) {
+    var l = loc(x.k), u = imgUrl(x.k);
+    return '<div class="st-thumb product-thumb-container' + (u ? " has-image" : "") + '" data-artno="' + x.k + '"><div class="product-thumb-placeholder"><i class="fa-solid fa-couch"></i></div>' +
+        '<img class="product-thumb-img' + (u ? " loaded" : "") + '" src="' + esc(u) + '" alt="" onerror="this.classList.remove(\'loaded\'); if(this.parentElement) this.parentElement.classList.remove(\'has-image\');"></div>' +
+      '<b class="st-rank">' + x.rank + '위</b><span class="st-name">' + esc(shortName(x.name)) + '</span>' +
+      (l && l !== "미지정" ? '<span class="st-loc">' + esc(typeof window.zoneLabel === "function" ? window.zoneLabel(l) : l) + '</span>' : '') +
+      '<span class="st-qty">재고 ' + x.st + '개</span>';
+  }
+  function show(animate) {
+    var vp = document.getElementById("st-viewport"); if (!vp || !items.length) return;
+    if (idx >= items.length) idx = 0;
+    var x = items[idx];
+    var el = document.createElement("button"); el.type = "button"; el.className = "st-slide"; el.dataset.art = x.k; el.innerHTML = slideHtml(x);
+    var olds = Array.prototype.slice.call(vp.querySelectorAll(".st-slide"));
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!animate || reduce || !olds.length) { vp.innerHTML = ""; vp.appendChild(el); }
+    else {
+      el.classList.add("enter"); vp.appendChild(el);
+      void el.offsetHeight;                        // 위에서 내려오기 시작
+      el.classList.remove("enter");
+      olds.forEach(function (o) { o.classList.add("leave"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 600); });
+    }
+    var cnt = document.getElementById("st-count"); if (cnt) cnt.textContent = (idx + 1) + "/" + items.length;
+    if (typeof loadProductThumbnails === "function") { try { loadProductThumbnails(); } catch (e) {} }
+  }
+  function next() { if (paused || document.hidden || !items.length) return; idx = (idx + 1) % items.length; show(true); }
+  // 이미지 미리 받아두기 (한 번에 하나씩, 이미 받은 건 건너뜀)
+  var preloading = false;
+  async function preload() {
+    if (preloading || typeof window.fetchIkeaProductImage !== "function") return; preloading = true;
+    try {
+      for (var i = 0; i < items.length; i++) {
+        var k = items[i].k, c = window.productImageCache || {};
+        if (c.hasOwnProperty(k) || c.hasOwnProperty(k.replace(/^0+/, ""))) continue;
+        try { await window.fetchIkeaProductImage(k, items[i].name); } catch (e) {}
+      }
+    } finally { preloading = false; }
   }
   async function refresh() {
     if (!me()) return;
@@ -1503,15 +1549,13 @@ window.closeDevNotice = function () {
     var bar = ensureBar(); if (!bar) return;
     bar.style.display = list.length ? "" : "none";
     if (sig === lastSig) return; lastSig = sig;
-    var items = list.map(function (x, i) {
-      var l = loc(x.k);
-      return '<button type="button" class="st-item" data-art="' + x.k + '"><b class="st-rank">' + x.rank + '위</b><span class="st-name">' + esc(shortName(x.name)) + '</span>' +
-        (l && l !== "미지정" ? '<span class="st-loc">' + esc(l) + '</span>' : '') + '<span class="st-qty">재고 ' + x.st + '개</span></button>';
-    }).join('<span class="st-sep">·</span>');
-    var track = document.getElementById("st-track");
-    track.innerHTML = '<div class="st-run">' + items + '</div><div class="st-run" aria-hidden="true">' + items + '</div>';
-    // 글자 길이에 맞춰 속도 일정하게 (초당 약 45px)
-    requestAnimationFrame(function () { var w = track.firstChild.scrollWidth || 1000; track.style.animationDuration = Math.max(20, Math.round(w / 45)) + "s"; });
+    var curArt = items[idx] && items[idx].k;
+    items = list;
+    var keep = curArt ? items.findIndex(function (x) { return x.k === curArt; }) : -1;
+    idx = keep >= 0 ? keep : 0;
+    show(false);
+    if (!timer) timer = setInterval(next, INTERVAL);
+    preload();
   }
   setInterval(function () { if (!document.hidden) refresh(); }, 15000);
   var tries = 0, boot = setInterval(function () { tries++; if (me() && typeof historyLogs !== "undefined" && historyLogs.length) { clearInterval(boot); refresh(); } else if (tries > 120) clearInterval(boot); }, 1000);

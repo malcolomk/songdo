@@ -128,9 +128,10 @@
       var r = await c.rpc("my_store_check_expiry");
       acc.expires = !r.error && r.data ? r.data : null;
       acc.allowed = !!acc.expires && new Date(acc.expires).getTime() > Date.now();
+      if (acc.allowed && new Date(acc.expires).getFullYear() >= 2900) acc.expires = null;   // "항상" 권한
     } catch (e) { acc.allowed = false; acc.expires = null; }
     if (acc.timer) clearTimeout(acc.timer);
-    if (acc.allowed) acc.timer = setTimeout(function () { checkAccess().then(function () { render(); }); }, Math.min(new Date(acc.expires).getTime() - Date.now() + 1500, 2147483000));
+    if (acc.allowed && acc.expires) acc.timer = setTimeout(function () { checkAccess().then(function () { render(); }); }, Math.min(new Date(acc.expires).getTime() - Date.now() + 1500, 2147483000));
     return acc.allowed;
   }
   function denied() { toast("매장 재고 체크 권한이 없는 아이디예요. 관리자(jipar5, junkoo)에게 권한을 요청해 주세요.", "warning"); }
@@ -146,7 +147,7 @@
     var b = document.getElementById("btn-sc-access");
     if (isManager() && !b) {
       b = document.createElement("button"); b.type = "button"; b.id = "btn-sc-access"; b.className = "tb-btn-ghost sc-access-btn";
-      b.innerHTML = '<i class="fa-solid fa-user-shield"></i> 권한'; b.onclick = openAccess;
+      b.innerHTML = '<i class="fa-solid fa-user-shield"></i> 권한 관리'; b.onclick = function () { if (window.PermAdmin) window.PermAdmin.open(); else openAccess(); };
       head.insertBefore(b, head.firstChild);
     }
     if (b) b.style.display = isManager() ? "" : "none";
