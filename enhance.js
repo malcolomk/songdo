@@ -740,8 +740,8 @@ window.closeDevNotice = function () {
         body.innerHTML = '<div class="rz-prod">' + (p ? '<div class="rz-thumb">' + thumb(p.artNo, name, 52) + '</div>' : '') + '<div><div class="rz-name">' + esc(name) + '</div><div class="rz-meta">' + esc(p ? p.artNo : pad8(no)) + ' · 입고 <b>' + esc(qty) + '개</b></div></div></div>' +
           dateNote() +
           '<div class="rz-q">창고 구역을 어디로 지정할까요?</div>' +
-          (cur ? '<div class="rz-cur">지금 위치: <b>' + esc(cur) + '</b></div>' : '<div class="rz-cur none">아직 위치가 지정되지 않은 제품이에요</div>') +
-          '<div class="rz-grid">' + ZONES.map(function (z) { return '<button type="button" class="rz-zone' + (z === cur ? " cur" : "") + (z === "램프" ? " ramp" : "") + '" data-z="' + z + '">' + z + (z === cur ? '<small>지금 위치</small>' : '') + '</button>'; }).join("") + '</div>' +
+          (cur ? '<div class="rz-cur">지금 위치: <b>' + esc((cur === "램프" ? "매장 창고" : cur)) + '</b></div>' : '<div class="rz-cur none">아직 위치가 지정되지 않은 제품이에요</div>') +
+          '<div class="rz-grid">' + ZONES.map(function (z) { return '<button type="button" class="rz-zone' + (z === cur ? " cur" : "") + (z === "램프" ? " ramp" : "") + '" data-z="' + z + '">' + (z === "램프" ? "매장 창고" : z) + (z === cur ? '<small>지금 위치</small>' : '') + '</button>'; }).join("") + '</div>' +
           '<button type="button" class="rz-cancel">취소</button>';
         Array.prototype.forEach.call(body.querySelectorAll(".rz-zone"), function (b) { b.addEventListener("click", function () { var z = b.dataset.z; if (cur && z !== cur) step2(z); else finish(z); }); });
         body.querySelector(".rz-cancel").addEventListener("click", function () { finish(null); });
@@ -749,10 +749,10 @@ window.closeDevNotice = function () {
       }
       function step2(z) {
         body.innerHTML = '<div class="rz-move"><i class="fa-solid fa-triangle-exclamation"></i><div class="rz-move-title">위치를 옮길까요?</div>' +
-          '<div class="rz-move-path"><span>' + esc(cur) + '</span><i class="fa-solid fa-arrow-right"></i><span class="to">' + esc(z) + '</span></div>' +
-          '<div class="rz-move-desc">[' + esc(name) + ']<br>지금 <b>' + esc(cur) + '</b>에 있는 제품이에요. 입고하면 이 제품의 위치가 <b>' + esc(z) + '</b>(으)로 바뀌어요.</div></div>' +
+          '<div class="rz-move-path"><span>' + esc((cur === "램프" ? "매장 창고" : cur)) + '</span><i class="fa-solid fa-arrow-right"></i><span class="to">' + esc((z === "램프" ? "매장 창고" : z)) + '</span></div>' +
+          '<div class="rz-move-desc">[' + esc(name) + ']<br>지금 <b>' + esc((cur === "램프" ? "매장 창고" : cur)) + '</b>에 있는 제품이에요. 입고하면 이 제품의 위치가 <b>' + esc((z === "램프" ? "매장 창고" : z)) + '</b>(으)로 바뀌어요.</div></div>' +
           dateNote() +
-          '<div class="rz-actions"><button type="button" class="rz-back">다시 고르기</button><button type="button" class="rz-ok">' + esc(z) + '(으)로 옮기고 입고</button></div>';
+          '<div class="rz-actions"><button type="button" class="rz-back">다시 고르기</button><button type="button" class="rz-ok">' + esc((z === "램프" ? "매장 창고" : z)) + '(으)로 옮기고 입고</button></div>';
         body.querySelector(".rz-back").addEventListener("click", step1);
         body.querySelector(".rz-ok").addEventListener("click", function () { finish(z); });
       }

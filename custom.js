@@ -2152,6 +2152,8 @@ window.switchTab = function(tabId) {
 // --- 1-Touch Simplified Warehouse-by-Warehouse Picklist System ---
 
 window.currentPicklistZone = "B1";
+// 창고 챙기기 화면의 구역 이름 표시 (데이터 값 '램프'는 그대로, 화면에만 '매장 창고'로)
+window.zoneLabel = function(z) { return z === "램프" ? "매장 창고" : z; };
 window.currentPicklistMode = "stock"; // "stock" (left) or "queue" (right)
 window.picklistStockSearchQuery = "";
 
@@ -2364,7 +2366,7 @@ window.renderPicklistZoneTabs = function() {
     }
   });
 
-  const zones = ["B1", "B2", "램프", "B3", "미지정", "전체"];
+  const zones = ["B1", "램프", "B2", "B3", "미지정", "전체"];   // 램프(=매장 창고)는 B1 바로 뒤
   let html = "";
 
   zones.forEach(zone => {
@@ -2378,13 +2380,13 @@ window.renderPicklistZoneTabs = function() {
     let zoneIcon = 'fa-warehouse';
     if (zone === '전체') zoneIcon = 'fa-boxes-stacked';
     else if (zone === '미지정') zoneIcon = 'fa-triangle-exclamation';
-    else if (zone === '램프') zoneIcon = 'fa-mountain-sun';
+    else if (zone === '램프') zoneIcon = 'fa-store';
     else if (zone === 'B3') zoneIcon = 'fa-pallet';
 
     html += `
       <button type="button" onclick="setPicklistZone('${zone}')" style="flex-shrink:0; padding:6px 11px; border-radius:18px; font-size:12.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; white-space:nowrap; transition:all 0.15s ease; ${isActive ? 'background:#0f172a; color:#ffffff; border:1.5px solid #0f172a; box-shadow:0 2px 5px rgba(0,0,0,0.15);' : 'background:#ffffff; color:#334155; border:1px solid #cbd5e1;'}">
         <i class="fa-solid ${zoneIcon}" style="margin-right:4px; color:${isActive ? '#38bdf8' : (zone === '미지정' ? '#d97706' : '#0058a3')}; font-size:11.5px;"></i>
-        ${zone} ${badgeHtml}
+        ${window.zoneLabel(zone)} ${badgeHtml}
       </button>
     `;
   });
@@ -2393,7 +2395,7 @@ window.renderPicklistZoneTabs = function() {
 
   const resetLabel = document.getElementById("picklist-reset-zone-label");
   if (resetLabel) {
-    resetLabel.textContent = `${window.currentPicklistZone || 'B1'} 리셋`;
+    resetLabel.textContent = `${window.zoneLabel(window.currentPicklistZone || 'B1')} 리셋`;
   }
   if (typeof window.updateResetButtonPermission === "function") {
     window.updateResetButtonPermission();
@@ -2427,7 +2429,7 @@ window.handleZoneStockReset = async function() {
   const zoneForCheck = window.currentPicklistZone || "B1";
   if (!window.canResetZone(zoneForCheck)) {
     if (typeof showToast === 'function') {
-      showToast(`[${zoneForCheck}] 구역 리셋 권한이 없습니다.`, "warning");
+      showToast(`[${window.zoneLabel(zoneForCheck)}] 구역 리셋 권한이 없습니다.`, "warning");
     }
     return;
   }
@@ -2486,27 +2488,27 @@ window.handleZoneStockReset = async function() {
 
   if (targetArtNos.size === 0 && matchingOrderIds.length === 0) {
     if (typeof showToast === "function") {
-      showToast(`[${selectedZone}] 구역에 등록된 재고 또는 아티클이 없습니다.`, "info");
+      showToast(`[${window.zoneLabel(selectedZone)}] 구역에 등록된 재고 또는 아티클이 없습니다.`, "info");
     }
     return;
   }
 
-  const confirmMsg = `⚠️ [${selectedZone}] 구역 전체 리셋\n\n` +
-    `선택된 [${selectedZone}] 구역의 모든 아티클(${targetArtNos.size}종) 및 재고 기록, 대기열을 완전히 삭제하시겠습니까?\n\n` +
+  const confirmMsg = `⚠️ [${window.zoneLabel(selectedZone)}] 구역 전체 리셋\n\n` +
+    `선택된 [${window.zoneLabel(selectedZone)}] 구역의 모든 아티클(${targetArtNos.size}종) 및 재고 기록, 대기열을 완전히 삭제하시겠습니까?\n\n` +
     `※ 해당 구역의 재고는 0으로 초기화되며, 아티클 위치는 '미지정'으로 리셋됩니다.\n` +
     `※ 이 작업은 즉시 Supabase 클라우드 DB와 모든 기기에 동기화되며 취소할 수 없습니다.`;
 
   if (!confirm(confirmMsg)) return;
   // 2차 확인: 실수로 누르는 것을 막기 위해 한 번 더 물어봄
-  if (!confirm(`🚨 마지막 확인\n\n정말 [${selectedZone}] 구역 ${targetArtNos.size}종의 재고 기록을 모두 지우고 위치를 '미지정'으로 바꿀까요?\n\n되돌릴 수 없습니다. 계속하려면 [확인]을 눌러 주세요.`)) {
-    if (typeof showToast === "function") showToast(`[${selectedZone}] 구역 리셋을 취소했습니다.`, "info");
+  if (!confirm(`🚨 마지막 확인\n\n정말 [${window.zoneLabel(selectedZone)}] 구역 ${targetArtNos.size}종의 재고 기록을 모두 지우고 위치를 '미지정'으로 바꿀까요?\n\n되돌릴 수 없습니다. 계속하려면 [확인]을 눌러 주세요.`)) {
+    if (typeof showToast === "function") showToast(`[${window.zoneLabel(selectedZone)}] 구역 리셋을 취소했습니다.`, "info");
     return;
   }
 
   const tempToast = document.createElement("div");
   tempToast.className = "toast toast-info show";
   tempToast.style.cssText = "position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:99999; background:#0f172a; color:#fff; padding:10px 18px; border-radius:10px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,0.3);";
-  tempToast.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> [${selectedZone}] 구역 리셋 처리 중...`;
+  tempToast.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> [${window.zoneLabel(selectedZone)}] 구역 리셋 처리 중...`;
   document.body.appendChild(tempToast);
 
   try {
@@ -2658,7 +2660,7 @@ window.handleZoneStockReset = async function() {
     if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
 
     if (typeof showToast === 'function') {
-      showToast(`[${selectedZone}] 구역의 아티클(${targetArtNos.size}종) 및 재고가 초기화(리셋)되었습니다.`, "success");
+      showToast(`[${window.zoneLabel(selectedZone)}] 구역의 아티클(${targetArtNos.size}종) 및 재고가 초기화(리셋)되었습니다.`, "success");
     }
   } catch (err) {
     if (tempToast.parentNode) tempToast.parentNode.removeChild(tempToast);
@@ -2693,7 +2695,7 @@ window.renderSimplePicklist = function() {
   const queueTabText = document.getElementById("picklist-queue-tab-text");
   const stockTabText = document.getElementById("picklist-stock-tab-text");
   if (queueTabText) queueTabText.textContent = `챙길 대기열 (${zoneQueueOrders.length}건)`;
-  if (stockTabText) stockTabText.textContent = `${selectedZone} 실재고 (${zoneStockItems.length}종)`;
+  if (stockTabText) stockTabText.textContent = `${window.zoneLabel(selectedZone)} 실재고 (${zoneStockItems.length}종)`;
 
   // 챙길 대기열은 없앰 → 항상 실재고 화면
   window.currentPicklistMode = "stock";
@@ -2707,7 +2709,7 @@ function renderPicklistQueueView(container, selectedZone, items) {
         <div style="width:56px; height:56px; border-radius:50%; background:#f0fdf4; color:#16a34a; display:inline-flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:12px;">
           <i class="fa-solid fa-check"></i>
         </div>
-        <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0 0 6px 0;">[${selectedZone}] 구역에 대기 중인 오더가 없습니다!</h3>
+        <h3 style="font-size:15px; font-weight:800; color:#0f172a; margin:0 0 6px 0;">[${window.zoneLabel(selectedZone)}] 구역에 대기 중인 오더가 없습니다!</h3>
         <p style="font-size:12.5px; color:#64748b; margin:0 0 16px 0;">현재 ${selectedZone} 창고에서 챙겨야 할 요청 항목이 모두 완료되었습니다.</p>
         <button type="button" class="btn-submit" onclick="setPicklistMode('stock')" style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px; font-size:13px; font-weight:800; background:#0058a3; color:white; border-radius:8px; border:none; cursor:pointer;">
           <i class="fa-solid fa-boxes-stacked"></i> ${selectedZone} 창고 실재고에서 직접 챙기기
@@ -2840,7 +2842,7 @@ function renderPicklistStockView(container, selectedZone, items) {
       <div style="display:flex; gap:8px; align-items:center;">
         <div style="position:relative; flex:1;">
           <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:13px;"></i>
-          <input type="text" id="picklist-stock-search-input" value="${window.picklistStockSearchQuery || ''}" placeholder="${selectedZone} 구역 품번 또는 품명 검색..." oninput="onPicklistStockSearch(this.value)" style="width:100%; padding:9px 12px 9px 34px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; font-weight:700; outline:none; box-sizing:border-box;">
+          <input type="text" id="picklist-stock-search-input" value="${window.picklistStockSearchQuery || ''}" placeholder="${window.zoneLabel(selectedZone)} 구역 품번 또는 품명 검색..." oninput="onPicklistStockSearch(this.value)" style="width:100%; padding:9px 12px 9px 34px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; font-weight:700; outline:none; box-sizing:border-box;">
         </div>
         ${searchQuery ? `<button type="button" onclick="clearPicklistStockSearch()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#64748b; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:bold; cursor:pointer;">초기화</button>` : ''}
       </div>
@@ -2895,7 +2897,7 @@ function renderPicklistStockView(container, selectedZone, items) {
           <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
             <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
               <span style="background:#f0f9ff; color:#0369a1; font-size:10.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;">
-                <i class="fa-solid fa-location-dot"></i> ${item.location || '미지정'}
+                <i class="fa-solid fa-location-dot"></i> ${window.zoneLabel(item.location || '미지정')}
               </span>
               <button type="button" onclick="event.stopPropagation(); event.preventDefault(); setSingleLocation('${cleanNo}')" style="background:#eff6ff; color:#0058a3; border:1px solid #bfdbfe; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer;" title="구역/위치 변경">
                 <i class="fa-solid fa-pen-to-square"></i> 구역 변경
@@ -3090,7 +3092,7 @@ window.directPickFromStock = async function(artNo, artName, pickQty) {
     if (!ok) return;
   }
 
-  if (!confirm(`'${name}' ${qty}개를 [${window.currentPicklistZone || '창고'}] 구역에서 바로 챙기셨습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료됩니다)`)) {
+  if (!confirm(`'${name}' ${qty}개를 [${window.zoneLabel(window.currentPicklistZone || '창고')}] 구역에서 바로 챙기셨습니까?\n(확인 시 실시간 재고에서 즉시 차감 및 출고 완료됩니다)`)) {
     return;
   }
 
