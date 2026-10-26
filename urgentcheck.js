@@ -30,7 +30,13 @@
     var e = m.get(k); if (!e) m.forEach(function (v, key) { if (!e && pad8(key) === k) e = v; });
     return e || null;
   }
-  function currentStock(artNo) { var e = stockEntry(artNo); return e ? (Number(e.currentStock) || 0) : 0; }
+  function currentStock(artNo) {
+    // 화면에 받은 입출고 기록 기준 (아티클 번호 앞자리 0 유무 상관없이 합산 → 서버 계산과 같은 방식)
+    var k = pad8(artNo), logs = (typeof historyLogs !== "undefined" && Array.isArray(historyLogs)) ? historyLogs : null;
+    if (!logs) { var e = stockEntry(artNo); return e ? (Number(e.currentStock) || 0) : 0; }
+    var t = 0; for (var i = 0; i < logs.length; i++) { var l = logs[i]; if (pad8(l.artNo) !== k) continue; var q = Number(l.qty) || 0; if (l.type === "입고") t += q; else if (l.type === "출고") t -= q; }
+    return t;
+  }
   function catalogItem(artNo) {
     var k = pad8(artNo), cat = (typeof masterCatalog !== "undefined" && Array.isArray(masterCatalog)) ? masterCatalog : [];
     return cat.find(function (x) { return pad8(x.artNo || x.artno) === k; }) || null;
@@ -68,13 +74,27 @@
     var n = state.list.length, d = state.doneToday.length;
     if (!n && !(isAdmin() && d)) { box.style.display = "none"; box.innerHTML = ""; closeList(); return; }
     box.style.display = "";
-    box.innerHTML = '<a class="menu-task uc-task" onclick="UrgentCheck.openList()">' +
+    box.innerHTML = '<a class="menu-task uc-task' + (n ? ' uc-alert' : '') + '" onclick="UrgentCheck.openList()">' +
       '<div class="menu-task-icon uc-icon"><i class="fa-solid fa-bolt"></i></div>' +
       '<div class="menu-task-body"><div class="menu-task-title">긴급 재고 체크 ' +
         (n ? '<span class="uc-count">' + n + '개</span>' : '<span class="uc-count done">완료</span>') + '</div>' +
-      '<div class="menu-task-sub">' + (n ? '먼저 세어 주세요 · 입력하면 재고 자동 수정' : '오늘 긴급 체크 ' + d + '건 모두 완료') + '</div></div>' +
+      '<div class="menu-task-sub">' + (n ? '<span class="uc-l1">먼저 재고 체크해주세요.</span><span class="uc-l2">입력하면 재고 자동 수정</span>' : '오늘 긴급 체크 ' + d + '건 모두 완료') + '</div></div>' +
       '<i class="fa-solid fa-chevron-right menu-task-arrow"></i></a>';
     if (document.getElementById("uc-list-sheet") && document.getElementById("uc-list-sheet").classList.contains("active")) renderList();
+  }
+
+  // B1 → 매장 창고(램프) → B2 → B3 → 미지정 순, 같은 구역은 요청한 순서대로
+  function zoneRank(loc) {
+    loc = String(loc || "").toUpperCase();
+    if (loc.indexOf("램프") !== -1 || loc.indexOf("매장 창고") !== -1) return 1;
+    if (loc.indexOf("B1") !== -1) return 0;
+    if (loc.indexOf("B2") !== -1) return 2;
+    if (loc.indexOf("B3") !== -1) return 3;
+    return 4;
+  }
+  function sortedList() {
+    return state.list.map(function (r, i) { return { r: r, i: i, z: zoneRank(currentLocation(r.artno)) }; })
+      .sort(function (a, b) { return a.z - b.z || a.i - b.i; }).map(function (x) { return x.r; });
   }
 
   // ---------- 목록 창 (카드 누르면) ----------
@@ -99,7 +119,7 @@
     var body = document.getElementById("uc-list-body"); if (!body) return;
     var n = state.list.length, d = state.doneToday.length;
     document.getElementById("uc-list-step").innerHTML = '<i class="fa-solid fa-bolt"></i> 긴급 재고 체크 · ' + n + '개';
-    var rows = state.list.map(function (r) {
+    var rows = sortedList().map(function (r) {
       return '<button type="button" class="uc-item" onclick="UrgentCheck.open(' + r.id + ')">' +
         '<div class="uc-thumb">' + thumb(r.artno, r.artname, 40) + '</div>' +
         '<div class="uc-info"><div class="uc-name">' + esc(r.artname || artName(r.artno) || "(품명 없음)") + '</div>' +
@@ -169,7 +189,8 @@
       }
       renderMenu(); decorateStockCards();
     } catch (e) {
-      toast("요청 실패: " + ((e && e.message) || e), "danger");
+      var em = String((e && e.message) || e);
+      toast(/urgent_checks|schema cache|does not exist|404/i.test(em) ? "긴급 재고 체크 DB 설정이 아직 안 돼 있어요 (18_긴급재고체크.sql 실행 필요)" : "요청 실패: " + em, "danger");
     } finally { state.busy[k] = false; }
   }
 
@@ -235,10 +256,36 @@
   function setActual(v) { var s = state.sheet; if (!s) return; var n = parseInt(v, 10); s.actual = isNaN(n) || n < 0 ? 0 : n; renderFooter(); }
   function step(d) { var s = state.sheet; if (!s) return; s.actual = Math.max(0, s.actual + d); var i = document.getElementById("uc-actual"); if (i) i.value = s.actual; renderFooter(); }
 
+  // 서버 기록으로 이 아티클의 현재 재고 계산 (입고 합 - 출고 합). 실패하면 null
+  async function serverStock(artNo) {
+    var c = client(); if (!c) return null;
+    try {
+      var k = pad8(artNo), ks = [k], st = k.replace(/^0+/, ""); if (st && st !== k) ks.push(st);
+      var total = 0, from = 0, PAGE = 1000;
+      for (;;) {
+        var r = await c.from("inventory_logs").select("type,qty").in("artNo", ks).range(from, from + PAGE - 1);
+        if (r.error) throw r.error;
+        (r.data || []).forEach(function (x) { var q = Number(x.qty) || 0; if (x.type === "입고") total += q; else if (x.type === "출고") total -= q; });
+        if (!r.data || r.data.length < PAGE) break;
+        from += PAGE;
+      }
+      return total;
+    } catch (e) { console.warn("server stock", e); return null; }
+  }
+
   async function save() {
     var s = state.sheet; if (!s) return;
     var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return; }
-    s.system = currentStock(s.artNo);           // 그 사이 입출고가 있었을 수 있으니 저장 직전 다시 계산
+    // 저장 직전에 서버에서 최신 전산 재고를 다시 계산 (다른 직원이 그 사이 입출고했을 수 있음)
+    var btn0 = document.getElementById("uc-save"); if (btn0) { btn0.disabled = true; btn0.textContent = "최신 재고 확인 중…"; }
+    var shown = s.system, live = await serverStock(s.artNo);
+    if (live === null) live = currentStock(s.artNo);
+    if (live !== shown) {
+      s.system = live; renderSheet();
+      alert("그 사이 다른 직원이 입출고를 해서 전산 재고가 " + shown + "개 → " + live + "개로 바뀌었어요.\n\n센 수량(" + s.actual + "개)이 지금도 맞는지 확인하고 다시 저장해 주세요.");
+      return;
+    }
+    s.system = live;
     var diff = s.actual - s.system;
     if (diff !== 0 && !confirm("[" + (s.artName || s.artNo) + "]\n전산 " + s.system + "개 → 실제 " + s.actual + "개\n\n재고를 " + s.actual + "개로 수정할까요?\n(" + (diff > 0 ? "보정 입고 " : "보정 출고 ") + Math.abs(diff) + "개 기록)")) { renderSheet(); return; }
     var btn = document.getElementById("uc-save"); if (btn) { btn.disabled = true; btn.textContent = "저장 중…"; }

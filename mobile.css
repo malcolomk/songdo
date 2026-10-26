@@ -1058,3 +1058,23 @@ body.tb-sheet-open { overflow: hidden; }
 #uc-list-sheet { z-index: 10040; } #uc-sheet { z-index: 10050; }
 .uc-empty { text-align: center; color: #15803d; font-weight: 800; padding: 22px 0; }
 .uc-done-title { font-weight: 800; color: #7c2d12; margin: 6px 2px 2px; }
+/* 긴급 재고 체크: 남은 항목이 있으면 번쩍번쩍 */
+.uc-task.uc-alert { position: relative; overflow: hidden; border: 2px solid #ef4444 !important; background: linear-gradient(135deg,#fff1f2,#fff7ed) !important; animation: ucFlash 1s ease-in-out infinite; }
+@keyframes ucFlash {
+  0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.55), 0 2px 8px rgba(239,68,68,.12); border-color: #ef4444; }
+  50% { box-shadow: 0 0 0 6px rgba(239,68,68,0), 0 0 22px 4px rgba(249,115,22,.55); border-color: #f97316; background: #ffe4e6; }
+}
+.uc-task.uc-alert::before { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent); animation: ucShine 2.2s ease-in-out infinite; pointer-events: none; }
+@keyframes ucShine { 0% { left: -60%; } 60%,100% { left: 130%; } }
+.uc-task.uc-alert .menu-task-icon.uc-icon { background: #ef4444 !important; animation: ucBlink .5s steps(2, jump-none) infinite alternate; }
+@keyframes ucBlink { from { background: #ef4444; box-shadow: 0 0 14px 3px rgba(239,68,68,.7); } to { background: #f97316; box-shadow: 0 0 4px 0 rgba(249,115,22,.3); } }
+.uc-task.uc-alert .menu-task-icon.uc-icon i { animation: ucBolt .5s ease-in-out infinite alternate; }
+@keyframes ucBolt { from { transform: scale(1); } to { transform: scale(1.22) rotate(-8deg); } }
+.uc-task.uc-alert .menu-task-title { color: #b91c1c; }
+.uc-task.uc-alert .uc-count { background: #dc2626; animation: ucBadge .8s ease-in-out infinite; }
+@keyframes ucBadge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.uc-task.uc-alert .menu-task-sub { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.35; }
+.uc-task.uc-alert .uc-l1 { display: block; color: #b91c1c; font-weight: 800; }
+.uc-task.uc-alert .uc-l2 { display: block; color: #c2410c; font-weight: 600; font-size: .95em; }
+.uc-task.uc-alert > * { position: relative; z-index: 1; }
+.uc-task.uc-alert::before { z-index: 0; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); }
