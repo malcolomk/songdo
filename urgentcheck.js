@@ -62,7 +62,7 @@
   function ensureMenuBox() {
     var box = document.getElementById("menu-urgent-check");
     if (box) return box;
-    var anchor = document.getElementById("menu-item-storecheck");
+    var anchor = document.getElementById("menu-item-store-inbound") || document.getElementById("menu-item-storecheck");   // 매장 입고 바로 아래
     if (!anchor || !anchor.parentNode) return null;
     box = document.createElement("div");
     box.id = "menu-urgent-check"; box.className = "uc-box";

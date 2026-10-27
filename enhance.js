@@ -1561,3 +1561,20 @@ window.closeDevNotice = function () {
   var tries = 0, boot = setInterval(function () { tries++; if (me() && typeof historyLogs !== "undefined" && historyLogs.length) { clearInterval(boot); refresh(); } else if (tries > 120) clearInterval(boot); }, 1000);
   window.SalesTicker = { refresh: refresh };
 })();
+
+// ===== 숫자 입력칸: 누르면 숫자패드가 뜨게 (type=number 칸 전체에 inputmode=numeric 자동 적용) =====
+(function () {
+  "use strict";
+  function fix(root) {
+    var list = (root && root.querySelectorAll) ? root.querySelectorAll('input[type="number"]:not([inputmode])') : [];
+    for (var i = 0; i < list.length; i++) { list[i].setAttribute("inputmode", "numeric"); if (!list[i].hasAttribute("pattern")) list[i].setAttribute("pattern", "[0-9]*"); }
+  }
+  function start() {
+    fix(document);
+    var t = null;
+    new MutationObserver(function () { if (t) return; t = setTimeout(function () { t = null; fix(document); }, 0); }).observe(document.body, { childList: true, subtree: true });
+    // 혹시 놓친 칸은 누르는 순간에도 적용
+    document.addEventListener("touchstart", function (e) { var el = e.target; if (el && el.tagName === "INPUT" && el.type === "number" && !el.hasAttribute("inputmode")) { el.setAttribute("inputmode", "numeric"); el.setAttribute("pattern", "[0-9]*"); } }, { passive: true, capture: true });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();

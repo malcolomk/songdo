@@ -770,7 +770,7 @@
             <div style="display:flex; align-items:center; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:3px 6px; height:42px; box-sizing:border-box; flex-shrink:0;">
               <label for="store-scan-qty" style="font-size:12px; font-weight:800; color:#0f172a; margin-right:6px; white-space:nowrap; margin-bottom:0;">입고 수량</label>
               <button type="button" onclick="stepStoreScanQty(-1)" style="width:28px; height:32px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; font-size:15px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
-              <input type="number" id="store-scan-qty" value="1" min="1" class="input-control" style="width:48px; height:32px; font-size:15px; font-weight:900; color:#0058a3; text-align:center; border:1.5px solid #0058a3; border-radius:6px; background:#ffffff; margin:0 4px; padding:0 2px;" onfocus="this.select()" onblur="if(!this.value || parseInt(this.value,10)<1) this.value='1';" title="입고 수량 직접 입력">
+              <input type="number" inputmode="numeric" pattern="[0-9]*" id="store-scan-qty" value="1" min="1" class="input-control" style="width:48px; height:32px; font-size:15px; font-weight:900; color:#0058a3; text-align:center; border:1.5px solid #0058a3; border-radius:6px; background:#ffffff; margin:0 4px; padding:0 2px;" onfocus="this.select()" onblur="if(!this.value || parseInt(this.value,10)<1) this.value='1';" title="입고 수량 직접 입력">
               <button type="button" onclick="stepStoreScanQty(1)" style="width:28px; height:32px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; font-size:15px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
             </div>
 
@@ -2697,7 +2697,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
   <script src="app.js?v=2.8.0"></script>
-  <script src="custom.js?v=2.6.9"></script>
+  <script src="custom.js?v=2.6.10"></script>
   
   <script>
     // Premium Wait List Override & Features
@@ -3709,8 +3709,8 @@
   <script src="testbuy.js?v=4.7.0"></script>
   <script src="cyclecount.js?v=1.1.2"></script>
   <script src="storecheck.js?v=1.10.2"></script>
-  <script src="urgentcheck.js?v=1.3.0"></script>
+  <script src="urgentcheck.js?v=1.3.1"></script>
   <script src="perms.js?v=1.0.0"></script>
-  <script src="enhance.js?v=2.17.0"></script>
+  <script src="enhance.js?v=2.17.1"></script>
 </body>
 </html>
