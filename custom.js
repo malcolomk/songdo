@@ -6741,7 +6741,7 @@ window.renderMfaq = function() {
     });
   }
 
-  const sortMode = window.mfaqSortMode || "count";
+  const sortMode = window.mfaqSortMode || "recent";
   filtered.sort((a, b) => {
     if (sortMode === "recent") return new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0);
     if ((b.count || 1) !== (a.count || 1)) return (b.count || 1) - (a.count || 1);

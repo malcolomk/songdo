@@ -106,11 +106,56 @@
       }).join("");
       var any = mgr || KINDS.some(function (k) { return modeOf(u, k.key) !== "off"; });
       return '<div class="perm-row' + (any ? " on" : "") + '"><div class="perm-who"><b>' + esc(nm || id) + '</b>' + (nm ? '<span class="perm-id">' + esc(id) + '</span>' : '') +
-        (mgr ? '<span class="si-tag">관리자</span>' : u.app_role === "admin" ? '<span class="si-tag gray">admin</span>' : '') + '</div>' + rows + '</div>';
+        (mgr ? '<span class="si-tag">관리자</span>' : u.app_role === "admin" ? '<span class="si-tag gray">admin</span>' : '') +
+        (mgr ? '' : '<button type="button" class="perm-pw-btn" data-pw="' + esc(id) + '"><i class="fa-solid fa-key"></i> 비밀번호 초기화</button>') + '</div>' + rows + '</div>';
     }).join("");
   }
 
+  // ---------- 비밀번호 초기화 ----------
+  var DEFAULT_PW = "songdo522";   // 초기화하면 이 기본 비밀번호로 바뀜
+  function ensurePwDlg() {
+    var d = document.getElementById("perm-pw-dlg"); if (d) return d;
+    d = document.createElement("div"); d.id = "perm-pw-dlg"; d.className = "perm-pw-backdrop";
+    d.innerHTML = '<div class="perm-pw-box" role="dialog" aria-modal="true"><div id="perm-pw-body"></div></div>';
+    d.addEventListener("click", function (e) { if (e.target === d) closePw(); });
+    document.body.appendChild(d); return d;
+  }
+  function closePw() { var d = document.getElementById("perm-pw-dlg"); if (d) d.classList.remove("active"); }
+  function openPw(id) {
+    var who = nameOf(id) ? nameOf(id) + " (" + id + ")" : id;
+    ensurePwDlg().classList.add("active");
+    document.getElementById("perm-pw-body").innerHTML =
+      '<div class="perm-pw-title"><i class="fa-solid fa-key"></i> 비밀번호 초기화</div>' +
+      '<div class="perm-pw-who"><b>' + esc(who) + '</b>의 비밀번호를 기본 비밀번호로 바꿀까요?</div>' +
+      '<div class="perm-pw-show base">' + DEFAULT_PW + '</div>' +
+      '<div class="perm-pw-note"><i class="fa-solid fa-circle-info"></i> 바꾸면 그 아이디로 로그인된 기기는 모두 로그아웃돼요.</div>' +
+      '<div class="perm-pw-actions"><button type="button" class="perm-pw-cancel" id="perm-pw-cancel">취소</button><button type="button" class="perm-pw-ok" id="perm-pw-ok">초기화</button></div>';
+    document.getElementById("perm-pw-cancel").onclick = closePw;
+    document.getElementById("perm-pw-ok").onclick = function () { doReset(id, who); };
+  }
+  async function doReset(id, who) {
+    var pw = DEFAULT_PW;
+    var c = client(); if (!c || !isManager()) return;
+    var ok = document.getElementById("perm-pw-ok"); ok.disabled = true; ok.textContent = "초기화 중…";
+    try {
+      var r = await c.rpc("admin_reset_password", { p_login_id: id, p_new_password: pw });
+      if (r.error) throw r.error;
+      document.getElementById("perm-pw-body").innerHTML =
+        '<div class="perm-pw-title ok"><i class="fa-solid fa-circle-check"></i> 초기화 완료</div>' +
+        '<div class="perm-pw-who"><b>' + esc(who) + '</b>의 비밀번호가 기본 비밀번호로 바뀌었어요.</div>' +
+        '<div class="perm-pw-show">' + esc(pw) + '</div>' +
+        '<div class="perm-pw-note"><i class="fa-solid fa-shield-halved"></i> 기본 비밀번호는 모두가 아는 번호라, 로그인한 뒤 바로 로그인 화면의 <b>비밀번호 재설정</b>에서 본인 비밀번호로 바꾸게 해 주세요.</div>' +
+        '<div class="perm-pw-actions"><button type="button" class="perm-pw-ok" id="perm-pw-close">닫기</button></div>';
+      document.getElementById("perm-pw-close").onclick = closePw;
+    } catch (e) {
+      var msg = String((e && e.message) || e);
+      toast(/admin_reset_password|schema cache|404/i.test(msg) ? "DB 설정(21_비밀번호_초기화.sql)을 먼저 실행해 주세요." : "초기화 실패: " + msg, "danger");
+      ok.disabled = false; ok.textContent = "초기화";
+    }
+  }
+
   async function onClick(e) {
+    var pwb = e.target.closest(".perm-pw-btn"); if (pwb) { if (isManager()) openPw(pwb.dataset.pw); return; }
     var b = e.target.closest(".perm-seg"); if (!b || b.disabled) return;
     var id = b.dataset.id, kind = KINDS.find(function (k) { return k.key === b.dataset.k; }), m = b.dataset.m;
     var u = state.list.find(function (x) { return x.login_id === id; }); if (!u || !kind) return;

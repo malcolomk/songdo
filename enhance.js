@@ -1578,3 +1578,18 @@ window.closeDevNotice = function () {
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
+
+// ===== MFAQ: 들어갈 때마다 최근 순으로 먼저 보기 =====
+(function () {
+  "use strict";
+  function start() {
+    var tab = document.getElementById("tab-mfaq"); if (!tab) return;
+    var was = tab.classList.contains("active");
+    new MutationObserver(function () {
+      var now = tab.classList.contains("active");
+      if (now && !was && typeof window.setMfaqSort === "function" && window.mfaqSortMode !== "recent") window.setMfaqSort("recent");
+      was = now;
+    }).observe(tab, { attributes: true, attributeFilter: ["class"] });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();
