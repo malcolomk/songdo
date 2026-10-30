@@ -28,6 +28,7 @@ const ALLOWED_USER_IDS = [
   "tabae3", "goyoo", "suahn2", "yehan1", "secho12",
   "junkoo", "minjong", "micho51", "sekim63", "szpar19", 
   "sukim68", "yonoh", "yocho36",
+  "guest1", // 게스트 (공용 · 일반 직원과 같은 권한 · 비밀번호 songdo522)
   "test"   // 기능 시험용 (기록은 DB설정/8_test계정_기록정리.sql 로 한 번에 지울 수 있음)
 ];
 
@@ -46,6 +47,7 @@ const USER_ID_NAMES = {
   julee33: "준영", tabae3: "태선", goyoo: "고운", suahn2: "성희", yehan1: "연지",
   secho12: "석", junkoo: "준성", minjong: "민종", micho51: "민우",
   sekim63: "서우", szpar19: "소휘", sukim68: "선희", yonoh: "영배", yocho36: "영진",
+  guest1: "게스트",
   test: "기능 시험용"
 };
 function openFindIdModal() {
@@ -93,6 +95,14 @@ function toggleLoginPwVisible(btn) {
   pw.type = show ? "text" : "password";
   if (btn) btn.innerHTML = show ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
 }
+// 로그인 화면 "게스트 계정" 누르면 아이디·비밀번호 채우기
+function fillGuestLogin() {
+  const idEl = document.getElementById("login-id"), pw = document.getElementById("login-pw");
+  if (idEl) { idEl.value = "guest1"; idEl.dispatchEvent(new Event("input", { bubbles: true })); }
+  if (pw) pw.value = "songdo522";
+  const btn = document.querySelector("#login-form .btn-login");
+  if (btn) btn.focus();
+}
 function fillTempLoginPw() {
   const pw = document.getElementById("login-pw");
   if (!pw) return;
@@ -101,7 +111,7 @@ function fillTempLoginPw() {
   if (idEl && !idEl.value) idEl.focus(); else pw.focus();
 }
 // 비밀번호 변경이 막힌 공용 계정 (여러 명이 함께 쓰므로 한 사람이 바꾸면 다른 사람이 못 들어옴)
-const SHARED_ACCOUNT_IDS = ["test"];
+const SHARED_ACCOUNT_IDS = ["test", "guest1"];   // 여러 명이 함께 쓰는 공용 계정 (비밀번호 변경 불가)
 
 // --- Sample Initial Master Data ---
 const defaultMasterCatalog = [

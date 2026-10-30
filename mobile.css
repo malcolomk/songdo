@@ -1168,3 +1168,16 @@ body.tb-sheet-open { overflow: hidden; }
 .perm-pw-ok { background: #d97706; color: #fff; border: 0; }
 .perm-pw-ok:disabled { opacity: .6; }
 .perm-pw-show.base { background: #fffbeb; color: #92400e; }
+/* 로그인 화면: 게스트 계정 안내 */
+.login-guest { display: flex; align-items: center; gap: 10px; width: 100%; margin: 12px 0 0; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 14px; font: inherit; text-align: left; cursor: pointer; }
+.login-guest:active { background: #dbeafe; }
+.login-guest-icon { width: 32px; height: 32px; border-radius: 10px; background: #dbeafe; color: #0058a3; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+.login-guest-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.login-guest-body b { font-size: 13px; font-weight: 900; color: #1e3a8a; }
+.login-guest-body span { font-size: 12.5px; font-weight: 700; color: #1d4ed8; }
+.login-guest-body code { font-family: ui-monospace, Menlo, monospace; font-weight: 900; background: #fff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 0 5px; color: #0f172a; }
+.login-guest-go { flex-shrink: 0; font-size: 12px; font-weight: 800; color: #0058a3; }
+.login-guest-go i { font-size: 10px; }
+.login-guest + .login-temp-pw { margin-top: 8px; }
+.login-guest-body .login-guest-cred { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+.login-guest-cred em { font-style: normal; white-space: nowrap; }

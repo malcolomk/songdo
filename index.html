@@ -16,7 +16,7 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <link rel="stylesheet" href="style.css?v=2.5.0">
-  <link rel="stylesheet" href="mobile.css?v=2.9.40">
+  <link rel="stylesheet" href="mobile.css?v=2.9.42">
   <link rel="stylesheet" href="design.css?v=1.2.0">
   <style>
   .selected-card {
@@ -209,6 +209,12 @@
           로그인 <i class="fa-solid fa-arrow-right"></i>
         </button>
       </form>
+
+      <button type="button" class="login-guest" onclick="fillGuestLogin()" title="눌러서 게스트 아이디·비밀번호 입력">
+        <span class="login-guest-icon"><i class="fa-solid fa-user-group"></i></span>
+        <span class="login-guest-body"><b>게스트 계정</b><span class="login-guest-cred"><em>아이디 <code>guest1</code></em><em>비밀번호 <code>songdo522</code></em></span></span>
+        <span class="login-guest-go">입력 <i class="fa-solid fa-chevron-right"></i></span>
+      </button>
 
       <div class="login-temp-pw">
         <div class="login-temp-pw-icon"><i class="fa-solid fa-key"></i></div>
@@ -2696,7 +2702,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="audit.js?v=2.5.0"></script>
-  <script src="app.js?v=2.8.0"></script>
+  <script src="app.js?v=2.8.2"></script>
   <script src="custom.js?v=2.6.11"></script>
   
   <script>
