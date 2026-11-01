@@ -51,7 +51,7 @@
       '<div class="tb-sheet-top"><span class="tb-sheet-step perm-step"><i class="fa-solid fa-user-shield"></i> 권한 관리</span><button type="button" class="tb-sheet-close" aria-label="닫기"><i class="fa-solid fa-xmark"></i></button></div>' +
       '<div class="tb-sheet-scroll"><div class="perm-help"><b>3시간</b>: 켜고 3시간 뒤 자동으로 꺼져요 (다시 누르면 3시간 연장). <b>항상</b>: 끌 때까지 계속 가능해요. jipar5, junkoo는 항상 가능해요.</div>' +
       '<div class="perm-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="perm-q" placeholder="이름 또는 아이디 검색"></div>' +
-      '<div id="perm-summary" class="perm-summary"></div><div id="perm-list"></div></div></div>';
+      '<div id="perm-guest" class="perm-guest"></div><div id="perm-summary" class="perm-summary"></div><div id="perm-list"></div></div></div>';
     m.addEventListener("click", function (e) { if (e.target === m || e.target.closest(".tb-sheet-close")) close(); });
     document.body.appendChild(m);
     m.querySelector("#perm-q").addEventListener("input", function (e) { state.q = e.target.value.trim().toLowerCase(); render(); });
@@ -67,8 +67,37 @@
   function close() { var m = document.getElementById("perm-sheet"); if (m) m.classList.remove("active"); document.body.classList.remove("tb-sheet-open"); }
   function isOpen() { var m = document.getElementById("perm-sheet"); return !!(m && m.classList.contains("active")); }
 
+  // ---------- 게스트 계정(guest1) 켜고 끄기 ----------
+  var guestOn = null;
+  async function loadGuest() {
+    var c = client(); if (!c) return;
+    try { var r = await c.rpc("guest_login_visible"); guestOn = r.error ? null : !!r.data; } catch (e) { guestOn = null; }
+    renderGuest();
+  }
+  function renderGuest() {
+    var box = document.getElementById("perm-guest"); if (!box) return;
+    if (guestOn === null) { box.innerHTML = '<div class="perm-guest-row off"><div><b><i class="fa-solid fa-user-group"></i> 게스트 계정 (guest1)</b><small>DB 설정(24_게스트계정_켜고끄기.sql)을 먼저 실행해 주세요.</small></div></div>'; return; }
+    box.innerHTML = '<div class="perm-guest-row' + (guestOn ? ' on' : ' off') + '"><div><b><i class="fa-solid fa-user-group"></i> 게스트 계정 (guest1)</b>' +
+      '<small>' + (guestOn ? '켜짐 · 로그인 화면에 안내가 보이고 로그인할 수 있어요' : '꺼짐 · 안내가 숨겨지고 로그인도 막혀 있어요') + '</small></div>' +
+      '<label class="switch-toggle si-switch"><input type="checkbox" id="perm-guest-sw"' + (guestOn ? ' checked' : '') + '><span class="slider-toggle"></span></label></div>';
+    document.getElementById("perm-guest-sw").addEventListener("change", async function (e) {
+      var on = e.target.checked, c = client(); e.target.disabled = true;
+      if (!on && !confirm("게스트 계정을 끌까요?\n지금 게스트로 로그인된 기기도 로그아웃돼요.")) { e.target.checked = true; e.target.disabled = false; return; }
+      try {
+        var r = await c.rpc("set_guest_login", { p_on: on });
+        if (r.error) throw r.error;
+        guestOn = on; toast("게스트 계정을 " + (on ? "켰어요. 로그인 화면에 안내가 보여요." : "껐어요."), on ? "success" : "info");
+      } catch (err) {
+        var msg = String((err && err.message) || err);
+        toast(/set_guest_login|schema cache|404/i.test(msg) ? "DB 설정(24_게스트계정_켜고끄기.sql)을 먼저 실행해 주세요." : "변경 실패: " + msg, "danger");
+      }
+      renderGuest();
+    });
+  }
+
   async function load() {
     var c = client(); if (!c || state.loading) return;
+    loadGuest();
     state.loading = true;
     try {
       var r = await c.rpc("permission_list");

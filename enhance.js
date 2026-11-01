@@ -1654,3 +1654,17 @@ window.closeDevNotice = function () {
   document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
   window.MyLastDone = { reload: load };
 })();
+
+// ===== 로그인 화면: 게스트 계정 안내는 관리자가 켜 둔 경우에만 표시 =====
+(function () {
+  "use strict";
+  function client() { try { return typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { return null; } }
+  async function check() {
+    var box = document.getElementById("login-guest-box"), c = client(); if (!box || !c) return;
+    try { var r = await c.rpc("guest_login_visible"); box.style.display = (!r.error && r.data === true) ? "" : "none"; }
+    catch (e) { box.style.display = "none"; }
+  }
+  var tries = 0, t = setInterval(function () { tries++; if (client()) { clearInterval(t); check(); } else if (tries > 30) clearInterval(t); }, 300);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+  window.GuestLogin = { check: check };
+})();

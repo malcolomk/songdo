@@ -1317,3 +1317,10 @@ body.tb-sheet-open { overflow: hidden; }
 @keyframes fnUpd { 0%,100% { box-shadow: 0 0 0 0 rgba(224,7,81,.45); } 50% { box-shadow: 0 0 0 5px rgba(224,7,81,0); } }
 .menu-task-list > .menu-task.fn-has-upd { background: #fff7f9 !important; }
 .fn-dlabel { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; background: #fefce8; border: 1.5px solid #fde047; color: #713f12; font-size: 14px; font-weight: 800; }
+/* 권한 관리: 게스트 계정 스위치 */
+.perm-guest { margin-top: 10px; }
+.perm-guest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; }
+.perm-guest-row.on { background: #eff6ff; border-color: #bfdbfe; }
+.perm-guest-row b { display: block; font-size: 13.5px; color: #0f172a; }
+.perm-guest-row b i { color: #0058a3; margin-right: 4px; }
+.perm-guest-row small { display: block; font-size: 11.5px; color: #64748b; margin-top: 2px; line-height: 1.4; }
