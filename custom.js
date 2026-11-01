@@ -2384,7 +2384,7 @@ window.renderPicklistZoneTabs = function() {
     else if (zone === 'B3') zoneIcon = 'fa-pallet';
 
     html += `
-      <button type="button" onclick="setPicklistZone('${zone}')" style="flex-shrink:0; padding:6px 11px; border-radius:18px; font-size:12.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; white-space:nowrap; transition:all 0.15s ease; ${isActive ? 'background:#0f172a; color:#ffffff; border:1.5px solid #0f172a; box-shadow:0 2px 5px rgba(0,0,0,0.15);' : 'background:#ffffff; color:#334155; border:1px solid #cbd5e1;'}">
+      <button type="button" class="pk-zone-tab${zone === '램프' ? ' pk-zone-store' : ''}${isActive ? ' active' : ''}" onclick="setPicklistZone('${zone}')" style="flex-shrink:0; padding:6px 11px; border-radius:18px; font-size:12.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; white-space:nowrap; transition:all 0.15s ease; ${isActive ? 'background:#0f172a; color:#ffffff; border:1.5px solid #0f172a; box-shadow:0 2px 5px rgba(0,0,0,0.15);' : 'background:#ffffff; color:#334155; border:1px solid #cbd5e1;'}">
         <i class="fa-solid ${zoneIcon}" style="margin-right:4px; color:${isActive ? '#38bdf8' : (zone === '미지정' ? '#d97706' : '#0058a3')}; font-size:11.5px;"></i>
         ${window.zoneLabel(zone)} ${badgeHtml}
       </button>

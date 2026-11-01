@@ -1,17 +1,18 @@
-// testbuy.js — Test Buy: 매장 디스플레이 점검 (회차당 5개)
+// testbuy.js — Test Buy: 매장 디스플레이 점검 (회차당 5개/10개/15개 중 선택)
 // · 대상: testbuy_l2.js 의 L2 아티클 목록(TESTBUY_L2.xlsx)에서 랜덤 배정
-// · 회차: 5개를 "점검 완료"해야 끝. 미입고로 교체한 아티클은 개수에 포함 안 됨
+// · 회차: 고른 개수(5·10·15개)를 "점검 완료"해야 끝. 미입고로 교체한 아티클은 개수에 포함 안 됨
 // · 배정: 창고 입고 또는 매장 입고 기록이 한 번이라도 있는 아티클 중 랜덤 (L2 목록과 무관)
 // · 아티클별: [송도 미입고? 네=다른 아티클로 교체 / 테스트바이 시작]
 //            → 질문 7개(네/아니요) → 모두 네=통과 / 아니요 있으면 수정 안내
 //            · "해당 장소에서 구입 가능한 재고가 있습니까?" 아니요 → 디스플레이 잠시 빼두기
-// · 기록: 회차를 만든 사람, 아티클별 점검한 사람, 5개째를 끝낸 사람
+// · 기록: 회차를 만든 사람, 아티클별 점검한 사람, 마지막 아티클을 끝낸 사람
 (function () {
   "use strict";
 
   var T_CHECKS = "test_buy_checks", T_SESSIONS = "test_buy_sessions";
   var ENABLED = true;
-  var TARGET = 5;
+  var TARGET = 5;                 // 기본값 (예전 회차에 target 이 없을 때)
+  var CHOICES = [5, 10, 15];       // 시작할 때 고르는 개수
   var RECENT_TESTED_DAYS = 30;   // 최근 점검한 아티클은 배정 제외
   var RECENT_SKIPPED_DAYS = 60;  // 미입고로 넘긴 아티클은 배정 제외
 
@@ -184,11 +185,11 @@
     var sub = document.getElementById("menu-task-testbuy-sub");
     var open = openItems().length, pulled = pulledItems().length;
     if (sub) {
-      if (!state.loaded) sub.textContent = "매장 디스플레이 점검 · 1회 5개";
+      if (!state.loaded) sub.textContent = "매장 디스플레이 점검 · 5/10/15개 선택";
       else {
         var a = activeSession(), parts = [];
         if (a) { var of = sessionOpenFixes(a.id); parts.push("내 Test Buy " + sessionDoneCount(a.id) + "/" + (a.target || TARGET) + (of ? " · 수정 남음 " + of : "")); }
-        else if (othersActive().length) parts.push("진행 중 " + othersActive().map(function (o) { return o.created_by; }).join(", "));
+        else if (othersActive().length) parts.push("진행 중 " + othersActive().length + "명");
         else {
           var t = today(), doneToday = state.sessions.filter(function (s) { return s.status === "done" && s.completed_at && ymd(new Date(s.completed_at)) === t; }).length;
           parts.push(doneToday ? "오늘 " + doneToday + "회 완료" : "오늘 진행한 Test Buy 없음");
@@ -203,20 +204,21 @@
   }
 
   // ---------- 회차 시작 / 진행 ----------
-  async function startSession() {
+  async function startSession(count) {
+    var n = CHOICES.indexOf(Number(count)) !== -1 ? Number(count) : TARGET;
     if (isViewer()) { toast("Viewer(읽기 전용) 계정은 Test Buy를 시작할 수 없습니다.", "warning"); return; }
     if (!l2List().length) { toast("L2 아티클 목록(testbuy_l2.js)을 불러오지 못했습니다.", "danger"); return; }
     await load(true);
     if (activeSession()) { toast("내가 진행 중인 Test Buy가 있어요. 먼저 끝내 주세요.", "info"); render(); return; }
     var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return; }
-    var arts = pickArticles(TARGET);
-    if (arts.length < TARGET) { toast("배정할 아티클이 부족합니다.", "warning"); return; }
+    var arts = pickArticles(n);
+    if (arts.length < n) { toast("배정할 아티클이 부족합니다. (" + arts.length + "개만 가능)", "warning"); return; }
     try {
-      var res = await c.from(T_SESSIONS).insert([{ target: TARGET, articles: arts, created_by: me() || null }]).select();
+      var res = await c.from(T_SESSIONS).insert([{ target: n, articles: arts, created_by: me() || null }]).select();
       if (res.error) throw res.error;
       if (res.data && res.data[0]) state.sessions.unshift(res.data[0]);
       await resolveConflicts();
-      toast("Test Buy를 시작했습니다. 아티클 " + TARGET + "개를 점검해 주세요.", "success");
+      toast("Test Buy를 시작했습니다. 아티클 " + n + "개를 점검해 주세요.", "success");
       render(); updateDashboard();
     } catch (err) { toast("Test Buy 시작 실패: " + (err.message || err), "danger"); }
   }
@@ -254,15 +256,15 @@
     return res.data;
   }
 
-  // 회차의 5개를 다 끝냈으면 회차 완료 처리
-  // 회차 완료 조건: 만든 사람 본인이 5개 점검 + 회차 안의 '수정 필요'를 모두 수정
+  // 회차의 아티클을 다 끝냈으면 회차 완료 처리
+  // 회차 완료 조건: 만든 사람 본인이 정한 개수만큼 점검 + 회차 안의 '수정 필요'를 모두 수정
   async function maybeFinishSession(sid, quiet) {
     var s = state.sessions.find(function (x) { return x.id === sid; });
     if (!s || s.status !== "in_progress" || !isMine(s)) return;
     var done = sessionDoneCount(sid);
     if (done < (s.target || TARGET)) return;
     var openFix = sessionOpenFixes(sid);
-    if (openFix > 0) { if (!quiet) toast("5개 점검 완료! 남은 수정 " + openFix + "건까지 끝내야 Test Buy가 완료됩니다.", "info"); render(); updateDashboard(); return; }
+    if (openFix > 0) { if (!quiet) toast((s.target || TARGET) + "개 점검 완료! 남은 수정 " + openFix + "건까지 끝내야 Test Buy가 완료됩니다.", "info"); render(); updateDashboard(); return; }
     var c = client();
     var patch = { status: "done", completed_by: me() || null, completed_at: new Date().toISOString() };
     try {
@@ -419,7 +421,7 @@
     loadThumbs();
   }
 
-  // 아티클 교체 공통: 기록(누가·왜) 남기고 회차의 같은 자리에 다른 아티클 배정 (5개 개수에는 포함 안 됨)
+  // 아티클 교체 공통: 기록(누가·왜) 남기고 회차의 같은 자리에 다른 아티클 배정 (점검 개수에는 포함 안 됨)
   async function replaceArticle(sessionId, artNo, artName, reason) {
     var c = client(); if (!c) throw new Error("서버에 연결할 수 없습니다.");
     var ins = await c.from(T_CHECKS).insert([{ check_date: today(), artno: pad8(artNo), artname: artName || null, status: "not_displayed",
@@ -666,7 +668,7 @@
     var done = sessionDoneCount(a.id), target = a.target || TARGET, openFix = sessionOpenFixes(a.id);
     var latest = sessionLatest(a.id);
     var skips = state.logs.filter(function (r) { return r.session_id === a.id && r.skip_reason; }).length; // 미입고 + 미리 교체
-    var status = done >= target ? (openFix ? '<div class="tb-sess-alert"><i class="fa-solid fa-screwdriver-wrench"></i> 5개 점검 완료 · 수정 ' + openFix + '건이 남아 있어요. 수정까지 끝내야 완료됩니다.</div>' : '') : '';
+    var status = done >= target ? (openFix ? '<div class="tb-sess-alert"><i class="fa-solid fa-screwdriver-wrench"></i> ' + target + '개 점검 완료 · 수정 ' + openFix + '건이 남아 있어요. 수정까지 끝내야 완료됩니다.</div>' : '') : '';
     return '<div class="tb-sess' + (readOnly ? " readonly" : "") + '">' +
       '<div class="tb-sess-head"><div><b>' + (readOnly ? esc(a.created_by || "-") + ' 님 진행 중' : 'Test Buy 진행 중') + '</b><span>생성 <b class="tb-who">' + esc(a.created_by || "-") + '</b> · ' + esc(fmtTime(a.created_at)) +
         (skips ? ' · 교체 ' + skips + '건' : '') + (openFix ? ' · 수정 남음 ' + openFix : '') + '</span></div>' +
@@ -744,8 +746,13 @@
     var a = activeSession(), others = othersActive(), html = "";
     if (a) html += sessionCardHtml(a, false);
     else html += isViewer() ? "" :
-      '<button type="button" class="tb-start-btn" onclick="TestBuy.startSession()"><i class="fa-solid fa-shuffle"></i>' +
-      '<span><b>새 Test Buy 시작</b><small>입고 기록 있는 아티클 ' + eligibleList().length + '개에서 5개를 랜덤으로 배정 · 시작한 사람이 끝까지 진행</small></span></button>';
+      '<div class="sc-start-box tb-start-box"><div class="sc-start-title"><i class="fa-solid fa-shuffle"></i> 새 Test Buy 시작</div>' +
+      '<div class="sc-start-sub">몇 개를 점검할까요? 입고 기록 있는 아티클 ' + eligibleList().length + '개에서 랜덤으로 배정 · 시작한 사람이 끝까지 진행</div>' +
+      '<div class="sc-start-choices tb-choices">' +
+        '<button type="button" class="sc-start-btn" onclick="TestBuy.startSession(5)"><b>5개</b><small>빠르게</small></button>' +
+        '<button type="button" class="sc-start-btn" onclick="TestBuy.startSession(10)"><b>10개</b><small>보통</small></button>' +
+        '<button type="button" class="sc-start-btn" onclick="TestBuy.startSession(15)"><b>15개</b><small>넉넉하게</small></button>' +
+      '</div></div>';
     if (others.length) {
       html += '<details class="tb-others"' + (isViewer() ? " open" : "") + '><summary><i class="fa-solid fa-users"></i> 다른 사람이 진행 중인 Test Buy ' + others.length + '건 <span>(보기만 가능)</span></summary>' +
         others.map(function (o) { return sessionCardHtml(o, true); }).join("") + '</details>';

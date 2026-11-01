@@ -1593,3 +1593,64 @@ window.closeDevNotice = function () {
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
+
+// ===== 오늘 할일: 점검 메뉴마다 "내가 마지막으로 한 날짜" 표시 (Test Buy · Cycle Counting · 매장 재고 체크) =====
+(function () {
+  "use strict";
+  var TASKS = [
+    { card: "menu-item-testbuy", table: "test_buy_checks" },
+    { card: "menu-item-cycle-counting", table: "cycle_count_checks" },
+    { card: "menu-item-storecheck", table: "store_check_checks" }
+  ];
+  var last = {}, busy = false;
+  function me() { try { return (window.currentUser || (typeof currentUser !== "undefined" ? currentUser : "") || "").trim(); } catch (e) { return ""; } }
+  function client() { try { return typeof supabaseClient !== "undefined" ? supabaseClient : null; } catch (e) { return null; } }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function label(dateStr) {
+    if (!dateStr) return "기록 없음";
+    var t = new Date(), y = new Date(); y.setDate(y.getDate() - 1);
+    if (dateStr === ymd(t)) return "오늘";
+    if (dateStr === ymd(y)) return "어제";
+    var p = dateStr.split("-"); return Number(p[1]) + "/" + Number(p[2]);
+  }
+  function paint() {
+    TASKS.forEach(function (t) {
+      var card = document.getElementById(t.card); if (!card || !(t.table in last)) return;
+      var el = card.querySelector(".mt-mine");
+      if (!el) {
+        el = document.createElement("span"); el.className = "mt-mine";
+        var arrow = card.querySelector(".menu-task-arrow");
+        var before = card.querySelector(".nav-badge, .menu-task-count") || arrow;
+        card.insertBefore(el, before);
+      }
+      var d = last[t.table], lb = label(d);
+      el.className = "mt-mine" + (lb === "오늘" ? " today" : !d ? " none" : "");
+      el.innerHTML = '<small>내 최근</small><b>' + lb + '</b>';
+      el.title = d ? "내가 마지막으로 한 날짜: " + d : "아직 내가 한 기록이 없어요";
+    });
+  }
+  async function load() {
+    var c = client(), id = me(); if (!c || !id || busy) return;
+    busy = true;
+    try {
+      await Promise.all(TASKS.map(async function (t) {
+        try {
+          var r = await c.from(t.table).select("check_date").eq("user", id).is("skip_reason", null).order("check_date", { ascending: false }).limit(1);
+          if (!r.error) last[t.table] = r.data && r.data[0] ? String(r.data[0].check_date).slice(0, 10) : null;
+        } catch (e) {}
+      }));
+    } finally { busy = false; }
+    paint();
+  }
+  var tries = 0, boot = setInterval(function () {
+    tries++;
+    if (client() && me()) {
+      clearInterval(boot); load();
+      setInterval(function () { if (!document.hidden) load(); }, 120000);
+      var menu = document.getElementById("tab-menu");
+      if (menu) new MutationObserver(function () { if (menu.classList.contains("active")) load(); }).observe(menu, { attributes: true, attributeFilter: ["class"] });
+    } else if (tries > 120) clearInterval(boot);
+  }, 1000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+  window.MyLastDone = { reload: load };
+})();
