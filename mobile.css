@@ -1292,3 +1292,28 @@ body.tb-sheet-open { overflow: hidden; }
 .mt-mine.none b { color: #d1d5db; font-size: 11px; }
 .menu-task-list .menu-task-title { flex-wrap: nowrap !important; min-width: 0; white-space: nowrap; }
 .menu-task-list .menu-task-title .menu-task-desc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block !important; }
+/* 프리노트 정렬 */
+.fn-sort { display: flex; align-items: center; gap: 6px; padding: 0 16px 8px; }
+.fn-sort span { font-size: 12px; font-weight: 700; color: #9ca3af; margin-right: 2px; }
+.fn-sort button { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid #e5e7eb; background: #fff; color: #4b5563; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.fn-sort button.on { background: #111; color: #fff; border-color: #111; }
+/* Songdo Prenote: 입고 날짜 */
+.fn-day { font-weight: 800; color: #a16207; }
+.fn-datebar { display: flex; align-items: center; gap: 6px; padding: 4px 16px 10px; }
+.fn-dnav { width: 34px; height: 36px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #374151; cursor: pointer; flex-shrink: 0; }
+.fn-dnav:disabled { opacity: .35; cursor: default; }
+.fn-dsel { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; background: #fefce8; border: 1.5px solid #fde047; color: #713f12; font-weight: 800; }
+.fn-dsel select { flex: 1; min-width: 0; appearance: none; -webkit-appearance: none; border: 0; background: transparent; font: inherit; font-size: 14px; color: inherit; outline: 0; cursor: pointer; }
+.fn-dsel .fa-caret-down { position: absolute; right: 12px; pointer-events: none; }
+.fn-dchange { flex-shrink: 0; height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid #fde68a; background: #fff; color: #a16207; font-size: 12px; font-weight: 800; cursor: pointer; }
+.fn-date-title { color: #a16207 !important; }
+.fn-date-in { width: 100%; height: 46px; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 0 12px; font-size: 16px; font-weight: 800; box-sizing: border-box; }
+.fn-date-quick { display: flex; gap: 6px; margin: 8px 0 14px; }
+.fn-date-quick button { flex: 1; height: 34px; border-radius: 9px; border: 1px solid #e5e7eb; background: #f8fafc; font-weight: 800; color: #374151; cursor: pointer; }
+.fn-date-ok { background: #ca8a04 !important; }
+/* Songdo Prenote 업데이트 표시 */
+.fn-upd { display: inline-flex; align-items: center; gap: 4px; background: #e00751; color: #fff; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: -.1px; animation: fnUpd 1.6s ease-in-out infinite; }
+.fn-upd i { font-size: 5px; }
+@keyframes fnUpd { 0%,100% { box-shadow: 0 0 0 0 rgba(224,7,81,.45); } 50% { box-shadow: 0 0 0 5px rgba(224,7,81,0); } }
+.menu-task-list > .menu-task.fn-has-upd { background: #fff7f9 !important; }
+.fn-dlabel { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; background: #fefce8; border: 1.5px solid #fde047; color: #713f12; font-size: 14px; font-weight: 800; }
