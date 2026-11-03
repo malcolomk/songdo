@@ -218,7 +218,7 @@
     // 완료: 직원 누구나 · 취소: 누른 본인 또는 jipar5, junkoo
     if (!state.cur || !state.cur.id) return;
     var cur0 = state.done[art];
-    if (cur0 && !isManager() && String(cur0.by).toLowerCase() !== me().toLowerCase()) { toast(nmOf(cur0.by) + " 님이 완료한 항목이에요. 취소는 완료한 사람이나 관리자만 할 수 있어요.", "info"); return; }
+    if (cur0 && !isManager() && String(cur0.by).toLowerCase() !== me().toLowerCase()) { toast(cur0.by + " 님이 완료한 항목이에요. 취소는 완료한 사람이나 관리자만 할 수 있어요.", "info"); return; }
     if (cur0 && !confirmUndo(art)) return;
     try { if (typeof isViewerUser !== "undefined" && isViewerUser) { toast("읽기 전용 계정은 표시할 수 없어요.", "warning"); return; } } catch (e) {}
     var c = client(); if (!c) return;
@@ -472,7 +472,7 @@
   function doneLine(art, done) {
     if (done) {
       var mine = String(done.by).toLowerCase() === me().toLowerCase(), canUndo = isManager() || mine;
-      return '<div class="fn-doneline"><span class="fn-doneby"><i class="fa-solid fa-circle-check"></i> <b>' + esc(nmOf(done.by)) + '</b> 완료' + (done.at ? ' · ' + esc(fmtWhen(done.at)) : '') + '</span>' +
+      return '<div class="fn-doneline"><span class="fn-doneby"><i class="fa-solid fa-circle-check"></i> <b>' + esc(done.by || "?") + '</b> 완료' + (done.at ? ' · ' + esc(fmtWhen(done.at)) : '') + '</span>' +
         (canUndo ? '<button type="button" class="fn-donebtn undo" data-art="' + esc(art) + '">취소</button>' : '') + '</div>';
     }
     return canDone() ? '<div class="fn-doneline"><button type="button" class="fn-donebtn" data-art="' + esc(art) + '"><i class="fa-solid fa-check"></i> 완료</button></div>' : '';
