@@ -1344,3 +1344,20 @@ body.tb-sheet-open { overflow: hidden; }
 .fn-vw-xls { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin: 10px 0 4px; border-radius: 10px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .fn-vw-xls i { color: #107c41; }
 .fn-vw-xls:disabled { opacity: .6; }
+/* Songdo Prenote 완료 버튼 */
+.fn-doneline { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.fn-donebtn { height: 34px; padding: 0 16px; border-radius: 9px; border: 1.5px solid #0a8a00; background: #fff; color: #0a8a00; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.fn-donebtn:active { background: #ecfdf5; }
+.fn-donebtn.undo { height: 28px; padding: 0 10px; border: 1px solid #e5e7eb; color: #6b7280; font-size: 11.5px; font-weight: 700; }
+.fn-donebtn.undo.armed { border-color: #dc2626; color: #fff; background: #dc2626; }
+.fn-doneby { display: inline-flex; align-items: center; gap: 5px; background: #ecfdf5; color: #047857; font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; }
+.fn-doneby b { font-weight: 900; }
+.fn-item.done .fn-doneby { color: #047857; }
+.fn-item.view { cursor: default; }
+/* 알림(토스트)이 팝업 창 뒤에 가려지던 문제: 항상 맨 위에 */
+.toast-container, #toast-container { z-index: 10200 !important; }
+/* Songdo Prenote 올리기 결과 */
+.fn-upmsg { margin: 8px 16px 6px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 700; line-height: 1.45; word-break: break-all; }
+.fn-upmsg.info { background: #eff6ff; color: #1e40af; }
+.fn-upmsg.ok { background: #ecfdf5; color: #065f46; }
+.fn-upmsg.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }

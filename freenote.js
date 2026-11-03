@@ -185,8 +185,8 @@
     var c = client(); state.done = {};
     if (!c || !state.cur || !state.cur.id) return;
     try {
-      var r = await c.from("freenote_done").select("artno,done_by").eq("upload_id", state.cur.id).limit(5000);
-      if (!r.error) (r.data || []).forEach(function (x) { state.done[x.artno] = x.done_by || "✓"; });
+      var r = await c.from("freenote_done").select("artno,done_by,done_at").eq("upload_id", state.cur.id).limit(5000);
+      if (!r.error) (r.data || []).forEach(function (x) { state.done[x.artno] = { by: x.done_by || "", at: x.done_at || null }; });
     } catch (e) {}
   }
   async function loadNew() {
@@ -215,12 +215,15 @@
     }
   }
   async function toggleDone(art) {
-    if (!isManager()) return;   // 완료 표시는 jipar5, junkoo 만
+    // 완료: 직원 누구나 · 취소: 누른 본인 또는 jipar5, junkoo
     if (!state.cur || !state.cur.id) return;
+    var cur0 = state.done[art];
+    if (cur0 && !isManager() && String(cur0.by).toLowerCase() !== me().toLowerCase()) { toast(nmOf(cur0.by) + " 님이 완료한 항목이에요. 취소는 완료한 사람이나 관리자만 할 수 있어요.", "info"); return; }
+    if (cur0 && !confirmUndo(art)) return;
     try { if (typeof isViewerUser !== "undefined" && isViewerUser) { toast("읽기 전용 계정은 표시할 수 없어요.", "warning"); return; } } catch (e) {}
     var c = client(); if (!c) return;
     var was = state.done[art];
-    if (was) delete state.done[art]; else state.done[art] = me();
+    if (was) delete state.done[art]; else state.done[art] = { by: me(), at: new Date().toISOString() };
     renderList(true); renderCard();
     try {
       var r = was ? await c.from("freenote_done").delete().eq("upload_id", state.cur.id).eq("artno", art)
@@ -230,13 +233,30 @@
       if (was) state.done[art] = was; else delete state.done[art];
       renderList(true);
       var msg = String((e && e.message) || e);
-      toast(/freenote_done|schema cache|404/i.test(msg) ? "DB 설정(23b_프리노트_완료표시.sql)을 먼저 실행해 주세요." : "완료 표시 실패: " + msg, "danger");
+      toast(/freenote_done|schema cache|404/i.test(msg) ? "DB 설정(23b_프리노트_완료표시.sql)을 먼저 실행해 주세요." : /row-level security/i.test(msg) ? "완료 권한이 없어요. 관리자에게 DB 설정(23g_프리노트_완료_모든직원.sql) 실행을 부탁해 주세요." : "완료 표시 실패: " + msg, "danger");
     }
   }
 
+  function nmOf(id) { try { var m = typeof USER_ID_NAMES !== "undefined" ? USER_ID_NAMES : {}; return m[String(id || "").toLowerCase()] || id || "?"; } catch (e) { return id || "?"; } }
+  // 완료 취소는 실수 방지로 화면 안 확인 (브라우저 확인창은 막혀 있을 수 있어서 쓰지 않음): 2초 안에 한 번 더 누르면 취소
+  var undoArm = {};
+  function confirmUndo(art) {
+    if (undoArm[art] && Date.now() - undoArm[art] < 2500) { delete undoArm[art]; return true; }
+    undoArm[art] = Date.now(); toast("완료를 취소하려면 [취소]를 한 번 더 눌러 주세요.", "info");
+    var b = document.querySelector('.fn-donebtn.undo[data-art="' + art + '"]'); if (b) { b.classList.add("armed"); b.textContent = "한 번 더"; setTimeout(function () { if (b.isConnected) { b.classList.remove("armed"); b.textContent = "취소"; } }, 2500); }
+    return false;
+  }
+  // 올리기 결과를 목록 창 안에도 남김 (알림이 가려지거나 금방 사라져도 볼 수 있게)
+  function setUpMsg(type, text) {
+    state.upMsg = text ? { type: type, text: text } : null;
+    var box = document.getElementById("fn-upmsg"); if (!box) return;
+    box.className = "fn-upmsg " + (state.upMsg ? state.upMsg.type : "");
+    box.innerHTML = state.upMsg ? esc(state.upMsg.text) : "";
+    box.style.display = state.upMsg ? "" : "none";
+  }
   async function upload(file) {
     if (!isManager()) { toast("Songdo Prenote 올리기는 jipar5, junkoo 만 할 수 있어요. (지금 아이디: " + (me() || "없음") + ")", "warning"); return; }
-    toast("📄 " + file.name + " 읽는 중…", "info");
+    toast("📄 " + file.name + " 읽는 중…", "info"); setUpMsg("info", "📄 " + file.name + " 읽는 중…");
     var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return; }
     var btn = document.getElementById("fn-upload-btn"); if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 올리는 중…'; }
     try {
@@ -253,10 +273,12 @@
         r = await c.from(T).insert([row]).select();
       }
       if (r.error) throw r.error;
-      toast("Songdo Prenote를 " + (replaced ? "새 파일로 바꿨어요" : "올렸어요") + " · " + fmtDay(date) + " 입고 · " + items.length + "개 아티클", "success");
+      var okMsg = "✅ Songdo Prenote를 " + (replaced ? "새 파일로 바꿨어요" : "올렸어요") + " · " + fmtDay(date) + " 입고 · " + items.length + "개 아티클";
+      toast(okMsg, "success"); setUpMsg("ok", okMsg);
       state.selDate = date; state.cur = null; await load();
     } catch (e) {
       var msg = String((e && e.message) || e);
+      setUpMsg("err", "⚠️ 올리기 실패 — " + msg + "  (" + file.name + ")");
       toast(/relation .*freenote_uploads|freenote_uploads.*does not exist|404/i.test(msg) ? "DB 설정(23_프리노트.sql)을 먼저 실행해 주세요." : /row-level security/i.test(msg) ? "올리기 권한이 없어요 (jipar5, junkoo만 가능)." : "올리기 실패: " + msg, "danger");
       renderList();
     }
@@ -307,7 +329,7 @@
       if (e.target.closest("#fn-vw-xls")) { exportViews(); return; }
       var sb = e.target.closest(".fn-sort button"); if (sb) { state.sort = sb.dataset.sort; try { localStorage.setItem("fn_sort", state.sort); } catch (e2) {} renderList(); return; }
       var nb = e.target.closest(".fn-newbtn"); if (nb) { e.stopPropagation(); toggleNew(nb.dataset.art); return; }
-      var it = e.target.closest(".fn-item"); if (it && isManager()) toggleDone(it.dataset.art);
+      var db = e.target.closest(".fn-donebtn"); if (db) { e.stopPropagation(); toggleDone(db.dataset.art); return; }
     });
     document.body.appendChild(el); return el;
   }
@@ -441,9 +463,19 @@
     var search = items.length ? '<div class="fn-tools"><div class="perm-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="fn-q" placeholder="품명 또는 아티클 번호 검색" value="' + esc(state.q) + '"></div>' + tools + '</div>' : (tools ? '<div class="fn-tools">' + tools + '</div>' : '');
     var sortBar = items.length ? '<div class="fn-sort"><span>정렬</span>' +
       [["qty", "수량순"], ["hfb", "HFB순"]].map(function (o) { return '<button type="button" data-sort="' + o[0] + '" class="' + (state.sort === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join("") + '</div>' : '';
-    body.innerHTML = dateBar + head + (isManager() && cur ? '<div id="fn-viewers"></div>' : '') + search + sortBar + '<div id="fn-rows" class="fn-list"></div>' + (cur ? '<div class="fn-foot">' + esc(cur.uploaded_by || "") + ' · ' + esc(cur.file_name || "") + (isManager() ? '<br>줄을 누르면 완료 표시 · 새입고 버튼으로 새 제품 표시 · 🔍 재고 조회' : '<br>🔍 누르면 재고 조회') + '</div>' : '');
+    var upBox = isManager() ? '<div id="fn-upmsg" class="fn-upmsg ' + (state.upMsg ? state.upMsg.type : '') + '"' + (state.upMsg ? '' : ' style="display:none"') + '>' + (state.upMsg ? esc(state.upMsg.text) : '') + '</div>' : '';
+    body.innerHTML = upBox + dateBar + head + (isManager() && cur ? '<div id="fn-viewers"></div>' : '') + search + sortBar + '<div id="fn-rows" class="fn-list"></div>' + (cur ? '<div class="fn-foot">' + esc(cur.uploaded_by || "") + ' · ' + esc(cur.file_name || "") + (isManager() ? '<br>[완료]로 완료 표시 · 새입고 버튼으로 새 제품 표시 · 🔍 재고 조회' : '<br>[완료]로 완료 표시 · 🔍 누르면 재고 조회') + '</div>' : '');
     renderRows(); renderViewers();
     if (keepScroll) scroller.scrollTop = top;
+  }
+  function canDone() { try { return !(typeof isViewerUser !== "undefined" && isViewerUser); } catch (e) { return true; } }
+  function doneLine(art, done) {
+    if (done) {
+      var mine = String(done.by).toLowerCase() === me().toLowerCase(), canUndo = isManager() || mine;
+      return '<div class="fn-doneline"><span class="fn-doneby"><i class="fa-solid fa-circle-check"></i> <b>' + esc(nmOf(done.by)) + '</b> 완료' + (done.at ? ' · ' + esc(fmtWhen(done.at)) : '') + '</span>' +
+        (canUndo ? '<button type="button" class="fn-donebtn undo" data-art="' + esc(art) + '">취소</button>' : '') + '</div>';
+    }
+    return canDone() ? '<div class="fn-doneline"><button type="button" class="fn-donebtn" data-art="' + esc(art) + '"><i class="fa-solid fa-check"></i> 완료</button></div>' : '';
   }
   function renderRows() {
     var box = document.getElementById("fn-rows"); if (!box) return;
@@ -465,11 +497,12 @@
       var c = catalog(x.art), nm = splitName(c && (c.artName || c.artname), x.item), st = stockOf(x.art), loc = (c && c.location) || "", hfb = hfbLabel(c);
       var done = state.done[x.art], isNew = state.isNew[x.art];
       var img = x.image ? '<img src="' + esc(x.image) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
-      return '<div class="fn-item' + (done ? ' done' : '') + (isManager() ? ' can' : ' view') + '" data-art="' + esc(x.art) + '" role="button" tabindex="0">' +
+      return '<div class="fn-item view' + (done ? ' done' : '') + '" data-art="' + esc(x.art) + '">' +
         '<div class="fn-thumb"><i class="fa-solid fa-couch"></i>' + img + (done ? '<span class="fn-check"><i class="fa-solid fa-check"></i></span>' : '') + '</div>' +
         '<div class="fn-info"><div class="fn-title">' + (isNew ? '<span class="fn-new">새입고</span>' : '') + esc(nm.title) + '</div>' +
           (nm.desc ? '<div class="fn-desc">' + esc(nm.desc) + '</div>' : '') +
-          '<div class="fn-chips"><span class="fn-art">' + esc(fmtArt(x.art)) + '</span>' + (hfb ? '<span class="fn-loc">' + esc(hfb) + '</span>' : '') + '</div></div>' +
+          '<div class="fn-chips"><span class="fn-art">' + esc(fmtArt(x.art)) + '</span>' + (hfb ? '<span class="fn-loc">' + esc(hfb) + '</span>' : '') + '</div>' +
+          doneLine(x.art, done) + '</div>' +
         '<div class="fn-right"><div class="fn-qty"><small>수량</small><b>' + fmtNum(x.pieces || 0) + '</b></div>' +
           '<div class="fn-icons">' + (st > 0 ? '<span class="fn-ico" title="창고 재고 ' + st + '개' + (loc && loc !== "미지정" ? ' · ' + esc(zl(loc)) : '') + '"><i class="fa-solid fa-warehouse"></i>' + st + '</span>' : '') +
           (isManager() ? '<button type="button" class="fn-ico fn-newbtn' + (isNew ? ' on' : '') + '" data-art="' + esc(x.art) + '" title="' + (isNew ? '새입고 표시 끄기' : '새로 들어온 제품으로 표시') + '">새입고</button>' : '') +
