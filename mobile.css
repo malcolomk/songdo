@@ -1324,3 +1324,23 @@ body.tb-sheet-open { overflow: hidden; }
 .perm-guest-row b { display: block; font-size: 13.5px; color: #0f172a; }
 .perm-guest-row b i { color: #0058a3; margin-right: 4px; }
 .perm-guest-row small { display: block; font-size: 11.5px; color: #64748b; margin-top: 2px; line-height: 1.4; }
+/* Songdo Prenote 열람 기록 (관리자) */
+.fn-vw { margin: 8px 16px 2px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+.fn-vw summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 10px 12px; font-size: 13px; color: #374151; font-weight: 600; }
+.fn-vw summary::-webkit-details-marker { display: none; }
+.fn-vw summary b { color: #111; font-weight: 900; }
+.fn-vw summary .fa-eye { color: #0058a3; }
+.fn-vw-caret { margin-left: auto; font-size: 11px; color: #9ca3af; transition: transform .2s; }
+.fn-vw[open] .fn-vw-caret { transform: rotate(180deg); }
+.fn-vw-body { padding: 2px 12px 12px; border-top: 1px solid #f1f5f9; }
+.fn-vw-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px; }
+.fn-vw-name { font-weight: 800; color: #111; }
+.fn-vw-name small { font-weight: 600; color: #9ca3af; margin-left: 6px; font-size: 11px; }
+.fn-vw-when { color: #6b7280; font-size: 12px; font-variant-numeric: tabular-nums; }
+.fn-vw-not { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; align-items: center; }
+.fn-vw-not span { font-size: 11.5px; font-weight: 800; color: #b91c1c; margin-right: 2px; }
+.fn-vw-not em { font-style: normal; font-size: 12px; font-weight: 700; background: #fef2f2; color: #991b1b; border-radius: 999px; padding: 2px 9px; }
+.fn-vw-note { font-size: 12px; color: #9ca3af; padding: 8px 0 0; }
+.fn-vw-xls { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin: 10px 0 4px; border-radius: 10px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.fn-vw-xls i { color: #107c41; }
+.fn-vw-xls:disabled { opacity: .6; }

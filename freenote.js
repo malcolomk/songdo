@@ -85,13 +85,21 @@
       fr.onerror = function () { reject(new Error("파일을 읽지 못했어요.")); };
       fr.onload = function () {
         try {
+          var text = null;
+          if (isCsv) {
+            // 한글 윈도우 엑셀로 저장한 CSV(CP949)는 utf-8 로 읽으면 글자가 깨짐 → euc-kr 로 다시 읽기
+            var buf = new Uint8Array(fr.result);
+            text = new TextDecoder("utf-8").decode(buf);
+            if (text.indexOf("\uFFFD") !== -1) { try { text = new TextDecoder("euc-kr").decode(buf); } catch (e2) {} }
+            text = text.replace(/^\uFEFF/, "");
+          }
           // CSV 는 글자 그대로 읽어서 아티클 번호 앞자리 0 이 사라지지 않게
-          var wb = isCsv ? XLSX.read(String(fr.result).replace(/^﻿/, ""), { type: "string", raw: true }) : XLSX.read(new Uint8Array(fr.result), { type: "array" });
+          var wb = isCsv ? XLSX.read(text, { type: "string", raw: true }) : XLSX.read(new Uint8Array(fr.result), { type: "array" });
           var ws = wb.Sheets[wb.SheetNames[0]];
           resolve(parseRows(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" })));
         } catch (e) { reject(e); }
       };
-      if (isCsv) fr.readAsText(file, "utf-8"); else fr.readAsArrayBuffer(file);
+      fr.readAsArrayBuffer(file);
     });
   }
 
@@ -135,6 +143,7 @@
     state.selDate = d; state.q = "";
     try { await loadSelected(); await loadDone(); } catch (e) { toast("불러오기 실패: " + ((e && e.message) || e), "danger"); }
     renderCard(); renderList();
+    if (isOpen()) markView();
   }
   // 입고 날짜 고르기 창 (올릴 때 / 날짜 바꿀 때)
   function askDate(title, def, okText) {
@@ -226,21 +235,29 @@
   }
 
   async function upload(file) {
-    if (!isManager()) return;
+    if (!isManager()) { toast("Songdo Prenote 올리기는 jipar5, junkoo 만 할 수 있어요. (지금 아이디: " + (me() || "없음") + ")", "warning"); return; }
+    toast("📄 " + file.name + " 읽는 중…", "info");
     var c = client(); if (!c) { toast("서버에 연결할 수 없습니다.", "danger"); return; }
     var btn = document.getElementById("fn-upload-btn"); if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 올리는 중…'; }
     try {
       var items = await readFile(file);
       var date = tomorrowStr();   // 입고 날짜는 자동으로 다음날
-      if (state.metas.some(function (m) { return m._date === date; }) && !confirm(fmtDay(date) + " 입고 목록이 이미 있어요. 새 파일로 바꿀까요?\n예전 목록은 기록으로 남아요.")) { renderList(); return; }
+      // 같은 날짜 목록이 이미 있어도 묻지 않고 새 파일로 바꿈 (예전 목록은 기록으로 남음)
+      //  ※ 확인창(confirm)은 브라우저에서 '대화상자 차단'이 켜져 있으면 바로 '취소'로 처리돼 아무 일도 안 일어나는 문제가 있었음
+      var replaced = state.metas.some(function (m) { return m._date === date; });
       var row = { file_name: file.name, row_count: items.length, items: items, uploaded_by: me(), target_date: date };
       var r = await c.from(T).insert([row]).select();
+      if (r.error && /target_date/i.test(String(r.error.message))) {
+        // 23d(입고 날짜) 설정 전이면 날짜 없이 올림 → 화면에서는 '올린 날 다음날'로 똑같이 표시됨
+        delete row.target_date;
+        r = await c.from(T).insert([row]).select();
+      }
       if (r.error) throw r.error;
-      toast("Songdo Prenote를 올렸어요 · " + fmtDay(date) + " 입고 · " + items.length + "개 아티클", "success");
+      toast("Songdo Prenote를 " + (replaced ? "새 파일로 바꿨어요" : "올렸어요") + " · " + fmtDay(date) + " 입고 · " + items.length + "개 아티클", "success");
       state.selDate = date; state.cur = null; await load();
     } catch (e) {
       var msg = String((e && e.message) || e);
-      toast(/freenote_uploads|schema cache|404/i.test(msg) ? "DB 설정(23_프리노트.sql)을 먼저 실행해 주세요." : "올리기 실패: " + msg, "danger");
+      toast(/relation .*freenote_uploads|freenote_uploads.*does not exist|404/i.test(msg) ? "DB 설정(23_프리노트.sql)을 먼저 실행해 주세요." : /row-level security/i.test(msg) ? "올리기 권한이 없어요 (jipar5, junkoo만 가능)." : "올리기 실패: " + msg, "danger");
       renderList();
     }
   }
@@ -287,6 +304,7 @@
       var go = e.target.closest(".fn-go"); if (go) { e.stopPropagation(); goStock(go.dataset.art); return; }
       var nv = e.target.closest(".fn-dnav"); if (nv) { var i = state.metas.findIndex(function (m) { return m._date === state.selDate; }) + Number(nv.dataset.nav); if (state.metas[i]) selectDate(state.metas[i]._date); return; }
       if (e.target.closest("#fn-dchange")) { changeDate(); return; }
+      if (e.target.closest("#fn-vw-xls")) { exportViews(); return; }
       var sb = e.target.closest(".fn-sort button"); if (sb) { state.sort = sb.dataset.sort; try { localStorage.setItem("fn_sort", state.sort); } catch (e2) {} renderList(); return; }
       var nb = e.target.closest(".fn-newbtn"); if (nb) { e.stopPropagation(); toggleNew(nb.dataset.art); return; }
       var it = e.target.closest(".fn-item"); if (it && isManager()) toggleDone(it.dataset.art);
@@ -294,8 +312,90 @@
     document.body.appendChild(el); return el;
   }
   function isOpen() { var el = document.getElementById("fn-sheet"); return !!(el && el.classList.contains("active")); }
+  // ---------- 열람 기록 ----------
+  var viewers = { id: null, list: null };
+  async function markView() {
+    var c = client(); if (!c || !state.cur || !state.cur.id) return;
+    try { await c.rpc("freenote_mark_view", { p_upload_id: state.cur.id }); } catch (e) {}
+    if (isManager()) loadViewers();
+  }
+  async function loadViewers() {
+    var c = client(); if (!c || !state.cur || !state.cur.id || !isManager()) return;
+    var id = state.cur.id;
+    try { var r = await c.rpc("freenote_viewers", { p_upload_id: id }); viewers = { id: id, list: r.error ? null : (r.data || []), err: r.error ? String(r.error.message) : "" }; }
+    catch (e) { viewers = { id: id, list: null, err: String(e) }; }
+    renderViewers();
+  }
+  function staffIds() {
+    try { return Object.keys(typeof USER_ID_NAMES !== "undefined" ? USER_ID_NAMES : {}).filter(function (k) { return k !== "test" && k !== "guest1"; }); } catch (e) { return []; }
+  }
+  function nm(id) { try { var m = typeof USER_ID_NAMES !== "undefined" ? USER_ID_NAMES : {}; return m[String(id).toLowerCase()] || id; } catch (e) { return id; } }
+  function renderViewers() {
+    var box = document.getElementById("fn-viewers"); if (!box) return;
+    if (!isManager() || !state.cur || viewers.id !== state.cur.id) { box.innerHTML = ""; return; }
+    if (!viewers.list) { box.innerHTML = '<div class="fn-vw-note">' + (/freenote_viewers|schema cache|404/i.test(viewers.err || "") ? "열람 기록은 DB 설정(23e_프리노트_열람기록.sql)을 실행하면 보여요." : "") + '</div>'; return; }
+    var seen = {}; viewers.list.forEach(function (v) { seen[String(v.login_id).toLowerCase()] = v; });
+    var up = String(state.cur.uploaded_by || "").toLowerCase();
+    var notYet = staffIds().filter(function (k) { return !seen[k] && k !== up; });
+    var list = viewers.list.slice().sort(function (a, b) { return new Date(b.last_at) - new Date(a.last_at); });
+    box.innerHTML = '<details class="fn-vw"><summary><i class="fa-regular fa-eye"></i> 확인한 사람 <b>' + list.length + '</b>명' + (notYet.length ? ' · 안 본 사람 <b>' + notYet.length + '</b>명' : '') + '<i class="fa-solid fa-chevron-down fn-vw-caret"></i></summary>' +
+      '<div class="fn-vw-body"><button type="button" class="fn-vw-xls" id="fn-vw-xls"><i class="fa-solid fa-file-excel"></i> 열람 기록 엑셀 받기 (전체 날짜)</button>' +
+        (list.length ? list.map(function (v) {
+          return '<div class="fn-vw-row"><span class="fn-vw-name">' + esc(nm(v.login_id)) + '<small>' + esc(v.login_id) + '</small></span><span class="fn-vw-when">' + esc(fmtWhen(v.last_at)) + (v.views > 1 ? ' · ' + v.views + '번' : '') + '</span></div>';
+        }).join("") : '<div class="fn-vw-note">아직 열어본 사람이 없어요.</div>') +
+        (notYet.length ? '<div class="fn-vw-not"><span>안 본 사람</span>' + notYet.map(function (k) { return '<em>' + esc(nm(k)) + '</em>'; }).join("") + '</div>' : '') +
+      '</div></details>';
+  }
+
+  // 열람 기록 전체 → 엑셀 (요약 / 열람 기록 / 안 본 사람)
+  async function exportViews() {
+    if (!isManager()) return;
+    if (typeof XLSX === "undefined") { toast("엑셀 도구를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.", "danger"); return; }
+    var c = client(); if (!c) return;
+    var btn = document.getElementById("fn-vw-xls"); if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 만드는 중…'; }
+    try {
+      var r = await c.rpc("freenote_viewers_all");
+      if (r.error) throw r.error;
+      var rows = r.data || [];
+      var two = function (n) { return String(n).padStart(2, "0"); };
+      var dt = function (iso) { if (!iso) return ""; var d = new Date(iso); return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()) + " " + two(d.getHours()) + ":" + two(d.getMinutes()); };
+      var ups = [], byUp = {};
+      rows.forEach(function (x) {
+        if (!byUp[x.upload_id]) { byUp[x.upload_id] = { id: x.upload_id, date: String(x.target_date || "").slice(0, 10), by: x.uploaded_by || "", at: x.uploaded_at, file: x.file_name || "", views: [] }; ups.push(byUp[x.upload_id]); }
+        if (x.login_id) byUp[x.upload_id].views.push(x);
+      });
+      var staff = staffIds();
+      var sum = [["입고일", "올린 사람", "올린 시간", "파일", "확인한 사람", "안 본 사람", "확인률"]];
+      var log = [["입고일", "이름", "아이디", "처음 연 시간", "마지막 연 시간", "연 횟수"]];
+      var miss = [["입고일", "이름", "아이디"]];
+      ups.forEach(function (u) {
+        var seen = {}; u.views.forEach(function (v) { seen[String(v.login_id).toLowerCase()] = 1; });
+        var target = staff.filter(function (k) { return k !== String(u.by).toLowerCase(); });
+        var notYet = target.filter(function (k) { return !seen[k]; });
+        var seenN = target.length - notYet.length;
+        sum.push([u.date, nm(u.by), dt(u.at), u.file, seenN, notYet.length, target.length ? Math.round(seenN / target.length * 100) + "%" : ""]);
+        u.views.forEach(function (v) { log.push([u.date, nm(v.login_id), v.login_id, dt(v.first_at), dt(v.last_at), v.views]); });
+        notYet.forEach(function (k) { miss.push([u.date, nm(k), k]); });
+      });
+      var wb = XLSX.utils.book_new();
+      [["요약", sum, [12, 10, 17, 30, 11, 11, 9]], ["열람 기록", log, [12, 10, 12, 17, 17, 9]], ["안 본 사람", miss, [12, 10, 12]]].forEach(function (sh) {
+        var ws = XLSX.utils.aoa_to_sheet(sh[1]); ws["!cols"] = sh[2].map(function (w) { return { wch: w }; });
+        XLSX.utils.book_append_sheet(wb, ws, sh[0]);
+      });
+      var d = new Date();
+      XLSX.writeFile(wb, "Songdo_Prenote_열람기록_" + d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate()) + ".xlsx");
+      toast("열람 기록 엑셀을 받았어요 · 목록 " + ups.length + "개", "success");
+    } catch (e) {
+      var msg = String((e && e.message) || e);
+      toast(/freenote_viewers_all|schema cache|404/i.test(msg) ? "DB 설정(23f_프리노트_열람기록_전체.sql)을 먼저 실행해 주세요." : "엑셀 만들기 실패: " + msg, "danger");
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-file-excel"></i> 열람 기록 엑셀 받기 (전체 날짜)'; }
+    }
+  }
+
   function openList() {
     ensureSheet().classList.add("active"); document.body.classList.add("tb-sheet-open"); state.q = "";
+    setTimeout(markView, 300);
     if (hasUpdate() && state.latest.date !== state.selDate) { var d = state.latest.date; markSeen(); selectDate(d); return; }   // 새로 올라온 날짜로 바로 이동
     markSeen(); renderList(); if (!state.loaded) load();
   }
@@ -341,8 +441,8 @@
     var search = items.length ? '<div class="fn-tools"><div class="perm-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="fn-q" placeholder="품명 또는 아티클 번호 검색" value="' + esc(state.q) + '"></div>' + tools + '</div>' : (tools ? '<div class="fn-tools">' + tools + '</div>' : '');
     var sortBar = items.length ? '<div class="fn-sort"><span>정렬</span>' +
       [["qty", "수량순"], ["hfb", "HFB순"]].map(function (o) { return '<button type="button" data-sort="' + o[0] + '" class="' + (state.sort === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join("") + '</div>' : '';
-    body.innerHTML = dateBar + head + search + sortBar + '<div id="fn-rows" class="fn-list"></div>' + (cur ? '<div class="fn-foot">' + esc(cur.uploaded_by || "") + ' · ' + esc(cur.file_name || "") + (isManager() ? '<br>줄을 누르면 완료 표시 · 새입고 버튼으로 새 제품 표시 · 🔍 재고 조회' : '<br>🔍 누르면 재고 조회') + '</div>' : '');
-    renderRows();
+    body.innerHTML = dateBar + head + (isManager() && cur ? '<div id="fn-viewers"></div>' : '') + search + sortBar + '<div id="fn-rows" class="fn-list"></div>' + (cur ? '<div class="fn-foot">' + esc(cur.uploaded_by || "") + ' · ' + esc(cur.file_name || "") + (isManager() ? '<br>줄을 누르면 완료 표시 · 새입고 버튼으로 새 제품 표시 · 🔍 재고 조회' : '<br>🔍 누르면 재고 조회') + '</div>' : '');
+    renderRows(); renderViewers();
     if (keepScroll) scroller.scrollTop = top;
   }
   function renderRows() {
