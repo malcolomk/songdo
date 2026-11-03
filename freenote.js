@@ -45,13 +45,13 @@
 
   // ---------- 파일 읽기 (CSV / 엑셀) ----------
   var COLS = {
-    art: [/^art\.?\s*no/i, /article\s*(number|no)/i, /아티클/],
+    art: [/^art\.?\s*no/i, /^item\s*no/i, /article\s*(number|no)/i, /아티클/],
     image: [/^image$/i, /이미지|사진/],
     item: [/^item$/i, /article\s*name/i, /품명|제품명/],
     locs: [/available\s*locations/i],
     tasks: [/completed\s*tasks/i],
     pieces: [/refilled\s*pieces/i, /수량/],
-    turnover: [/turnover/i, /매출/]
+    turnover: [/est\.?\s*(to|turnover)\s*\(lcy\)/i, /turnover/i, /^est\.?\s*to\b/i, /매출/]
   };
   function findCol(header, key) {
     for (var i = 0; i < header.length; i++) { var h = String(header[i] || "").trim(); if (COLS[key].some(function (re) { return re.test(h); })) return i; }
